@@ -2,6 +2,8 @@ export interface Rng {
   next(): number;
   int(n: number): number;
   pick<T>(items: readonly T[]): T;
+  /** Internal xorshift register — pass to `createRng` to clone the stream. */
+  readonly state: number;
 }
 
 export function createRng(seed: number): Rng {
@@ -15,6 +17,9 @@ export function createRng(seed: number): Rng {
     return s / 4294967296;
   };
   return {
+    get state() {
+      return s;
+    },
     next,
     int: (n) => {
       if (n <= 0) throw new RangeError('int() needs n > 0');

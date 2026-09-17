@@ -62,7 +62,7 @@ describe('Session', () => {
       demo: true,
     });
     s.begin();
-    const st = s.state as {
+    const st = s.state as unknown as {
       snakes: Record<string, { alive: boolean; respawnTimer: number; body: unknown; dir: unknown; pendingDir: unknown }>;
     };
     s.state = {
@@ -70,7 +70,7 @@ describe('Session', () => {
       demo: true,
       lives: { p1: 0 },
       snakes: { p1: { ...st.snakes['p1']!, alive: false, respawnTimer: 0 } },
-    };
+    } as typeof s.state;
     const ended: unknown[] = [];
     s.onGameOver = (state) => ended.push(state);
     for (let i = 0; i < 40; i++) s.tick();

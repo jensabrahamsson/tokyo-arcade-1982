@@ -35,11 +35,13 @@ describe('cabinet demo autoplay', () => {
 
   it('advances snake on the board without a human input', () => {
     let run = createDemo(snakeSpec, 7);
-    const before = (run.state as { snakes: Record<string, { body: { x: number }[] }> }).snakes[DEMO_PLAYER_ID]!
-      .body[0]!.x;
+    const before = (run.state as unknown as { snakes: Record<string, { body: { x: number }[] }> }).snakes[
+      DEMO_PLAYER_ID
+    ]!.body[0]!.x;
     for (let i = 0; i < 40; i++) run = stepDemo(snakeSpec, run);
-    const after = (run.state as { snakes: Record<string, { body: { x: number }[] }> }).snakes[DEMO_PLAYER_ID]!
-      .body[0]!.x;
+    const after = (run.state as unknown as { snakes: Record<string, { body: { x: number }[] }> }).snakes[
+      DEMO_PLAYER_ID
+    ]!.body[0]!.x;
     expect(after).not.toBe(before);
     expect(run.ticks).toBe(40);
   });
