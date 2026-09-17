@@ -1,0 +1,25 @@
+{
+  "name": "arkad",
+  "version": "0.1.0",
+  "private": true,
+  "description": "1982 Japanese arcade hall — classic games over LAN",
+  "workspaces": [
+    "packages/core",
+    "packages/server",
+    "packages/client"
+  ],
+  "scripts": {
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "npm run typecheck && node build.mjs",
+    "start": "node dist/server/index.cjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.4"
+  }
+}

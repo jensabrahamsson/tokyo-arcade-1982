@@ -1,0 +1,9 @@
+{
+  "name": "@arkad/server",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@arkad/core": "*",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,67 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #05060a;
+  overflow: hidden;
+}
+
+.hall {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, #14162b 0%, #05060a 70%);
+}
+
+.cabinet {
+  padding: 18px 22px 12px;
+  background: linear-gradient(#23252e, #101118 60%, #1a1c26);
+  border-radius: 14px;
+  box-shadow: 0 0 60px rgba(45, 226, 230, 0.15), inset 0 2px 0 rgba(255, 255, 255, 0.06);
+}
+
+.screen-wrap {
+  position: relative;
+  line-height: 0;
+  border: 6px solid #000;
+  border-radius: 10px;
+  background: #000;
+}
+
+canvas {
+  display: block;
+  width: min(88vw, calc((100vh - 140px) * 4 / 3), 960px);
+  image-rendering: pixelated;
+}
+
+.scanlines {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.25) 3px
+  );
+  border-radius: 6px;
+}
+
+.glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(45, 226, 230, 0.06), rgba(0, 0, 0, 0.35) 100%);
+  border-radius: 6px;
+}
+
+.marquee {
+  margin-top: 10px;
+  text-align: center;
+  font-family: monospace;
+  font-size: 12px;
+  letter-spacing: 3px;
+  color: #f7e766;
+  text-shadow: 0 0 8px rgba(255, 163, 0, 0.8);
+}

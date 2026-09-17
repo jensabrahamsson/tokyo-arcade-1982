@@ -1,0 +1,83 @@
+# ARKAD — Tokyo Arcade Hall 1982 🕹️
+
+Six classic arcade cabinets from the golden age, rebuilt in TypeScript with
+authentic 1982 flavor: CRT scanlines, synthesized chiptune sound, coin drops
+and a Japanese arcade hall atmosphere. Play solo or challenge your friends on
+the same LAN.
+
+## Run it
+
+```sh
+npm install
+npm run build
+npm start            # prints the LAN address, e.g. http://192.168.50.185:8442
+```
+
+Open the printed address in any browser — on the host machine or any device
+on `192.168.50.x` / `10.x`. No installation on the clients.
+
+Env: `ARKAD_PORT` (default 8442), `ARKAD_DATA` (default `./data`).
+
+## Cabinets
+
+| Cabinet      | 1982 inspiration | Solo | VS. Duel |
+|--------------|------------------|------|----------|
+| SNAKE / ヘビ | Blockade, Tron   | ✅   | ✅ 2–4 players, Tron-style, last tail alive wins |
+| PUCK MAZE / パックメイズ | Puck-Man | ✅ | ✅ VS. System style: alternating turns, best score wins |
+| BLOCK BATTLE / ブロックバトル | Breakout Duel | ✅ | ✅ first to 7 goals |
+| GALAXY RAIDER / ギャラクシーレイダー | Galaga | ✅ | — |
+| RIVER FROG / カエルのリバー | Frogger | ✅ | — |
+| MYRIAD / ムカデ | Centipede | ✅ | — |
+
+## Controls
+
+- **Move:** Arrow keys or WASD
+- **Start / coin:** `Space` — first press opens the marquee keyboard (in-canvas, arrow keys + `Z`, up to 12 chars — no browser dialog)
+- **Fire / button:** `Space` in most games
+- **Solo:** `Z` · **VS. duel:** `X` · **High scores:** `H` · **Language EN/JP:** `L` · **Back:** `Esc` / `B`
+
+## Multiplayer over the LAN
+
+One machine runs the server (it is the arcade hall — it keeps the tables,
+the simulation and the shared high-score board in `data/scores.json`).
+Everyone else just opens the URL in a browser. Pick a game and mode; if a
+cabinet already has a duel running, extra players become spectators — just
+like real 1982. Snake is the one free-for-all cabinet: its table seats up to
+4 players (tables deal when full, or a couple of seconds after player two).
+
+## Difficulty
+
+Every cabinet ramps up per level, and the shared adaptive curve
+(`packages/core/src/difficulty`) eases off when a player dies a lot and
+pushes harder when a player is cruising — never boring, never unfair.
+
+## Architecture
+
+```
+packages/
+  core/      pure game logic (no DOM, no Node): engines, six games,
+             i18n (EN/JA), difficulty, protocol, chiptune note tables
+  server/    Node + ws: lobby, tables, authoritative 60 Hz loop, high scores
+  client/    Canvas 2D renderer, Web Audio chiptune synth, scenes
+```
+
+Core is deterministic and framework-free: the server runs the simulation and
+broadcasts snapshots; clients render and send input. All game rules are
+unit-testable without a browser or network.
+
+## Development (test-driven)
+
+```sh
+npm test          # vitest: 162 tests across engine, games, server, client
+npm run typecheck # tsc
+npm run build     # bundles server + client into dist/
+```
+
+Every feature was written test-first: a failing spec, then the code that
+makes it green.
+
+## Sound
+
+No audio files — every bleep, crumb-munch and exploding ghost is synthesized
+live with Web Audio square/triangle/noise channels, the way the hardware
+did it.
