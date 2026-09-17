@@ -60,12 +60,18 @@ export async function createGameServer(opts: { port: number; dataDir: string; pu
     createReadStream(file).pipe(res);
   });
 
-  const wss = new WebSocketServer({ server: http, path: '/ws' });
+  const wss = new WebSocketServer({ server: http, path: '/ws', maxPayload: 8 * 1024 });
+  wss.on('error', (err: Error) => console.error('[arkad] ws server error:', err.message));
+  http.on('error', (err: Error) => console.error('[arkad] http server error:', err.message));
   wss.on('connection', (ws: WebSocket) => {
     const id = `u${++seq}`;
     sockets.set(id, ws);
     const conn: Conn = { id, name: '???', lang: 'en' };
     arcade.addConnection(conn);
+    ws.on('error', () => {
+      sockets.delete(id);
+      arcade.removeConnection(id);
+    });
     ws.on('message', (raw: Buffer) => {
       const msg = parseClientMessage(raw.toString());
       if (msg) arcade.handleMessage(id, msg);

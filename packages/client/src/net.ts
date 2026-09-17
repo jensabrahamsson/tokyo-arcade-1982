@@ -5,6 +5,7 @@ const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hos
 export class Net {
   private ws: WebSocket | null = null;
   private handlers = new Set<(msg: ServerMessage) => void>();
+  private openHandlers = new Set<() => void>();
   public status: 'connecting' | 'open' | 'lost' = 'connecting';
   public statusListeners = new Set<(s: Net['status']) => void>();
 
@@ -12,7 +13,10 @@ export class Net {
     const ws = new WebSocket(wsUrl);
     this.ws = ws;
     this.setStatus('connecting');
-    ws.onopen = () => this.setStatus('open');
+    ws.onopen = () => {
+      this.setStatus('open');
+      for (const f of this.openHandlers) f();
+    };
     ws.onclose = () => {
       this.setStatus('lost');
       setTimeout(() => this.connect(), 2000);
@@ -34,6 +38,10 @@ export class Net {
 
   onMessage(handler: (msg: ServerMessage) => void): void {
     this.handlers.add(handler);
+  }
+
+  onOpen(handler: () => void): void {
+    this.openHandlers.add(handler);
   }
 
   send(msg: ClientMessage): void {

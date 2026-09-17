@@ -30,7 +30,7 @@ const renderers: Partial<Record<GameId, (ctx: CanvasRenderingContext2D, data: ne
   puck: (ctx, data, ms) => renderPuck(ctx, data, ms),
   block: (ctx, data, ms) => renderBlock(ctx, data, ms),
   galaxy: (ctx, data, ms) => renderGalaxy(ctx, data, ms),
-  river: (ctx, data) => renderRiver(ctx, data),
+  river: (ctx, data, ms) => renderRiver(ctx, data, ms),
   myriad: (ctx, data, ms) => renderMyriad(ctx, data, ms),
 };
 
@@ -55,10 +55,14 @@ let world = {
   snap: null as SnapshotMsg | null,
   scores: null as ScoreListMsg | null,
   error: '',
+  errorAt: 0,
 };
 let joined = false;
+let myName = 'AAA';
 let lastSnapAt = 0;
 let inputSeq = 0;
+let lastSentDir: ReturnType<Keys['heldDir']> = null;
+let lastSentBtn = false;
 
 net.onMessage((msg: ServerMessage) => {
   switch (msg.type) {
@@ -69,7 +73,6 @@ net.onMessage((msg: ServerMessage) => {
       break;
     case 'roster':
       world.roster = msg as RosterMsg;
-      if (scene === 'table' && !world.snap) scene = 'select';
       break;
     case 'snapshot':
       world.snap = msg as SnapshotMsg;
@@ -81,11 +84,28 @@ net.onMessage((msg: ServerMessage) => {
       break;
     case 'error':
       world.error = (msg as { code: string }).code;
+      world.errorAt = performance.now();
       break;
   }
 });
 
+net.onOpen(() => {
+  if (!joined) return;
+  // the server gave our old connection a new id: re-join and re-seat
+  net.send({ type: 'join', name: myName, lang });
+  if (scene === 'table') {
+    world.snap = null;
+    const game = GAME_IDS[sel]!;
+    net.send({ type: 'start', game, mode: 'versus' });
+  }
+});
 net.connect();
+
+function toggleLang(): void {
+  lang = lang === 'en' ? 'ja' : 'en';
+  localStorage.setItem('arkad-lang', lang);
+  if (joined) net.send({ type: 'join', name: myName, lang });
+}
 
 function openNamePad(): void {
   audio.unlock();
@@ -95,6 +115,7 @@ function openNamePad(): void {
 
 function confirmName(): void {
   const name = namePad.text.trim().slice(0, 12) || 'AAA';
+  myName = name;
   net.send({ type: 'join', name, lang });
   audio.play('coin');
   scene = 'select';
@@ -104,6 +125,9 @@ function startGame(mode: GameMode): void {
   const game = GAME_IDS[sel]!;
   net.send({ type: 'start', game, mode });
   world.snap = null;
+  lastSnapAt = performance.now();
+  lastSentDir = null;
+  lastSentBtn = false;
   scene = 'table';
 }
 
@@ -121,7 +145,7 @@ function update(ms: number): void {
       if (joined) scene = 'select';
       else openNamePad();
     }
-    if (keys.take('KeyL')) lang = lang === 'en' ? 'ja' : 'en';
+    if (keys.take('KeyL')) toggleLang();
   } else if (scene === 'name') {
     if (keys.take('ArrowLeft', 'KeyA')) namePad = moveCursor(namePad, { dr: 0, dc: -1 });
     if (keys.take('ArrowRight', 'KeyD')) namePad = moveCursor(namePad, { dr: 0, dc: 1 });
@@ -143,10 +167,15 @@ function update(ms: number): void {
       world.scores = null;
       scene = 'scores';
     }
-    if (keys.take('KeyL')) lang = lang === 'en' ? 'ja' : 'en';
+    if (keys.take('KeyL')) toggleLang();
   } else if (scene === 'table') {
-    const dir = keys.takeDir();
-    if (dir) net.send({ type: 'input', dir, button: false, seq: ++inputSeq });
+    const dir = keys.heldDir();
+    const button = keys.isHeld('Space', 'KeyZ', 'KeyJ');
+    if (dir !== lastSentDir || button !== lastSentBtn) {
+      lastSentDir = dir;
+      lastSentBtn = button;
+      net.send({ type: 'input', dir, button, seq: ++inputSeq });
+    }
     if (keys.take('KeyB', 'Escape')) back();
     if (world.snap && world.snap.table.phase === 'attract') back();
     if (performance.now() - lastSnapAt > 4000) back();
@@ -161,9 +190,7 @@ function drawHud(view: SnapshotMsg['table'], snap: SnapshotMsg): void {
     const color = PLAYER_COLORS[i % PLAYER_COLORS.length]!;
     px(ctx, p.name.slice(0, 9), 8 + i * 156, 6, 8, p.id === world.myId ? PAL.yellow : color);
     px(ctx, String(p.score).padStart(6, '0'), 8 + i * 156, 14, 8, PAL.white);
-    const state = snap.data as { lives?: Record<string, number>; player?: { x: number }; frogs?: unknown } | null;
-    const lifeCount = p.id === world.myId ? (p.lives ?? 0) : (state?.lives?.[p.id] ?? p.lives ?? 0);
-    for (let l = 0; l < Math.min(lifeCount, 5); l++) {
+    for (let l = 0; l < Math.min(p.lives ?? 0, 5); l++) {
       ctx.fillStyle = color;
       ctx.fillRect(120 + i * 156 + l * 7, 14, 5, 5);
     }
@@ -291,7 +318,7 @@ function renderScores(): void {
 }
 
 function drawError(): void {
-  if (world.error && blink(1000)) px(ctx, world.error, CANVAS_W / 2, 118, 8, PAL.red, 'center');
+  if (world.error && performance.now() - world.errorAt < 2500) px(ctx, world.error, CANVAS_W / 2, 118, 8, PAL.red, 'center');
 }
 
 // ---- main loop ----------------------------------------------------------

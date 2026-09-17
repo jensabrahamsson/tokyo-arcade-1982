@@ -12,6 +12,8 @@ export const MYRIAD_W = 30;
 export const MYRIAD_H = 24;
 const SEGMENTS = 10;
 const MOVE_EVERY = 8;
+/** the bug speeds up every level: 8 ticks per step at level 1, 4 at level 5+ */
+const moveEvery = (level: number): number => Math.max(4, MOVE_EVERY - (level - 1));
 const SPAWN_X = 2;
 
 interface Point {
@@ -74,7 +76,7 @@ const resetBug = (s: MyriadState): MyriadState => ({
   ...s,
   segments: Array.from({ length: SEGMENTS }, (_, i) => ({ x: SPAWN_X, y: -(i + 1) })),
   dir: 1,
-  moveTimer: MOVE_EVERY,
+  moveTimer: moveEvery(s.level),
   bullets: [],
 });
 
@@ -130,7 +132,7 @@ function step(state: MyriadState, inputs: Record<string, PlayerInput>): MyriadSt
   // bug movement
   s.moveTimer = Math.max(0, s.moveTimer - 1);
   if (s.moveTimer === 0) {
-    s.moveTimer = MOVE_EVERY;
+    s.moveTimer = moveEvery(s.level);
     if (s.segments.length > 0) {
       const head = s.segments[0]!;
       let dir = s.dir;

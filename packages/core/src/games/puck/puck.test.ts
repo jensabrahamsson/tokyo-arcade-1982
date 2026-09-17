@@ -205,3 +205,32 @@ describe('ghost AI', () => {
     expect(Math.abs(moved.ghosts[0]!.x - 5)).toBeLessThanOrEqual(4);
   });
 });
+
+describe('puck versus fairness', () => {
+  it('the next turn starts a fresh maze at level 1', () => {
+    let s = play(create(vsCfg));
+    s = { ...s, level: 3, deaths: 5, lives: { ...s.lives, p1: 1 } };
+    // walk p1 into a ghost until the last life is gone
+    for (let i = 0; i < 400 && s.turn === 'p1'; i++) {
+      s = puckSpec.step({ ...s, player: { ...s.player, x: s.ghosts[0]!.x, y: s.ghosts[0]!.y } }, { p1: NO_INPUT, p2: NO_INPUT });
+      if (s.deathTimer > 0 || s.phase !== 'playing') s = { ...s, player: { ...s.player, x: s.ghosts[0]!.x, y: s.ghosts[0]!.y } };
+    }
+    expect(s.turn).toBe('p2');
+    expect(s.level).toBe(1);
+    expect(s.deaths).toBe(0);
+    expect(s.lives['p2']).toBe(3);
+    expect(Object.keys(s.dots).length).toBeGreaterThan(100);
+  });
+
+  it('a head-on swap with a ghost is a hit', () => {
+    let s = play(create(soloCfg));
+    s = {
+      ...s,
+      player: { x: 9, y: 16, dir: DIRS.left, pendingDir: DIRS.left, progress: 0.9 },
+      ghosts: [{ id: 0, x: 8, y: 16, dir: DIRS.right, progress: 0.99, mode: 'chase' }, s.ghosts[1]!, s.ghosts[2]!, s.ghosts[3]!],
+    };
+    const n = puckSpec.step(s, { p1: NO_INPUT });
+    expect(n.deaths + (s.deaths ?? 0)).toBe(1);
+    expect(n.lives['p1']).toBeLessThan(3);
+  });
+});

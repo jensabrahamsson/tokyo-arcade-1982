@@ -28,7 +28,9 @@ export type SfxName =
   | 'coin'
   | 'start'
   | 'extraLife'
-  | 'goal';
+  | 'goal'
+  | 'hop'
+  | 'bounce';
 
 export interface SfxEvent {
   name: SfxName;

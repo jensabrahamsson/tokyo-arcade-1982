@@ -12,6 +12,7 @@ import {
 export class Session {
   state: GameStateBase;
   inputs: Record<string, PlayerInput> = {};
+  private pendingSfx: SfxEvent[] = [];
   onGameOver?: (state: GameStateBase) => void;
   private started = false;
   private gameOverReported = false;
@@ -28,7 +29,8 @@ export class Session {
   begin(): void {
     if (this.started) return;
     this.started = true;
-    this.state = withSfx(enterPhase(this.state, 'playing'), { name: 'start' });
+    this.state = enterPhase(this.state, 'playing');
+    this.pendingSfx.push({ name: 'start' });
   }
 
   setInput(playerId: string, input: PlayerInput): void {
@@ -38,7 +40,8 @@ export class Session {
   tick(): SfxEvent[] {
     const prev = this.state.phase;
     this.state = this.spec.step(this.state, this.inputs);
-    const sfx = this.state.sfx;
+    const sfx = this.pendingSfx.concat(this.state.sfx);
+    this.pendingSfx = [];
     this.state = { ...this.state, sfx: [] };
     if (this.state.phase === 'gameOver' && prev !== 'gameOver') this.reportGameOver();
     return sfx;

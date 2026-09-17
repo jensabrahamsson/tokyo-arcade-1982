@@ -125,7 +125,7 @@ export function parseClientMessage(raw: string): ClientMessage | null {
         dir: (o.dir as Dir | null) ?? null,
         button: o.button === true,
       };
-      if (typeof o.seq === 'number') msg.seq = o.seq;
+      if (typeof o.seq === 'number' && Number.isFinite(o.seq)) msg.seq = Math.trunc(o.seq);
       return msg;
     }
     case 'scores':

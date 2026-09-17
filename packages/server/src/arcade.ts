@@ -33,6 +33,7 @@ interface Table {
   seats: Seating[];
   seed: number;
   openTick: number;
+  graceTick: number;
   lastSnap: number;
   pendingEvents: SfxEvent[];
 }
@@ -95,7 +96,7 @@ export class Arcade {
       case 'input': {
         const table = this.tableOf(connId);
         const seat = table?.seats.find((s) => s.connId === connId && !s.spectator);
-        if (table?.session && seat) table.session.setInput(connId, { dir: msg.dir, button: msg.button });
+        if (table?.session && seat) table.session.setInput(connId, { dir: msg.dir, button: msg.button, seq: msg.seq });
         break;
       }
       case 'scores':
@@ -129,15 +130,24 @@ export class Arcade {
       return;
     }
     const current = this.tableOf(connId);
-    if (current) this.leave(current, connId);
+    if (current) {
+      // sitting at this exact cabinet already: pressing start again is a no-op
+      if (current.game === game && current.mode === mode) return;
+      this.leave(current, connId);
+    }
 
     // one cabinet per game+mode in the hall: seat if free, otherwise spectate
     let table = [...this.tables.values()].find((t) => t.game === game && t.mode === mode);
     if (!table) table = this.openTable(game, mode);
-    const seated = table.seats.filter((s) => !s.spectator).length;
     const capacity = mode === 'versus' ? (spec.capacity ?? 2) : 1;
-    table.seats.push({ connId, spectator: seated >= capacity });
+    const seated = table.seats.filter((s) => !s.spectator).length;
+    // once the simulation has dealt, late arrivals can only watch
+    const spectator = seated >= capacity || !!table.session;
+    table.seats.push({ connId, spectator });
     const nowSeated = table.seats.filter((s) => !s.spectator).length;
+    if (table.session === null && table.graceTick < 0 && nowSeated >= 2 && nowSeated < capacity) {
+      table.graceTick = this.tickCount;
+    }
     if (!table.session && nowSeated >= capacity) this.beginTable(table);
     this.broadcastRoster();
   }
@@ -151,6 +161,7 @@ export class Arcade {
       seats: [],
       seed: (Math.random() * 2 ** 31) >>> 0,
       openTick: this.tickCount,
+      graceTick: -1,
       lastSnap: -999,
       pendingEvents: [],
     };
@@ -213,9 +224,11 @@ export class Arcade {
       const dueSnap = this.tickCount - table.lastSnap >= SNAPSHOT_EVERY;
       if (!session) {
         const seated = table.seats.filter((s) => !s.spectator).length;
-        const spec = REGISTRY[table.game]!;
-        const cap = table.mode === 'versus' ? (spec.capacity ?? 2) : 1;
-        if (seated >= 2 && seated < cap && this.tickCount - table.openTick >= START_GRACE) this.beginTable(table);
+        const cap = table.mode === 'versus' ? (REGISTRY[table.game]?.capacity ?? 2) : 1;
+        if (seated >= 2 && seated < cap && table.graceTick >= 0 && this.tickCount - table.graceTick >= START_GRACE) {
+          this.beginTable(table);
+          continue;
+        }
         if (dueSnap) {
           table.lastSnap = this.tickCount;
           const view = this.tableView(table);
@@ -225,11 +238,19 @@ export class Arcade {
         }
         continue;
       }
-      for (const e of session.tick()) table.pendingEvents.push(e);
-      const events = table.pendingEvents;
-      table.pendingEvents = [];
+      try {
+        const evs = session.tick();
+        if (evs.length > 0) table.pendingEvents.push(...evs);
+      } catch (err) {
+        // one bad table must never take down the whole hall
+        console.error(`[arkad] table ${table.id} (${table.game}) tick failed; closing table`, err);
+        this.closeTable(table);
+        continue;
+      }
       if (dueSnap) {
         table.lastSnap = this.tickCount;
+        const events = table.pendingEvents;
+        table.pendingEvents = [];
         const view = this.tableView(table);
         for (const seat of table.seats) {
           this.send(seat.connId, { type: 'snapshot', table: view, data: session.state, events });

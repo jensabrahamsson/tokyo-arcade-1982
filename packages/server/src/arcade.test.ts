@@ -183,6 +183,59 @@ describe('Arcade', () => {
     expect(snap!.table.players.find((p) => p.id === winner)!.score).toBe(7);
   });
 
+  it('a player joining a live table spectates instead of becoming a phantom seat', () => {
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'versus' });
+    arcade.handleMessage('c2', { type: 'start', game: 'snake', mode: 'versus' });
+    for (let i = 0; i < 130; i++) arcade.tick(); // grace deals with 2 of 4
+    arcade.handleMessage('c3', { type: 'start', game: 'snake', mode: 'versus' });
+    arcade.tick();
+    const snap = net.last<{ table: { players: { id: string }[] } }>('c3', 'snapshot');
+    expect(snap?.table.players.map((p) => p.id).sort()).toEqual(['c1', 'c2']);
+  });
+
+  it('pressing start again at your own cabinet does not restart the game', () => {
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'versus' });
+    arcade.handleMessage('c2', { type: 'start', game: 'snake', mode: 'versus' });
+    for (let i = 0; i < 130; i++) arcade.tick();
+    const before = net.last<{ table: { phase: string; id: string } }>('c1', 'snapshot');
+    expect(before?.table.phase).toBe('playing');
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'versus' });
+    for (let i = 0; i < 5; i++) arcade.tick();
+    const msgs = net.take('c1');
+    const after = [...msgs].reverse().find((m) => m.type === 'snapshot') as
+      { table: { phase: string; id: string } } | undefined;
+    expect(after?.table.phase).toBe('playing');
+    expect(after?.table.id).toBe(before?.table.id);
+    // a no-op start must not even re-broadcast the roster
+    expect(msgs.some((m) => m.type === 'roster')).toBe(false);
+  });
+
+  it('input seq reaches the game: a repeated stale seq does not re-trigger the river hop', () => {
+    arcade.handleMessage('c1', { type: 'start', game: 'river', mode: 'solo' });
+    for (let i = 0; i < 3; i++) arcade.tick();
+    arcade.handleMessage('c1', { type: 'input', dir: { dx: 0, dy: -1 }, button: false, seq: 7 });
+    for (let i = 0; i < 20; i++) arcade.tick();
+    let snap = net.last<{ data: { frog: { y: number } } }>('c1', 'snapshot');
+    expect(snap?.data.frog.y).toBe(15);
+    arcade.handleMessage('c1', { type: 'input', dir: { dx: 0, dy: -1 }, button: false, seq: 7 });
+    for (let i = 0; i < 60; i++) arcade.tick();
+    snap = net.last<{ data: { frog: { y: number } } }>('c1', 'snapshot');
+    expect(snap?.data.frog.y).toBe(15);
+  });
+
+  it('releasing the stick (dir null) stops a block paddle', () => {
+    arcade.handleMessage('c1', { type: 'start', game: 'block', mode: 'solo' });
+    for (let i = 0; i < 3; i++) arcade.tick();
+    arcade.handleMessage('c1', { type: 'input', dir: { dx: -1, dy: 0 }, button: false, seq: 1 });
+    for (let i = 0; i < 20; i++) arcade.tick();
+    let snap = net.last<{ data: { paddles: Record<string, { x: number }> } }>('c1', 'snapshot');
+    const moved = snap?.data.paddles['c1']!.x!;
+    arcade.handleMessage('c1', { type: 'input', dir: null, button: false, seq: 2 });
+    for (let i = 0; i < 40; i++) arcade.tick();
+    snap = net.last<{ data: { paddles: Record<string, { x: number }> } }>('c1', 'snapshot');
+    expect(snap?.data.paddles['c1']!.x).toBe(moved);
+  });
+
   it('ignores messages from unknown connections', () => {
     expect(() => arcade.handleMessage('nobody', { type: 'back' })).not.toThrow();
   });

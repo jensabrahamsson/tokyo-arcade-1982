@@ -114,6 +114,7 @@ const step = (state: RiverState, inputs: Record<string, PlayerInput>): RiverStat
     s.moveCooldown = 6;
     s.lastSeq = input.seq ?? -2;
     s.lastInputDir = input.dir;
+    s = withSfx(s, { name: 'hop', player: id });
   }
   s = { ...s, frog };
 
@@ -143,6 +144,7 @@ const step = (state: RiverState, inputs: Record<string, PlayerInput>): RiverStat
 
   // river: ride logs or drown
   const lane = s.river.find((l) => l.y === frog.y);
+  if (!lane && s.drownTimer !== 0) s = { ...s, drownTimer: 0 };
   if (lane) {
     const center = frog.x + 0.5;
     const onLog = lane.xs.some((x) => center >= x && center < x + lane.len);

@@ -205,7 +205,7 @@ function endOfTurn(s: PuckState): PuckState {
   const idx = order.indexOf(s.turn!);
   if (idx < order.length - 1) {
     const next = order[idx + 1]!;
-    let s2: PuckState = { ...s, lives: { ...s.lives, [next]: 3 } };
+    let s2: PuckState = { ...s, lives: { ...s.lives, [next]: 3 }, level: 1, deaths: 0, clears: 0, tickCount: 0 };
     s2 = { ...s2, ...readDots() };
     s2 = resetPositions(s2);
     s2.turn = next;
@@ -240,9 +240,18 @@ function handleGhostHit(s: PuckState, g: Ghost): PuckState {
   return playerCaught(s);
 }
 
-const hitCheck = (s: PuckState): PuckState => {
-  const g = s.ghosts.find((gh) => gh.x === s.player.x && gh.y === s.player.y && gh.mode !== 'eaten');
-  return g ? handleGhostHit(s, g) : s;
+const hitCheck = (s: PuckState, pPrev?: Cell, gPrev?: Cell[]): PuckState => {
+  let hit = s.ghosts.find((gh) => gh.mode !== 'eaten' && gh.x === s.player.x && gh.y === s.player.y);
+  if (!hit && pPrev && gPrev) {
+    // head-on swap: ghost and player crossed into each other's cells in one tick
+    hit = s.ghosts.find(
+      (gh, i) =>
+        gh.mode !== 'eaten' &&
+        gh.x === pPrev.x && gh.y === pPrev.y &&
+        s.player.x === gPrev[i]!.x && s.player.y === gPrev[i]!.y,
+    );
+  }
+  return hit ? handleGhostHit(s, hit) : s;
 };
 
 function step(state: PuckState, inputs: Record<string, PlayerInput>): PuckState {
@@ -305,6 +314,8 @@ function step(state: PuckState, inputs: Record<string, PlayerInput>): PuckState 
     if (s.phase !== 'playing' || s.deathTimer > 0) return tickPhase(s, 1 / 60).state;
   }
 
+  const pPrev: Cell = { x: state.player.x, y: state.player.y };
+  const gPrev: Cell[] = state.ghosts.map((g) => ({ x: g.x, y: g.y }));
   // ghosts: level ramp + adaptive difficulty (dying too much eases off, cruising pushes harder)
   const diff = computeDifficulty({ level: s.level, deaths: s.deaths, clears: s.clears });
   const speed = 0.045 + 0.08 * diff.speed;
@@ -327,7 +338,7 @@ function step(state: PuckState, inputs: Record<string, PlayerInput>): PuckState 
     }
   }
   s = { ...s, ghosts };
-  s = hitCheck(s);
+  s = hitCheck(s, pPrev, gPrev);
   if (s.phase !== 'playing') return tickPhase(s, 1 / 60).state;
 
   // cleared the board

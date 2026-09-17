@@ -65,3 +65,21 @@ canvas {
   color: #f7e766;
   text-shadow: 0 0 8px rgba(255, 163, 0, 0.8);
 }
+
+@keyframes crt-flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.985; }
+  92% { opacity: 0.96; }
+}
+
+.screen-wrap canvas {
+  animation: crt-flicker 3.2s infinite steps(1, end);
+}
+
+.vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  box-shadow: inset 0 0 60px 18px rgba(0, 0, 0, 0.55);
+}

@@ -34,5 +34,10 @@ export function renderGalaxy(ctx: CanvasRenderingContext2D, data: GalaxyState, t
 
   ctx.fillStyle = PAL.white;
   for (const b of data.bullets) ctx.fillRect(ox + b.x * CELL - 1, py(b.y) - 3, 2, 6);
-  void blink;
+
+  // engine glow on the player ship
+  if (blink(tMs, 160)) {
+    ctx.fillStyle = PAL.orange;
+    ctx.fillRect(ox + data.player.x * CELL - 2, py(data.player.y) + 6, 4, 3);
+  }
 }

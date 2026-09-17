@@ -107,3 +107,23 @@ describe('myriad combat', () => {
     expect(clamped.player.y).toBeLessThanOrEqual(23);
   });
 });
+
+describe('myriad difficulty ramp', () => {
+  it('the bug moves faster at higher levels', () => {
+    const low = play(createMyriad(cfg));
+    let s = { ...low, level: 5 };
+    const count = (start: MyriadState): number => {
+      let steps = 0;
+      let cur = start;
+      for (let i = 0; i < 60; i++) {
+        const h = cur.segments[0]!;
+        const before = `${h.x},${h.y}`;
+        cur = myriadSpec.step(cur, { p1: NO_INPUT });
+        const n = cur.segments[0]!;
+        if (`${n.x},${n.y}` !== before) steps++;
+      }
+      return steps;
+    };
+    expect(count(s)).toBeGreaterThan(count(low));
+  });
+});

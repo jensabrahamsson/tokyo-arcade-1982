@@ -114,3 +114,31 @@ describe('block duel', () => {
     expect(moved.scores['p1']).toBe(WIN_SCORE);
   });
 });
+
+describe('block versus goal geometry', () => {
+  const swapped = (ids: string[]): GameConfig => ({ mode: 'versus', playerIds: ids, seed: 3 });
+
+  it('bottom paddle scores on a top goal regardless of join order', () => {
+    let s = play(createBlock(swapped(['late', 'early'])));
+    s = { ...s, serveTimer: 0, ball: { x: 15, y: 0.4, dx: 0, dy: -0.5 } };
+    s = blockSpec.step(s, { late: none, early: none });
+    expect(s.scores['late']).toBe(1);
+    expect(s.scores['early']).toBe(0);
+  });
+
+  it('top paddle scores on a bottom goal regardless of join order', () => {
+    let s = play(createBlock(swapped(['late', 'early'])));
+    s = { ...s, serveTimer: 0, ball: { x: 15, y: BLOCK_H - 0.4, dx: 0, dy: 0.5 } };
+    s = blockSpec.step(s, { late: none, early: none });
+    expect(s.scores['early']).toBe(1);
+    expect(s.scores['late']).toBe(0);
+  });
+
+  it('paddle deflection emits a bounce sfx', () => {
+    let s = play(createBlock(soloCfg));
+    const p1 = s.paddles['p1']!;
+    s = { ...s, serveTimer: 0, ball: { x: p1.x + 2, y: 22.2, dx: 0, dy: 0.4 } };
+    const next = blockSpec.step(s, { p1: none });
+    expect(next.sfx.filter((e) => e.name === 'bounce').length).toBe(1);
+  });
+});

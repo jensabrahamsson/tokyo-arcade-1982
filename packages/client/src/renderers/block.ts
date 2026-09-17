@@ -25,6 +25,16 @@ export function renderBlock(ctx: CanvasRenderingContext2D, data: BlockState, _tM
     ctx.fillRect(ox + p.x * CELL, oy + p.y * CELL + 1, p.span * CELL, CELL - 2);
   });
 
+  if (data.mode === 'versus') {
+    ctx.fillStyle = PAL.navy;
+    for (let x = 0; x < BLOCK_W * CELL; x += 10) ctx.fillRect(ox + x, oy + (BLOCK_H * CELL) / 2, 5, 1);
+  }
+
+  // ball with a short phosphor trail
+  ctx.fillStyle = '#3a3a12';
+  ctx.fillRect(ox + (data.ball.x - data.ball.dx * 2) * CELL - 2, oy + (data.ball.y - data.ball.dy * 2) * CELL - 2, 5, 5);
+  ctx.fillStyle = '#8a8a30';
+  ctx.fillRect(ox + (data.ball.x - data.ball.dx) * CELL - 2, oy + (data.ball.y - data.ball.dy) * CELL - 2, 5, 5);
   ctx.fillStyle = PAL.white;
   ctx.fillRect(ox + data.ball.x * CELL - 2, oy + data.ball.y * CELL - 2, 5, 5);
 }

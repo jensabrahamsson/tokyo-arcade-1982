@@ -119,3 +119,22 @@ describe('river goals', () => {
     expect(resumed.homes.filter(Boolean)).toHaveLength(0);
   });
 });
+
+describe('river drown timer', () => {
+  it('resets when the frog gets back to dry land', () => {
+    let s = play(createRiver(cfg));
+    s = { ...s, frog: { x: 5, y: 2 } };
+    for (let i = 0; i < 10; i++) s = riverSpec.step(s, { p1: none });
+    expect(s.drownTimer).toBe(10);
+    // wade back to safety
+    s = { ...s, frog: { x: 5, y: 7 }, drownTimer: s.drownTimer };
+    s = riverSpec.step(s, { p1: none });
+    expect(s.drownTimer).toBe(0);
+    // re-entry gets the full window again
+    s = { ...s, frog: { x: 5, y: 2 } };
+    for (let i = 0; i < 19; i++) s = riverSpec.step(s, { p1: none });
+    expect(s.lives['p1']).toBe(3);
+    s = riverSpec.step(s, { p1: none });
+    expect(s.lives['p1']).toBe(2);
+  });
+});

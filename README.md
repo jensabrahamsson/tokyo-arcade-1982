@@ -33,7 +33,7 @@ Env: `ARKAD_PORT` (default 8442), `ARKAD_DATA` (default `./data`).
 
 - **Move:** Arrow keys or WASD
 - **Start / coin:** `Space` — first press opens the marquee keyboard (in-canvas, arrow keys + `Z`, up to 12 chars — no browser dialog)
-- **Fire / button:** `Space` in most games
+- **Fire / button:** hold `Space` (or `Z`/`J`) inside a cabinet — galaxy and myriad shoot, paddles and the stick respond everywhere
 - **Solo:** `Z` · **VS. duel:** `X` · **High scores:** `H` · **Language EN/JP:** `L` · **Back:** `Esc` / `B`
 
 ## Multiplayer over the LAN
@@ -68,7 +68,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 162 tests across engine, games, server, client
+npm test          # vitest: 175 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```

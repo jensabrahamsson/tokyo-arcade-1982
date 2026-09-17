@@ -20,15 +20,31 @@ export class HighScoreStore {
 
   private load(): Data {
     try {
-      return JSON.parse(readFileSync(this.path, 'utf8')) as Data;
+      const parsed: unknown = JSON.parse(readFileSync(this.path, 'utf8'));
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+      const out: Data = {};
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        if (!Array.isArray(v)) continue;
+        out[k] = v.filter(
+          (e): e is ScoreEntry =>
+            typeof e === 'object' && e !== null &&
+            typeof (e as ScoreEntry).name === 'string' &&
+            typeof (e as ScoreEntry).score === 'number',
+        );
+      }
+      return out;
     } catch {
       return {};
     }
   }
 
   private save(): void {
-    mkdirSync(dirname(this.path), { recursive: true });
-    writeFileSync(this.path, JSON.stringify(this.data, null, 1));
+    try {
+      mkdirSync(dirname(this.path), { recursive: true });
+      writeFileSync(this.path, JSON.stringify(this.data, null, 1));
+    } catch (err) {
+      console.error('[arkad] could not persist high scores:', err);
+    }
   }
 
   add(game: GameId, mode: GameMode, name: string, score: number): void {

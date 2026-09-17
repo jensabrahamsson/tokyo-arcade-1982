@@ -19,6 +19,7 @@ export class Chiptune {
   }
 
   play(name: SfxName): void {
+    if (!Object.hasOwn(chiptune, name)) return;
     const def = chiptune[name];
     if (def) this.playDef(def);
   }

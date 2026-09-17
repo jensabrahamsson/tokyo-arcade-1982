@@ -48,3 +48,16 @@ describe('protocol', () => {
     expect(parseClientMessage(serialize(msg))).toEqual(msg);
   });
 });
+
+describe('input seq hygiene', () => {
+  it('drops non-finite seq values', () => {
+    const msg = parseClientMessage('{"type":"input","dir":{"dx":1,"dy":0},"button":false,"seq":1e999}');
+    expect(msg?.type).toBe('input');
+    expect((msg as { seq?: number }).seq).toBeUndefined();
+  });
+
+  it('truncates fractional seq', () => {
+    const msg = parseClientMessage('{"type":"input","dir":{"dx":1,"dy":0},"button":false,"seq":4.7}');
+    expect((msg as { seq?: number }).seq).toBe(4);
+  });
+});

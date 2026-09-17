@@ -83,7 +83,10 @@ function serve(s: BlockState): BlockState {
 
 function scored(s: BlockState, scorer: string, concededDir: number): BlockState {
   const scores = { ...s.scores, [scorer]: s.scores[scorer]! + 1 };
-  let next = withSfx({ ...s, scores, serveTimer: 45, serveDir: -concededDir }, { name: 'goal', player: scorer });
+  let next = withSfx(
+    { ...s, scores, serveTimer: 45, serveDir: -concededDir, ball: { x: BLOCK_W / 2, y: BLOCK_H / 2, dx: 0, dy: 0 } },
+    { name: 'goal', player: scorer },
+  );
   if (scores[scorer]! >= WIN_SCORE) next = enterPhase({ ...next, winner: scorer }, 'gameOver');
   return next;
 }
@@ -135,6 +138,7 @@ function step(state: BlockState, inputs: Record<string, PlayerInput>): BlockStat
         ball.dy = -toward * Math.abs(ball.dy);
         ball.dx = Math.max(-0.22, Math.min(0.22, ball.dx + offset * 0.05));
         ball.y = hitRow + 0.42 * toward;
+        s = withSfx(s, { name: 'bounce', player: id });
       }
     }
   }
@@ -160,8 +164,8 @@ function step(state: BlockState, inputs: Record<string, PlayerInput>): BlockStat
   }
 
   // goals
+  const bottom = Object.keys(s.paddles).find((id) => s.paddles[id]!.y > BLOCK_H / 2) ?? Object.keys(s.paddles)[0]!;
   if (ball.y < 0) {
-    const bottom = Object.keys(s.paddles)[0]!;
     if (s.mode === 'versus') {
       s = scored(s, bottom, -1);
       s.ball = ball;
@@ -171,12 +175,12 @@ function step(state: BlockState, inputs: Record<string, PlayerInput>): BlockStat
     ball.y = 0.5;
   } else if (ball.y > BLOCK_H) {
     if (s.mode === 'versus') {
-      const top = Object.keys(s.paddles)[1]!;
+      const top = Object.keys(s.paddles).find((id) => s.paddles[id]!.y <= BLOCK_H / 2) ?? Object.keys(s.paddles)[1] ?? bottom;
       s = scored(s, top, 1);
       s.ball = ball;
       return s;
     }
-    const solo = Object.keys(s.paddles)[0]!;
+    const solo = bottom;
     const lives = { ...s.lives, [solo]: s.lives[solo]! - 1 };
     s = withSfx({ ...s, lives, deaths: s.deaths + 1 }, { name: 'die', player: solo });
     s.serveTimer = 45;
