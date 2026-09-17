@@ -27,6 +27,14 @@ describe('i18n', () => {
     expect(/[\u3040-\u30ff\u4e00-\u9fff]/.test(t('ja', 'phase.gameOver'))).toBe(true);
   });
 
+  it('has EN/JA copy for hall demo chrome', () => {
+    expect(EN['hall.demo']).toMatch(/DEMO/i);
+    expect(EN['hall.demoTag'].length).toBeGreaterThan(4);
+    expect(EN['hall.inUse'].length).toBeGreaterThan(2);
+    expect(/[\u3040-\u30ff\u4e00-\u9fff]/.test(JA['hall.demo'])).toBe(true);
+    expect(/[\u3040-\u30ff\u4e00-\u9fff]/.test(JA['hall.inUse'])).toBe(true);
+  });
+
   it('t() interpolates {params}', () => {
     expect(t('en', 'phase.winner', { name: 'AKIRA' })).toContain('AKIRA');
     expect(t('ja', 'phase.winner', { name: 'Akira' })).toContain('Akira');

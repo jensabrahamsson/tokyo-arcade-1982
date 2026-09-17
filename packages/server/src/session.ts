@@ -6,7 +6,6 @@ import {
   type SfxEvent,
   NO_INPUT,
   enterPhase,
-  withSfx,
 } from '@arkad/core';
 
 export class Session {
@@ -16,13 +15,16 @@ export class Session {
   onGameOver?: (state: GameStateBase) => void;
   private started = false;
   private gameOverReported = false;
+  private readonly demo: boolean;
 
   constructor(
     public readonly id: string,
     public readonly spec: AnyGameSpec,
     config: GameConfig,
   ) {
+    this.demo = config.demo === true;
     this.state = spec.create(config);
+    if (this.demo) this.state = { ...this.state, demo: true };
     for (const p of config.playerIds) this.inputs[p] = NO_INPUT;
   }
 
@@ -50,6 +52,7 @@ export class Session {
   private reportGameOver(): void {
     if (this.gameOverReported || this.state.phase !== 'gameOver') return;
     this.gameOverReported = true;
+    if (this.demo || this.state.demo) return;
     this.onGameOver?.(this.state);
   }
 }

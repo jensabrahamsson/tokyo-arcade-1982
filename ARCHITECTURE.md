@@ -19,9 +19,16 @@ Pure TypeScript. No `node:`, no DOM, no `Math.random`, no timers.
 
 - `engine/` — the 1982 simulation contract: `GameSpec { create, step }`
   with **fixed 60 Hz ticks**, `GameStateBase` (phase, level, scores,
-  lives, sfx), the phase machine (`ready → playing → roundOver /
-  gameOver → attract`), seeded `Rng` (xorshift, passed explicitly), and
-  `PlayerInput` (`dir`, `button`, `seq` for edge-triggered reads).
+  lives, sfx, optional `demo` flag), the phase machine (`ready →
+  playing → roundOver / gameOver → attract`), seeded `Rng` (xorshift,
+  state is readable so callers can clone streams; never `Math.random`),
+  `PlayerInput` (`dir`, `button`, `seq` for edge-triggered reads), and
+  **cabinet demo** helpers (`createDemo` / `stepDemo`): autoplay inputs
+  from the seeded RNG, loop on game-over, never a paid seat.
+- `hall/` — lobby-side ambience orchestration: one demo run per
+  cabinet, skip occupied `GameId`s, plain-JSON `HallAmbience`. The
+  client steps this on title/select; the server does **not** open
+  demo tables (that would phantom-seat and pollute the roster).
 - `games/<name>/` — six specs: snake (capacity 4 FFA), puck (turnBased,
   4-personality ghost AI), block, galaxy, river, myriad. Every `step()`
   is **pure**: it clones before writing, never mutates the state it was
@@ -64,6 +71,10 @@ of players; the wrong model for WAN — noted, not a bug.
 - `main.ts` — scene machine: `title → name → select → table / scores`.
   Scene entry clears stale input; the table scene sends
   edge-detected `(dir, button, seq)` and bails on 4 s of silence.
+  Title and select step `HallAmbience` locally and reuse the normal
+  game renderers for attract loops (dimmed, `DEMO PLAY` overlay).
+  Occupied cabinets (roster tables with seated players) are not
+  demo-ticked. Table/scores scenes do not run hall demos.
 - `net.ts` — WebSocket wrapper with auto-reconnect; `onOpen` re-joins
   with the stored name after a drop.
 - `input.ts` — keyboard with press-ordered stick stack (`heldDir`),

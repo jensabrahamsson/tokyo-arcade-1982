@@ -82,11 +82,37 @@ defines done. Each item is verified by a test, a live check, or both.
 ## R7 — Non-functional
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
-- R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (175 tests, incl. real-WebSocket E2E for 2- and
-  4-player snake versus, plus integration surfaces for puck turn-handoff
-  and block first-to-7).
+- R7.2 Test-first culture: every new behavior and every bug-fix ships
+  with a failing spec first (bug-fixes: a regression test that would
+  have caught the bug). `npm test` green (see README for the live
+  count; incl. real-WebSocket E2E for 2- and 4-player snake versus,
+  plus integration surfaces for puck turn-handoff, block first-to-7,
+  and hall demo ambience).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
-  fixed 60 Hz tick; state is plain JSON; no DOM/Node/Math.random in core.
+  fixed 60 Hz tick; state is plain JSON; no DOM/Node/`Math.random`/
+  `Date.now`/I/O in core. Seeded RNG only.
 - R7.4 Runs on Node 18+, macOS/Linux; build < 10 s; bundle < 200 KB.
 - R7.5 LAN scale: dozens of clients at 60 Hz without measurable lag.
+
+## R8 — Hall demo / cabinet ambience
+
+Idle cabinets run a **demo / attract loop** so walking the hall feels
+like Tokyo 1982 — ghost games on the glass — without a coin. This is
+distinct from the post-`gameOver` `attract` phase that closes a
+finished paid table (R2.4 / the phase machine).
+
+- R8.1 Idle cabinets (no live seated players, no active paid session)
+  show self-playing demo gameplay. Occupied cabinets do not keep
+  simulating a demo; inserting coin / `start` takes over that cabinet.
+- R8.2 Title and game-select scenes present demo ambience
+  (visible gameplay, optional chiptune at hall volume) without
+  requiring coin or start. All copy is EN/JA on the canvas; no
+  `alert`/`prompt`/`confirm`.
+- R8.3 Demos must not interfere with live play or seating: no phantom
+  seats, no `DEMO` player on the roster, no extra tables, no stealing
+  inputs from a paid session. A real `start` always wins.
+- R8.4 Demo is non-scoring for the hall of fame: demo loops never
+  write high scores. In-demo numbers are attract chrome only.
+- R8.5 Where demo touches core it is deterministic: autoplay inputs
+  come from the seeded RNG already in core (never `Math.random` /
+  `Date.now`). `step()` stays pure and does not mutate its input.

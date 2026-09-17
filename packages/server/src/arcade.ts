@@ -183,9 +183,11 @@ export class Arcade {
   }
 
   private recordScores(tableId: string, state: GameStateBase): void {
+    if (state.demo) return;
     const table = this.tables.get(tableId);
     if (!table) return;
     for (const seat of table.seats) {
+      if (seat.connId === 'DEMO') continue;
       if (seat.spectator) continue;
       const conn = this.conns.get(seat.connId);
       if (!conn) continue;

@@ -8,7 +8,12 @@ import {
   type ServerMessage,
   type SnapshotMsg,
   type WelcomeMsg,
+  type SfxEvent,
   t as translate,
+  createHallAmbience,
+  stepHallAmbience,
+  liveGameIds,
+  createClock,
 } from '@arkad/core';
 import { Net } from './net';
 import { Keys } from './input';
@@ -21,6 +26,7 @@ import { renderGalaxy } from './renderers/galaxy';
 import { renderRiver } from './renderers/river';
 import { renderMyriad } from './renderers/myriad';
 import { createNamePad, moveCursor, pressKey, keyAt, type NamePad } from './namepad';
+import { shouldRunHallDemo, titleDemoGame, demoGain } from './hallView';
 
 const t = (key: Parameters<typeof translate>[1], params?: Record<string, string | number>) =>
   translate(lang, key, params);
@@ -42,6 +48,12 @@ canvas.height = CANVAS_H;
 const net = new Net();
 const keys = new Keys();
 const audio = new Chiptune();
+const hallClock = createClock(1 / 60);
+let hall = createHallAmbience(1982);
+let hallTicks = 0;
+let lastFrameMs = 0;
+
+canvas.addEventListener('pointerdown', () => audio.unlock());
 
 let lang: Lang = (localStorage.getItem('arkad-lang') as Lang) === 'ja' ? 'ja' : 'en';
 let scene: 'title' | 'name' | 'select' | 'table' | 'scores' = 'title';
@@ -131,6 +143,42 @@ function startGame(mode: GameMode): void {
   scene = 'table';
 }
 
+function occupiedGames(): Set<GameId> {
+  return liveGameIds(world.roster?.tables ?? []);
+}
+
+function focusedDemoGame(): GameId {
+  return scene === 'select' ? GAME_IDS[sel]! : titleDemoGame(hallTicks);
+}
+
+function stepHall(ms: number): void {
+  const dt = lastFrameMs > 0 ? (ms - lastFrameMs) / 1000 : 0;
+  lastFrameMs = ms;
+  if (!shouldRunHallDemo(scene)) return;
+  const n = hallClock.drain(dt);
+  const occupied = occupiedGames();
+  const focus = focusedDemoGame();
+  const events: SfxEvent[] = [];
+  for (let i = 0; i < n; i++) {
+    hall = stepHallAmbience(hall, occupied);
+    hallTicks += 1;
+    const sfx = hall.cabinets[focus]?.state.sfx ?? [];
+    if (sfx.length > 0) events.push(...sfx);
+  }
+  if (events.length > 0) audio.playEvents(events, demoGain);
+}
+
+function drawDemoCabinet(game: GameId, ms: number): void {
+  const run = hall.cabinets[game];
+  const render = renderers[game];
+  if (run && render) render(ctx, run.state as never, ms);
+}
+
+function dimScreen(alpha: number): void {
+  ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+}
+
 function back(): void {
   net.send({ type: 'back' });
   world.snap = null;
@@ -142,10 +190,14 @@ function back(): void {
 function update(ms: number): void {
   if (scene === 'title') {
     if (keys.take('Space', 'Enter', 'NumpadEnter')) {
+      audio.unlock();
       if (joined) scene = 'select';
       else openNamePad();
     }
-    if (keys.take('KeyL')) toggleLang();
+    if (keys.take('KeyL')) {
+      audio.unlock();
+      toggleLang();
+    }
   } else if (scene === 'name') {
     if (keys.take('ArrowLeft', 'KeyA')) namePad = moveCursor(namePad, { dr: 0, dc: -1 });
     if (keys.take('ArrowRight', 'KeyD')) namePad = moveCursor(namePad, { dr: 0, dc: 1 });
@@ -232,6 +284,11 @@ function renderGame(ms: number): void {
 
 function renderTitle(ms: number): void {
   const cx = CANVAS_W / 2;
+  const demoGame = titleDemoGame(hallTicks);
+  const busy = occupiedGames().has(demoGame);
+  drawDemoCabinet(demoGame, ms);
+  dimScreen(0.62);
+
   const title = t('app.title');
   const colors = [PAL.red, PAL.orange, PAL.yellow, PAL.lime, PAL.cyan];
   px(ctx, title, cx, 48, 36, PAL.white, 'center');
@@ -246,10 +303,9 @@ function renderTitle(ms: number): void {
   });
   px(ctx, t('hall.name'), cx, 92, 8, PAL.gray, 'center');
 
-  const idx = Math.floor(ms / 2200) % GAME_IDS.length;
-  const g = GAME_IDS[idx]!;
-  px(ctx, `${translate('en', `game.${g}` as never)} / ${translate('ja', `game.${g}` as never)}`, cx, 130, 8, PAL.gray, 'center');
-  px(ctx, t(`game.${g}.tag` as never), cx, 144, 8, PAL.cyan, 'center');
+  px(ctx, `${translate('en', `game.${demoGame}` as never)} / ${translate('ja', `game.${demoGame}` as never)}`, cx, 130, 8, PAL.gray, 'center');
+  px(ctx, t(`game.${demoGame}.tag` as never), cx, 144, 8, PAL.cyan, 'center');
+  px(ctx, busy ? t('hall.inUse') : t('hall.demo'), cx, 158, 8, busy ? PAL.orange : PAL.magenta, 'center');
 
   if (blink(ms)) px(ctx, t('hall.insertCoin'), cx, 176, 12, PAL.yellow, 'center');
   px(ctx, t('hall.pressStart'), cx, 196, 8, PAL.white, 'center');
@@ -284,15 +340,23 @@ function renderNamePad(ms: number): void {
 
 function renderSelect(ms: number): void {
   const cx = CANVAS_W / 2;
+  const game = GAME_IDS[sel]!;
+  const busy = occupiedGames().has(game);
+  drawDemoCabinet(game, ms);
+  dimScreen(0.72);
+
   px(ctx, t('menu.gameSelect'), cx, 10, 12, PAL.white, 'center');
   GAME_IDS.forEach((g, i) => {
     const y = 34 + i * 24;
     const info = world.games.find((gi) => gi.id === g);
+    const live = occupiedGames().has(g);
     const color = i === sel ? (blink(ms, 500) ? PAL.yellow : PAL.orange) : info ? PAL.white : PAL.gray;
     px(ctx, t(`game.${g}` as never), 40, y, 10, color);
     px(ctx, info ? t(`game.${g}.tag` as never) : '--- --- ---', 150, y + 2, 7, i === sel ? PAL.cyan : PAL.gray);
-    if (info) px(ctx, info.versus ? '1P+VS' : '1P', 296, y + 2, 7, PAL.gray);
+    if (live) px(ctx, t('hall.inUse'), 288, y + 2, 7, PAL.orange, 'right');
+    else if (info) px(ctx, info.versus ? '1P+VS' : '1P', 296, y + 2, 7, PAL.gray);
   });
+  px(ctx, busy ? t('hall.inUse') : t('hall.demoTag'), cx, 186, 8, busy ? PAL.orange : PAL.magenta, 'center');
   px(ctx, `Z: ${t('menu.solo')}   X: ${t('menu.versus')}`, cx, 200, 8, PAL.lime, 'center');
   px(ctx, `H: ${t('menu.highScores')}   L: ${t('menu.language')}   ESC: ${t('menu.back')}`, cx, 214, 8, PAL.gray, 'center');
   const online = world.roster?.players.length ?? 0;
@@ -327,6 +391,7 @@ function frame(ms: number): void {
   update(ms);
   ctx.fillStyle = PAL.black;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  stepHall(ms);
   if (net.status !== 'open') {
     px(ctx, t(net.status === 'connecting' ? 'net.connecting' : 'net.lost'), CANVAS_W / 2, 116, 10, PAL.gray, 'center');
   } else if (scene === 'title') renderTitle(ms);

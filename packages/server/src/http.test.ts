@@ -142,4 +142,26 @@ describe('game server (real websockets)', () => {
     expect(phase).toBe('gameOver');
     expect(ids).toContain(winner);
   }, 30000);
+
+  it('joining the hall without start sees an empty roster of tables (no demo seats)', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'arkad-ws-demo-'));
+    handle = await createGameServer({ port: 0, dataDir: dir });
+    const url = `ws://127.0.0.1:${handle.port}/ws`;
+    const a = await peer(url);
+    peers.push(a);
+    a.ws.send(JSON.stringify({ type: 'join', name: 'AKIRA', lang: 'en' }));
+    await a.waitFor('welcome');
+    const roster = await a.waitFor<{
+      type: 'roster';
+      players: { id: string; name: string }[];
+      tables: { players: { id: string }[] }[];
+    }>('roster');
+    expect(roster.tables).toEqual([]);
+    expect(roster.players.every((p) => p.id !== 'DEMO')).toBe(true);
+
+    a.ws.send(JSON.stringify({ type: 'start', game: 'snake', mode: 'solo' }));
+    const snap = await waitPhase(a, 'playing');
+    expect(snap.table.players).toHaveLength(1);
+    expect((snap.table.players[0] as { id: string }).id).not.toBe('DEMO');
+  }, 15000);
 });

@@ -18,36 +18,36 @@ export class Chiptune {
     this.ensure();
   }
 
-  play(name: SfxName): void {
+  play(name: SfxName, gainScale = 1): void {
     if (!Object.hasOwn(chiptune, name)) return;
     const def = chiptune[name];
-    if (def) this.playDef(def);
+    if (def) this.playDef(def, gainScale);
   }
 
-  playEvents(events: SfxEvent[]): void {
-    for (const e of events) this.play(e.name);
+  playEvents(events: SfxEvent[], gainScale = 1): void {
+    for (const e of events) this.play(e.name, gainScale);
   }
 
-  private playDef(def: SfxDef): void {
+  private playDef(def: SfxDef, gainScale = 1): void {
     const ctx = this.ensure();
     if (!ctx) return;
     let t = ctx.currentTime + 0.01;
-    const vol = (def.volume ?? 1) * MASTER;
+    const vol = (def.volume ?? 1) * MASTER * gainScale;
     for (const note of def.notes) {
       const freq = noteFreq(note);
       if (def.wave === 'noise') this.noise(ctx, t, def.stepMs / 1000, vol);
-      else if (freq > 0) this.tone(ctx, t, def, freq);
+      else if (freq > 0) this.tone(ctx, t, def, freq, gainScale);
       t += def.stepMs / 1000;
     }
   }
 
-  private tone(ctx: AudioContext, t: number, def: SfxDef, freq: number): void {
+  private tone(ctx: AudioContext, t: number, def: SfxDef, freq: number, gainScale = 1): void {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = def.wave === 'triangle' ? 'triangle' : 'square';
     osc.frequency.value = freq;
     const dur = (def.stepMs / 1000) * 0.9;
-    gain.gain.setValueAtTime((def.volume ?? 1) * MASTER, t);
+    gain.gain.setValueAtTime((def.volume ?? 1) * MASTER * gainScale, t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
     osc.connect(gain).connect(ctx.destination);
     osc.start(t);

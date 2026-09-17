@@ -4,6 +4,8 @@ export * from './engine/loop';
 export * from './engine/vec';
 export * from './engine/phase';
 export * from './engine/types';
+export * from './engine/demo';
+export * from './hall/ambiance';
 export * from './i18n/i18n';
 export * from './difficulty/difficulty';
 export * from './protocol/protocol';

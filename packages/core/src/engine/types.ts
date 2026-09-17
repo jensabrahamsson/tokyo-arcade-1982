@@ -16,6 +16,8 @@ export interface GameConfig {
   mode: GameMode;
   playerIds: string[];
   seed: number;
+  /** Attract / hall demo — not a paid seat; never high-score. */
+  demo?: boolean;
 }
 
 export type SfxName =
@@ -46,6 +48,8 @@ export interface GameStateBase extends PhaseState {
   winner?: string;
   /** current player id for turn-based versus (VS. System style) */
   turn?: string;
+  /** True when this state is a hall attract loop, not a paid session. */
+  demo?: boolean;
 }
 
 export interface GameSpec<S extends GameStateBase> {
