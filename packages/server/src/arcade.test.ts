@@ -239,6 +239,23 @@ describe('Arcade', () => {
   it('ignores messages from unknown connections', () => {
     expect(() => arcade.handleMessage('nobody', { type: 'back' })).not.toThrow();
   });
+
+  it('idle hall has no demo tables and no DEMO seats', () => {
+    const r = roster('c1');
+    expect(r.tables).toHaveLength(0);
+    expect(r.players.every((p) => p.id !== 'DEMO' && p.name !== 'DEMO')).toBe(true);
+    for (let i = 0; i < 180; i++) arcade.tick();
+    expect(roster('c2').tables).toHaveLength(0);
+  });
+
+  it('a real start seats the human, never a DEMO phantom', () => {
+    arcade.handleMessage('c1', { type: 'start', game: 'galaxy', mode: 'solo' });
+    arcade.tick();
+    const snap = net.last<SnapshotMsg>('c1', 'snapshot');
+    expect(snap?.table.players.map((p) => p.id)).toEqual(['c1']);
+    expect(snap?.table.players.some((p) => p.id === 'DEMO')).toBe(false);
+    expect((snap?.data as { demo?: boolean } | null)?.demo).not.toBe(true);
+  });
 });
 
 describe('Arcade smoke (all cabinets)', () => {

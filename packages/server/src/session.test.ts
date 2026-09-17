@@ -53,4 +53,28 @@ describe('Session', () => {
     s.setInput('p99', { dir: DIRS.up, button: false });
     expect(Object.keys((s.state as unknown as { snakes?: Record<string, unknown> }).snakes ?? {})).toHaveLength(2);
   });
+
+  it('never reports gameOver highscore hook for a demo session', () => {
+    const s = new Session('t-demo', snakeSpec, {
+      mode: 'solo',
+      playerIds: ['p1'],
+      seed: 1,
+      demo: true,
+    });
+    s.begin();
+    const st = s.state as {
+      snakes: Record<string, { alive: boolean; respawnTimer: number; body: unknown; dir: unknown; pendingDir: unknown }>;
+    };
+    s.state = {
+      ...s.state,
+      demo: true,
+      lives: { p1: 0 },
+      snakes: { p1: { ...st.snakes['p1']!, alive: false, respawnTimer: 0 } },
+    };
+    const ended: unknown[] = [];
+    s.onGameOver = (state) => ended.push(state);
+    for (let i = 0; i < 40; i++) s.tick();
+    expect(s.state.phase).toBe('gameOver');
+    expect(ended).toHaveLength(0);
+  });
 });

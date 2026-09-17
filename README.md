@@ -2,8 +2,9 @@
 
 Six classic arcade cabinets from the golden age, rebuilt in TypeScript with
 authentic 1982 flavor: CRT scanlines, synthesized chiptune sound, coin drops
-and a Japanese arcade hall atmosphere. Play solo or challenge your friends on
-the same LAN.
+and a Japanese arcade hall atmosphere. Idle cabinets run **demo / attract
+loops** so the hall hums with ghost games while you browse — insert coin
+to take over a cabinet. Play solo or challenge your friends on the same LAN.
 
 ## Run it
 
@@ -68,7 +69,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 175 tests across engine, games, server, client
+npm test          # vitest: 175 tests across engine, games, hall demo, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```

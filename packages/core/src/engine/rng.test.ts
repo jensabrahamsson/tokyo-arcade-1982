@@ -43,4 +43,12 @@ describe('rng', () => {
     expect(['a', 'b', 'c']).toContain(r.pick(['a', 'b', 'c']));
     expect(() => r.pick([])).toThrow();
   });
+
+  it('exposes cloneable state so callers can resume a stream', () => {
+    const a = createRng(42);
+    a.next();
+    a.int(4);
+    const b = createRng(a.state);
+    expect(b.next()).toBe(a.next());
+  });
 });
