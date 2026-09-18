@@ -289,3 +289,57 @@ defines done. Each item is verified by a test, a live check, or both.
   core stays pure. Daytime rule: no browser E2E playtests requested;
   real-ws server checks from /tmp scripts when seating/sockets are
   touched. When green: commit, push, summary with new test count.
+
+## R28 — NOW PLAYING lamp
+
+- R28.1 When a cabinet hosts a live (non-demo) table, its hall marquee
+  lights a NOW PLAYING / プレイ中 lamp; the lamp clears when the table
+  returns to attract/demo or the table tears down.
+- R28.2 The lamp is computed by a pure helper from the hall snapshot
+  (occupied vs demo vs empty), unit-tested. Presentation only — no new
+  protocol fields unless an existing gap forces one.
+- R28.3 OUT OF ORDER (R24) wins over NOW PLAYING: a cabinet never
+  shows both.
+
+## R29 — Spectator count badge
+
+- R29.1 The hall mini-screen and the in-cabinet HUD show a compact
+  spectator count badge when spectators > 0; hidden at zero.
+- R29.2 The count derives from the authoritative snapshot (server-
+  counted seats) through a pure helper; deterministic, unit-tested.
+  It never invents seats or changes seating rules.
+
+## R30 — Soft reject toasts on canvas
+
+- R30.1 When `start` / `coin` is rejected (insert-coin, out-of-order,
+  solo-only, unknown-game and any existing clear reason), the client
+  shows a short 1982 canvas toast (EN/JA via i18n) instead of failing
+  silently. No alert/prompt.
+- R30.2 A pure `rejectToast(reason)` maps reason → i18n key; unknown
+  reasons get a safe generic line. A pure timing helper governs the
+  auto-clear window. Unit-tests cover the mapper and the timing.
+
+## R31 — Operator day counters
+
+- R31.1 The service menu shows today's plays and coin drops alongside
+  the lifetime totals. The day bucket is the calendar date in
+  Europe/Stockholm; crossing midnight starts a fresh day without
+  wiping the lifetime counters.
+- R31.2 Persisted under ARKAD_DATA with the same validated-load
+  discipline as service.json; junk or missing day fields fall back
+  safely. Unit-tests: day-rollover helper (Stockholm mapping,
+  DST-boundary dates) and store round-trip.
+
+## R32 — Hall walk bob
+
+- R32.1 While the "you are here" token moves through the hall, it
+  gets a subtle vertical bob from a pure `walkBob(stepIndex)` helper:
+  deterministic, bounded, unit-tested.
+- R32.2 Presentation only (renderer); no core/protocol/sim changes.
+
+## Constraints for R28-R32
+
+- GPL-3.0-only; canvas-only UI; chiptune only; TypeScript strict; the
+  core stays pure. Real-ws server checks from /tmp scripts when
+  seating/sockets are touched. When green: commit, push, summary with
+  the new test count.
