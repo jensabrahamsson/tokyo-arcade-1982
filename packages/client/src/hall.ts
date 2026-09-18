@@ -11,8 +11,8 @@ export interface CabinetSlot {
 export const CANVAS_W = 320;
 export const CANVAS_H = 240;
 
-const COLS = 3;
-const CW = 96;
+const COLS = 4;
+const CW = 78;
 const CH = 78;
 
 /** top edge of the carpet floor, below the second cabinet row */
@@ -30,7 +30,7 @@ export const HALL_SLOTS: CabinetSlot[] = GAME_IDS.map((game, i) => ({
 /** top-down floor plan positions (R11) */
 export const MAP_SLOTS: { game: GameId; x: number; y: number }[] = GAME_IDS.map((game, i) => ({
   game,
-  x: 40 + (i % COLS) * 90,
+  x: 40 + (i % COLS) * 70,
   y: 60 + Math.floor(i / COLS) * 90,
 }));
 

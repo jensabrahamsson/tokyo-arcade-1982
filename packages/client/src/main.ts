@@ -21,6 +21,7 @@ import { renderBlock } from './renderers/block';
 import { renderGalaxy } from './renderers/galaxy';
 import { renderRiver } from './renderers/river';
 import { renderMyriad } from './renderers/myriad';
+import { renderCoast } from './renderers/coast';
 import { createNamePad, moveCursor, pressKey, keyAt, type NamePad } from './namepad';
 import { HALL_SLOTS, MAP_SLOTS, FLOOR_Y, moveHallSel } from './hall';
 import {
@@ -40,6 +41,7 @@ const renderers: Partial<Record<GameId, (ctx: CanvasRenderingContext2D, data: ne
   galaxy: (ctx, data, ms) => renderGalaxy(ctx, data, ms),
   river: (ctx, data, ms) => renderRiver(ctx, data, ms),
   myriad: (ctx, data, ms) => renderMyriad(ctx, data, ms),
+  coast: (ctx, data, ms) => renderCoast(ctx, data, ms),
 };
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;

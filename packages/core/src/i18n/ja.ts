@@ -28,6 +28,8 @@ export const JA: Record<keyof typeof EN, string> = {
   'game.galaxy.tag': 'ソラヲ マモレ!',
   'game.river': 'カエルの リバー',
   'game.river.tag': 'カワヲ WATARE!',
+  'game.coast': 'コーストランナー',
+  'game.coast.tag': 'リーゼベルグ ノ ロウヘ ハシレ',
   'game.myriad': 'ムカデ',
   'game.myriad.tag': 'ムシニ サワル ナ!',
   'hud.score': 'スコア',

@@ -83,7 +83,7 @@ defines done. Each item is verified by a test, a live check, or both.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (233 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (248 tests, incl. real-WebSocket E2E for 2- and
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
@@ -205,3 +205,23 @@ defines done. Each item is verified by a test, a live check, or both.
   assist) is toggleable from the service menu and credits; it only
   remaps presentation colors (pure helper + CSS filter) and persists in
   localStorage — no new dependencies, no sim changes.
+
+## R22 — Seventh cabinet: COAST RUNNER (OutRun-style)
+
+- R22.1 A pseudo-3D coast racing cabinet inspired by Sega OutRun (1986),
+  rebuilt in the same 1982 hall spirit: `packages/core` pure logic
+  (`games/coast`), server-authoritative, canvas renderer, chiptune only,
+  EN/JA.
+- R22.2 The background landmark is the LO castle of Liseberg,
+  Gothenburg (wooden fairytale castle silhouette on the horizon with
+  parallax against the road curves) — never Mount Fuji or any
+  Japan-mountain motif.
+- R22.3 Solo-only (like galaxy/river/myriad): time-chased run to LO
+  castle with checkpoint time extensions; versus stays disabled.
+- R22.4 Core mechanics (pure, deterministic, seeded): accelerate/brake/
+  steer, curve centrifugal push, off-road slowdown, seeded roadside
+  obstacles with collisions, checkpoint bonus time + score, goal at the
+  castle gate, time-out at zero.
+- R22.5 The cabinet joins the hall: marquee, live attract demo bot
+  (steer-to-center + throttle), high scores, map — like every other
+  cabinet.

@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { parseClientMessage, serialize, GAME_IDS, type ClientMessage } from './protocol';
 
 describe('protocol', () => {
-  it('lists the six arcade cabinets', () => {
-    expect(GAME_IDS).toEqual(['snake', 'puck', 'block', 'galaxy', 'river', 'myriad']);
+  it('lists the hall cabinets (R22 added coast)', () => {
+    expect(GAME_IDS).toEqual(['snake', 'puck', 'block', 'galaxy', 'river', 'myriad', 'coast']);
   });
 
   it('parses a join message', () => {

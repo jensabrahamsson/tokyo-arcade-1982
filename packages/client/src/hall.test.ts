@@ -3,9 +3,9 @@ import { HALL_SLOTS, MAP_SLOTS, moveHallSel, CANVAS_W, CANVAS_H } from './hall';
 import { GAME_IDS } from '@arkad/core';
 
 describe('hall layout (R10)', () => {
-  it('places exactly the six cabinets, uniquely', () => {
+  it('places exactly the hall cabinets, uniquely', () => {
     expect(HALL_SLOTS.map((s) => s.game)).toEqual([...GAME_IDS]);
-    expect(new Set(HALL_SLOTS.map((s) => `${s.x},${s.y}`)).size).toBe(6);
+    expect(new Set(HALL_SLOTS.map((s) => `${s.x},${s.y}`)).size).toBe(GAME_IDS.length);
   });
 
   it('every cabinet and its mini-screen fits on the canvas', () => {
@@ -41,16 +41,20 @@ describe('hall layout (R10)', () => {
 
 describe('hall navigation (R9)', () => {
   it('arrows and WASD do the same thing', () => {
+    // R22: seven cabinets in a 4x2 grid
     expect(moveHallSel(0, 'ArrowRight')).toBe(moveHallSel(0, 'KeyD'));
     expect(moveHallSel(3, 'ArrowUp')).toBe(moveHallSel(3, 'KeyW'));
-    expect(moveHallSel(0, 'ArrowDown')).toBe(3);
-    expect(moveHallSel(3, 'ArrowUp')).toBe(0);
+    expect(moveHallSel(0, 'ArrowDown')).toBe(4);
+    // col 3 row 0 goes up to the wrapped bottom row, clamped to the last cabinet
+    expect(moveHallSel(3, 'ArrowUp')).toBe(GAME_IDS.length - 1);
   });
 
   it('wraps around the hall in both axes', () => {
-    expect(moveHallSel(0, 'ArrowLeft')).toBe(2);
-    expect(moveHallSel(5, 'ArrowDown')).toBe(2);
-    expect(moveHallSel(5, 'ArrowRight')).toBe(3);
+    expect(moveHallSel(0, 'ArrowLeft')).toBe(3);
+    expect(moveHallSel(5, 'ArrowDown')).toBe(1);
+    expect(moveHallSel(5, 'ArrowRight')).toBe(6);
+    // last cabinet is the hard edge of the room
+    expect(moveHallSel(6, 'ArrowRight')).toBe(GAME_IDS.length - 1);
   });
 
   it('ignores non-navigation keys', () => {
