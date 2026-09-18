@@ -6,7 +6,10 @@ const fakeImg = (src: string) => ({ src, ok: true }) as unknown as HTMLImageElem
 describe('art manifest (R38)', () => {
   it('lists the first-batch files with stable names', () => {
     expect([...ART_FILES].sort()).toEqual(
-      ['cabinet-bezel.png', 'coast-lo-castle.png', 'hall-floor.png', 'splash-logo.png'].sort(),
+      [
+        'cabinet-bezel.png', 'coast-lo-castle.png', 'hall-floor.png', 'splash-logo.png',
+        'marquee-neon.png', 'coin-slot.png', 'credit-panel.png', 'wait-badge.png',
+      ].sort(),
     );
   });
 
@@ -19,9 +22,7 @@ describe('art manifest (R38)', () => {
 
   it('loader records successes and failures and never rejects (R38.4)', async () => {
     const atlas = await loadArt(async (src) => (src.includes('coast') ? null : fakeImg(src)));
-    expect(Object.keys(atlas).sort()).toEqual(
-      ['cabinet-bezel.png', 'hall-floor.png', 'splash-logo.png'].sort(),
-    );
+    expect(Object.keys(atlas).sort()).toEqual(ART_FILES.filter((f) => !f.includes('coast')).sort());
     expect(atlas['splash-logo.png']).toBeTruthy();
     expect(atlas['coast-lo-castle.png']).toBeUndefined();
     expect(artGet(atlas, 'coast-lo-castle.png')).toBeUndefined();

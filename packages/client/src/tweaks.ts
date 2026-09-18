@@ -265,3 +265,30 @@ export function scoreCrawlOffset(ms: number, rowH: number, period: number): numb
   const p = (Math.max(0, ms) % period) / period;
   return p * (rowH * 4);
 }
+
+/** animated wait dots: 0-3 cycling over the period, deterministic (R43) */
+export function waitDots(tick: number, period: number): number {
+  if (period <= 0) return 0;
+  const t = ((Math.trunc(tick) % period) + period) % period;
+  return Math.floor((t / period) * 4);
+}
+
+/** linear-decay envelope for the coin-slot thunk; silent outside the window (R44) */
+export function thunkEnvelope(tMs: number, durMs: number): number {
+  if (durMs <= 0 || tMs < 0 || tMs >= durMs) return 0;
+  return 1 - tMs / durMs;
+}
+
+/** HH:MM 24h at an injected timezone offset; never reads the clock itself (R45) */
+export function formatHallClock(epochMs: number, tzOffsetMin: number): string {
+  const local = new Date(epochMs + tzOffsetMin * 60_000);
+  const hh = String(local.getUTCHours()).padStart(2, '0');
+  const mm = String(local.getUTCMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+/** thank-you exit flash window: from sinceMs, for durMs, never retroactive (R47) */
+export function exitToastVisible(sinceMs: number, nowMs: number, durMs: number): boolean {
+  const elapsed = nowMs - sinceMs;
+  return elapsed >= 0 && elapsed < durMs;
+}

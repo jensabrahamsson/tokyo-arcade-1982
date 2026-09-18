@@ -5,6 +5,10 @@ export const ART_FILES = [
   'cabinet-bezel.png',
   'coast-lo-castle.png',
   'splash-logo.png',
+  'marquee-neon.png',
+  'coin-slot.png',
+  'credit-panel.png',
+  'wait-badge.png',
 ] as const;
 
 export type ArtFile = (typeof ART_FILES)[number];
