@@ -1,0 +1,8 @@
+PLAYTEST-UX från Jens (inte ett nytt feature-pack — gör detta efter/under pågående arbete, docs-first om nytt R-ID behövs):
+
+**Fullscreen när man spelar**
+- När användaren är i spelet/hallen: erbjud eller gå automatiskt till browser-fullscreen (Fullscreen API) så CRT/canvas fyller skärmen utan chrome.
+- Exit: Esc / vanlig browser-exit; ingen låst kiosk utan escape.
+- Gärna en synlig hint första gången ("F för fullscreen" eller auto-prompt efter splash) — canvas-only, inga alert().
+- Fungerar på Chrome/Safari desktop; graceful no-op om API saknas.
+- Tester: ren helper för "should request fullscreen" / hint-visibility om logiken extraheras; manuell check ok för själva Fullscreen API.
