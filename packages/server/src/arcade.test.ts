@@ -236,6 +236,60 @@ describe('Arcade', () => {
     expect(snap?.data.paddles['c1']!.x).toBe(moved);
   });
 
+  const hallMsgs = (c = 'c1') =>
+    net.take(c).filter((m) => m.type === 'hallTables') as {
+      type: 'hallTables';
+      cabinets: { game: string; demo: boolean; phase: string; data: unknown }[];
+    }[];
+
+  it('the hall runs attract demos for every cabinet (R8)', () => {
+    arcade.handleMessage('c1', { type: 'hall', watch: true });
+    for (let i = 0; i < 20; i++) arcade.tick();
+    const halls = hallMsgs('c1');
+    expect(halls.length).toBeGreaterThan(0);
+    const latest = halls[halls.length - 1]!;
+    expect(latest.cabinets.map((c) => c.game).sort()).toEqual(
+      ['block', 'galaxy', 'myriad', 'puck', 'river', 'snake'].sort(),
+    );
+    expect(latest.cabinets.every((c) => c.demo)).toBe(true);
+    expect(latest.cabinets.every((c) => c.data !== null)).toBe(true);
+  });
+
+  it('demo tables never appear in the joinable roster', () => {
+    const r = roster('c1');
+    expect(r.tables).toHaveLength(0);
+  });
+
+  it('coin takes the cabinet over: start replaces the demo immediately', () => {
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'solo' });
+    for (let i = 0; i < 5; i++) arcade.tick();
+    const snap = net.last<{ table: { game: string; phase: string; players: unknown[] } }>('c1', 'snapshot');
+    expect(snap?.table.game).toBe('snake');
+    expect(snap?.table.phase).toBe('playing');
+    expect(snap?.table.players).toHaveLength(1);
+    arcade.handleMessage('c1', { type: 'hall', watch: true });
+    for (let i = 0; i < 10; i++) arcade.tick();
+    const snake = hallMsgs('c1').at(-1)?.cabinets.find((c) => c.game === 'snake');
+    expect(snake?.demo).toBe(false);
+  });
+
+  it('demos never record high scores', () => {
+    for (let i = 0; i < 40000; i++) arcade.tick();
+    for (const g of ['snake', 'puck', 'block', 'galaxy', 'river', 'myriad'] as const) {
+      const store = new HighScoreStore(join(dir, 'scores.json'));
+      expect(store.top(g, 'solo')).toHaveLength(0);
+    }
+  });
+
+  it('hall watchers get updates, unsubscribers stop', () => {
+    arcade.handleMessage('c1', { type: 'hall', watch: true });
+    for (let i = 0; i < 10; i++) arcade.tick();
+    expect(hallMsgs('c1').length).toBeGreaterThan(0);
+    arcade.handleMessage('c1', { type: 'hall', watch: false });
+    for (let i = 0; i < 20; i++) arcade.tick();
+    expect(hallMsgs('c1')).toHaveLength(0);
+  });
+
   it('ignores messages from unknown connections', () => {
     expect(() => arcade.handleMessage('nobody', { type: 'back' })).not.toThrow();
   });

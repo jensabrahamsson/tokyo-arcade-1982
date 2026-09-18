@@ -83,10 +83,72 @@ defines done. Each item is verified by a test, a live check, or both.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (175 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (210 tests, incl. real-WebSocket E2E for 2- and
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
   fixed 60 Hz tick; state is plain JSON; no DOM/Node/Math.random in core.
 - R7.4 Runs on Node 18+, macOS/Linux; build < 10 s; bundle < 200 KB.
 - R7.5 LAN scale: dozens of clients at 60 Hz without measurable lag.
+
+## R8 — Hall demo / attract mode
+
+- R8.1 Every idle cabinet in the hall runs a live attract demo of its
+  game (a deterministic built-in bot playing it), not a static poster.
+  The hall therefore always looks alive, 1982 style.
+- R8.2 Demos run server-side as seatless `demo` tables; they must never
+  record high scores and never appear in the joinable roster.
+- R8.3 A demo must not disturb live seating: humans never get routed
+  into a running demo's session, and a demo never seats or ejects
+  players.
+- R8.4 Coin/start takes the cabinet over: the first human `start`
+  replaces the demo with a real game immediately.
+- R8.5 Demos are pure core logic (`spec.demo(state, tick)`), deterministic
+  and unit-tested; the hall view shows them through the same snapshot
+  channel as live games.
+
+## R9 — Arrow keys everywhere
+
+- R9.1 Cursor keys (arrows) work everywhere a stick/menu/namepad input
+  is expected, always paired with WASD: hall navigation, cabinet select,
+  name keyboard, score screens, map, credits, and in-game stick.
+- R9.2 Menu navigation is a pure, tested helper (`nav.ts`); the namepad
+  and table-scene tests already cover arrows.
+
+## R10 — The hall, not a list
+
+- R10.1 The game select is a rendered arcade hall: floor, back wall,
+  six cabinets with lit marquees and live mini-screens fed by the demo
+  (or live) snapshots. No flat text list.
+- R10.2 A glowing "you are here" token stands at the selected cabinet;
+  navigation walks the hall with arrows/WASD.
+
+## R11 — Hall map
+
+- R11.1 A canvas map of the hall (top-down layout of floor, walls and
+  cabinets) is available at any time from the hall (`M`), with a marker
+  showing where the player currently stands.
+
+## R12 — Splash screen
+
+- R12.1 On load the client shows a splash/boot screen (marquee, build
+  line, 1982 boot flavor) for a few seconds; any key skips it to the
+  title screen.
+
+## R13 — Credits
+
+- R13.1 A credits screen names the author (Jens Abrahamsson), the
+  license (GPL-3.0-only), the stack (TypeScript, Node, ws, Canvas2D,
+  Web Audio, Vitest) and 1982 flavor; reachable from title and hall.
+
+## R14 — High-score music
+
+- R14.1 Opening the high-score board plays a chiptune jingle, and the
+  hall's score display gets a matching musical sting — synthesized via
+  the existing core note tables; zero audio files.
+
+## R15 — Polish within the frame
+
+- R15.1 Continuous polish inside the 1982 CRT + chiptune frame: hall
+  floor reflections, marquee light chase, cabinet bezels, attract color
+  cycles, coin-slot glints. No new large games, no new dependencies.

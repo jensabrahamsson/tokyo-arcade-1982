@@ -172,6 +172,15 @@ function step(state: MyriadState, inputs: Record<string, PlayerInput>): MyriadSt
   return s;
 }
 
+/** attract-mode bot: sit under the bug head and shoot up */
+function demoMyriad(state: MyriadState, tick: number): PlayerInput {
+  const head = state.segments[0];
+  if (!head) return { dir: null, button: true, seq: tick };
+  const dx = head.x - state.player.x;
+  const dir = Math.abs(dx) < 0.5 ? null : { dx: dx > 0 ? 1 : -1, dy: 0 };
+  return { dir, button: true, seq: tick };
+}
+
 export const myriadSpec: GameSpec<MyriadState> = {
   id: 'myriad',
   supportsVersus: false,
@@ -179,4 +188,5 @@ export const myriadSpec: GameSpec<MyriadState> = {
   turnBased: false,
   create: createMyriad,
   step,
+  demo: demoMyriad,
 };

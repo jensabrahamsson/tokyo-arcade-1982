@@ -200,6 +200,16 @@ function step(state: BlockState, inputs: Record<string, PlayerInput>): BlockStat
   return s;
 }
 
+/** attract-mode bot: paddle follows the ball */
+function demoBlock(state: BlockState, tick: number): PlayerInput {
+  const id = Object.keys(state.paddles)[0]!;
+  const p = state.paddles[id]!;
+  const center = p.x + p.span / 2;
+  const dx = state.ball.x - center;
+  if (Math.abs(dx) < 0.35) return { dir: null, button: false, seq: tick };
+  return { dir: dx > 0 ? { dx: 1, dy: 0 } : { dx: -1, dy: 0 }, button: false, seq: tick };
+}
+
 export const blockSpec: GameSpec<BlockState> = {
   id: 'block',
   supportsVersus: true,
@@ -207,4 +217,5 @@ export const blockSpec: GameSpec<BlockState> = {
   turnBased: false,
   create: createBlock,
   step,
+  demo: demoBlock,
 };

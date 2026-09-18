@@ -350,6 +350,51 @@ function step(state: PuckState, inputs: Record<string, PlayerInput>): PuckState 
   return tickPhase(s, 1 / 60).state;
 }
 
+/** attract-mode bot: nearest dot, away from angry ghosts (into kind ones) */
+function demoPuck(state: PuckState, tick: number): PlayerInput {
+  if (state.deathTimer > 0) return { dir: null, button: false };
+  const p = state.player;
+  const frightened = state.frightTimer > 0;
+  const danger = (c: Cell): number => {
+    let d = 0;
+    for (const g of state.ghosts) {
+      if (g.mode === 'eaten') continue;
+      const gd = Math.abs(g.x - c.x) + Math.abs(g.y - c.y);
+      const scared = g.mode === 'frightened';
+      if (frightened && scared) continue;
+      if (!frightened && scared) continue;
+      if (gd < 6) d += frightened && scared ? -10 : 10 / (gd + 1);
+    }
+    return d;
+  };
+  const dotKeys = Object.keys(state.dots).concat(Object.keys(state.powers));
+  const nearest = (from: Cell): number => {
+    let m = 999;
+    for (const k of dotKeys) {
+      const parts = k.split(',');
+      const d = Math.abs(Number(parts[0]) - from.x) + Math.abs(Number(parts[1]) - from.y);
+      if (d < m) m = d;
+    }
+    return m;
+  };
+  const options = DIR_LIST.filter(
+    (d) => passable(p.x + d.dx, p.y + d.dy, false) && !(d.dx === -p.dir.dx && d.dy === -p.dir.dy),
+  );
+  const pool = options.length > 0 ? options : DIR_LIST.filter((d) => passable(p.x + d.dx, p.y + d.dy, false));
+  if (pool.length === 0) return { dir: null, button: false };
+  let best = pool[0]!;
+  let bestScore = Infinity;
+  for (const d of pool) {
+    const target = { x: p.x + d.dx, y: p.y + d.dy };
+    const score = nearest(target) + danger(target) * 4 + (d === p.dir ? -0.5 : 0);
+    if (score < bestScore) {
+      bestScore = score;
+      best = d;
+    }
+  }
+  return { dir: best, button: false, seq: tick };
+}
+
 export const puckSpec: GameSpec<PuckState> = {
   id: 'puck',
   supportsVersus: true,
@@ -357,4 +402,5 @@ export const puckSpec: GameSpec<PuckState> = {
   turnBased: true,
   create,
   step,
+  demo: demoPuck,
 };

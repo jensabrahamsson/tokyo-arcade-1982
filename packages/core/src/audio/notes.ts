@@ -35,4 +35,10 @@ export const chiptune: Record<SfxName, SfxDef> = {
   goal: { wave: 'square', notes: ['C5', 'E5', 'C6', 'G5', 'C6'], stepMs: 80 },
   hop: { wave: 'triangle', notes: ['G4', 'C5'], stepMs: 22, volume: 0.7 },
   bounce: { wave: 'square', notes: ['A4'], stepMs: 18, volume: 0.6 },
+  jingle: {
+    wave: 'square',
+    notes: ['C5', 'E5', 'G5', 'C6', '-', 'G5', '-', 'C6', 'E6', 'G6', 'C6'],
+    stepMs: 85,
+    volume: 0.8,
+  },
 };

@@ -30,7 +30,8 @@ export type SfxName =
   | 'extraLife'
   | 'goal'
   | 'hop'
-  | 'bounce';
+  | 'bounce'
+  | 'jingle';
 
 export interface SfxEvent {
   name: SfxName;
@@ -58,6 +59,8 @@ export interface GameSpec<S extends GameStateBase> {
   create(config: GameConfig): S;
   /** Advance exactly one fixed tick. Pure and deterministic. */
   step(state: S, inputs: Record<string, PlayerInput>): S;
+  /** Attract-mode bot: pure, deterministic, plays the game for the hall (R8). */
+  demo?(state: S, tick: number): PlayerInput;
 }
 
 export type AnyGameSpec = GameSpec<GameStateBase>;

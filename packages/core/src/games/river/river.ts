@@ -167,6 +167,33 @@ const step = (state: RiverState, inputs: Record<string, PlayerInput>): RiverStat
   return s;
 };
 
+/** attract-mode bot: wait for a gap, hop forward, sidestep on car rows */
+function demoRiver(state: RiverState, tick: number): PlayerInput {
+  const frog = state.frog;
+  const seq = Math.floor(tick / 10);
+  const laneDanger = (rowY: number, x: number): boolean => {
+    for (const c of state.cars) {
+      if (c.y !== rowY) continue;
+      for (const cx of c.xs) {
+        if (x + 1.5 > cx - 1.2 && x - 0.5 < cx + c.len + 1.2) return true;
+      }
+    }
+    return false;
+  };
+  const rowAbove = frog.y - 1;
+  if (laneDanger(frog.y, frog.x) && state.moveCooldown === 0 && seq !== state.lastSeq) {
+    const away = state.cars.find((c) => c.y === frog.y)?.dir ?? 1;
+    return { dir: { dx: away > 0 ? -1 : 1, dy: 0 }, button: false, seq };
+  }
+  const waterLane = state.river.find((l) => l.y === rowAbove);
+  if (waterLane) {
+    const onLog = waterLane.xs.some((x) => frog.x + 0.5 >= x && frog.x + 0.5 < x + waterLane.len);
+    if (!onLog) return { dir: null, button: false, seq: -1 };
+  }
+  if (laneDanger(rowAbove, frog.x)) return { dir: null, button: false, seq: -1 };
+  return { dir: { dx: 0, dy: -1 }, button: false, seq };
+}
+
 export const riverSpec: GameSpec<RiverState> = {
   id: 'river',
   supportsVersus: false,
@@ -174,4 +201,5 @@ export const riverSpec: GameSpec<RiverState> = {
   turnBased: false,
   create: createRiver,
   step,
+  demo: demoRiver,
 };
