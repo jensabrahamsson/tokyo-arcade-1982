@@ -225,3 +225,67 @@ defines done. Each item is verified by a test, a live check, or both.
 - R22.5 The cabinet joins the hall: marquee, live attract demo bot
   (steer-to-center + throttle), high scores, map — like every other
   cabinet.
+
+## R23 — Operator volume / mute
+
+- R23.1 The service menu gains a 4-step master volume detent
+  (0 = mute … 3 = loud) plus an explicit MUTE toggle; both persist in
+  localStorage via pure helpers, same pattern as the CRT knobs (R19).
+- R23.2 Volume and mute affect the Web Audio output gain only — never
+  core, protocol or simulation. Mute forces gain 0; unmuting restores
+  the detent value.
+- R23.3 Unit-tested helpers: mute yields gain 0, detents are strictly
+  monotonic, persistence survives the load/save round-trip and junk
+  values fall back to the default.
+
+## R24 — Cabinet OUT OF ORDER
+
+- R24.1 The operator can mark any cabinet id out-of-order (and clear
+  it) from the service menu. Flags persist server-side under
+  ARKAD_DATA with the same validated-load discipline as service.json,
+  and every flag change is broadcast on the hall channel.
+- R24.2 An out-of-order cabinet shows an OUT OF ORDER / 故障中 overlay
+  on its marquee, its attract demo is stopped, and `start`/`coin`
+  targeting it are rejected with the clear reason `out-of-order`.
+  Spectating and all other cabinets are unaffected.
+- R24.3 Clearing the flag restores the attract demo and seating
+  immediately. Tests: store round-trip, start/coin rejection while
+  flagged, hall snapshot carries the flags, demo resumes after clear.
+
+## R25 — Join-window countdown on the cabinet
+
+- R25.1 While a versus table sits in its start-grace join window
+  (snake 2–4 etc.), both the hall mini-screen and the in-cabinet HUD
+  show the seconds left, derived from a pure helper of
+  (deadlineTick, nowTick): deterministic, clamped, unit-tested.
+- R25.2 The countdown never invents seats; it only mirrors the
+  existing server-side join-window/grace logic. When the window
+  closes (table dealt) the countdown disappears.
+
+## R26 — Pause overlay
+
+- R26.1 From a live playing seat, `P` toggles a server-authoritative
+  pause flag on the table: the simulation's `step` is skipped while
+  paused and spectators see the same frozen snapshot.
+- R26.2 A 1982 PAUSE / ポーズ overlay is drawn on the canvas (never a
+  browser dialog); `P` again resumes. Opening the pause plays a short
+  chiptune sting delivered through the existing sfx batching.
+- R26.3 Disconnect / table teardown clears the pause. Tests: `step`
+  does not advance while paused, the toggle is validated at the edge,
+  and junk pause frames are rejected.
+
+## R27 — Neon marquee scroll
+
+- R27.1 The hall marquee scrolls a short flavor string (EN/JA from
+  the existing i18n tables, kept in sync by the compiler) using a
+  pure `marqueeOffset(ms, width, period)` helper: deterministic,
+  bounded, no DOM timers, nothing in core.
+- R27.2 Presentation only: the renderer consumes the helper; no
+  protocol or simulation changes.
+
+## Constraints for R23–R27
+
+- GPL-3.0-only; canvas-only UI; chiptune only; TypeScript strict; the
+  core stays pure. Daytime rule: no browser E2E playtests requested;
+  real-ws server checks from /tmp scripts when seating/sockets are
+  touched. When green: commit, push, summary with new test count.
