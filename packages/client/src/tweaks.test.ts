@@ -5,7 +5,8 @@ import {
   attractLang, tournamentBanner, loadKnobs, saveKnobs, loadAccess, saveAccess,
   volumeGain, effectiveGain, cycleVolume, loadVolume, saveVolume, loadMuted, saveMuted,
   DEFAULT_VOLUME, joinCountdown, marqueeOffset, marqueeLamp, visibleSpectators,
-  rejectToast, toastVisible, TOAST_MS, walkBob,
+  rejectToast, toastVisible, TOAST_MS, walkBob, creditStrip,
+  freePlayBannerVisible, cabinetFocus, isNewRecord, recordFlashVisible, blinkOn,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -250,5 +251,72 @@ describe('hall walk bob (R32)', () => {
     }
     expect(new Set([0, 1, 2, 3].map(walkBob)).size).toBeGreaterThan(1);
     expect(walkBob(-1)).toBe(walkBob(3));
+  });
+});
+
+describe('credit digits strip (R33)', () => {
+  it('coin mode always shows a digit, zero included; free-play hides the strip', () => {
+    expect(creditStrip(0, false)).toBe('0');
+    expect(creditStrip(3, false)).toBe('3');
+    expect(creditStrip(12, false)).toBe('12');
+    expect(creditStrip(0, true)).toBeNull();
+    expect(creditStrip(7, true)).toBeNull();
+  });
+
+  it('never shows negative or fractional credits', () => {
+    expect(creditStrip(-4, false)).toBe('0');
+    expect(creditStrip(2.9, false)).toBe('2');
+  });
+});
+
+describe('free-play banner visibility (R34)', () => {
+  it('flies only when free-play is on', () => {
+    expect(freePlayBannerVisible(true)).toBe(true);
+    expect(freePlayBannerVisible(false)).toBe(false);
+  });
+});
+
+describe('cabinet focus ring (R35)', () => {
+  it('highlights the one cabinet the token stands on', () => {
+    expect(cabinetFocus(2, [0, 1, 2, 3])).toBe(2);
+    expect(cabinetFocus(0, [0, 1, 2, 3])).toBe(0);
+    expect(cabinetFocus(9, [0, 1, 2, 3])).toBeNull();
+    expect(cabinetFocus(1, [])).toBeNull();
+  });
+
+  it('is deterministic and picks the first match on duplicated tiles', () => {
+    expect(cabinetFocus(5, [7, 5, 5])).toBe(1);
+    expect(cabinetFocus(5, [7, 5, 5])).toBe(1);
+  });
+});
+
+describe('new-record flash (R36)', () => {
+  it('enters the table when it beats the last slot or the table is not full', () => {
+    expect(isNewRecord(100, [200, 150, 90], 3)).toBe(true); // 100 > 90
+    expect(isNewRecord(80, [200, 150, 90], 3)).toBe(false);
+    expect(isNewRecord(1, [200], 3)).toBe(true); // room left
+    expect(isNewRecord(0, [], 3)).toBe(false); // zero never enters
+    expect(isNewRecord(50, [50, 40], 3)).toBe(true); // 2 rows of 3: room
+    expect(isNewRecord(50, [50, 40, 30], 3)).toBe(true); // ties enter
+  });
+
+  it('auto-clears after its window', () => {
+    expect(recordFlashVisible(1000, 1000)).toBe(true);
+    expect(recordFlashVisible(1000, 3599)).toBe(true);
+    expect(recordFlashVisible(1000, 3600)).toBe(false);
+  });
+});
+
+describe('attract blink (R37)', () => {
+  it('is a deterministic duty-cycle square wave', () => {
+    expect(blinkOn(0, 20, 0.5)).toBe(true);
+    expect(blinkOn(9, 20, 0.5)).toBe(true);
+    expect(blinkOn(10, 20, 0.5)).toBe(false);
+    expect(blinkOn(19, 20, 0.5)).toBe(false);
+    expect(blinkOn(20, 20, 0.5)).toBe(true); // wraps
+    expect(blinkOn(5, 20, 1)).toBe(true);
+    expect(blinkOn(5, 20, 0)).toBe(false);
+    expect(blinkOn(5, 0, 0.5)).toBe(false); // no period, no blink
+    expect(blinkOn(-3, 20, 0.5)).toBe(blinkOn(17, 20, 0.5));
   });
 });

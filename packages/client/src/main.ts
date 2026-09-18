@@ -28,7 +28,8 @@ import {
   DEFAULT_KNOBS, cycleKnob, crtFilterCss, scanlineOpacity, nextAccess,
   loadKnobs, saveKnobs, loadAccess, saveAccess, attractLang, tournamentBanner,
   volumeGain, effectiveGain, cycleVolume, loadVolume, saveVolume, loadMuted, saveMuted,
-  joinCountdown, marqueeOffset, marqueeLamp, visibleSpectators, rejectToast, toastVisible, TOAST_MS, walkBob, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  joinCountdown, marqueeOffset, marqueeLamp, visibleSpectators, rejectToast, toastVisible, TOAST_MS, walkBob, creditStrip,
+  freePlayBannerVisible, cabinetFocus, isNewRecord, recordFlashVisible, blinkOn, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -73,6 +74,9 @@ let pendingMode: GameMode = 'solo';
 let namePad: NamePad = createNamePad();
 let sel = 0;
 let hallSteps = 0;
+let recordFlashAt = 0;
+let recordCheckedFor = '';
+let pendingRecord: { tableId: string; game: GameId; mode: GameMode; myScore: number } | null = null;
 type GameInfo = { id: GameId; solo: boolean; versus: boolean };
 let world = {
   myId: '',
@@ -106,9 +110,18 @@ net.onMessage((msg: ServerMessage) => {
       lastSnapAt = performance.now();
       audio.playEvents(msg.events ?? []);
       break;
-    case 'scoreList':
-      world.scores = msg as ScoreListMsg;
+    case 'scoreList': {
+      const list = msg as ScoreListMsg;
+      world.scores = list;
+      if (pendingRecord && list.game === pendingRecord.game && list.mode === pendingRecord.mode) {
+        if (isNewRecord(pendingRecord.myScore, list.entries.map((e) => e.score), 10)) {
+          recordFlashAt = performance.now();
+          audio.play('extraLife');
+        }
+        pendingRecord = null;
+      }
       break;
+    }
     case 'hallTables':
       world.hall = msg as HallTablesMsg;
       break;
@@ -333,6 +346,19 @@ function update(ms: number): void {
       net.send({ type: 'input', dir, button, seq: ++inputSeq });
     }
     if (keys.take('KeyB', 'Escape')) back();
+    if (world.snap?.table.phase === 'gameOver') {
+      const mine = world.snap.table.players.find((pl) => pl.id === world.myId);
+      if (mine && recordCheckedFor !== world.snap.table.id) {
+        recordCheckedFor = world.snap.table.id;
+        pendingRecord = {
+          tableId: world.snap.table.id,
+          game: world.snap.table.game,
+          mode: world.snap.table.mode,
+          myScore: mine.score,
+        };
+        net.send({ type: 'scores', game: pendingRecord.game, mode: pendingRecord.mode });
+      }
+    }
     if (keys.take('KeyP') && world.snap?.table.players.some((p) => p.id === world.myId)) {
       net.send({ type: 'pause' });
       audio.unlock();
@@ -390,6 +416,14 @@ function renderGame(ms: number): void {
   if (!iAmSeated) px(ctx, t('misc.spectate'), 8, 230, 8, PAL.gray);
   const crowd = visibleSpectators(snap.table.spectators ?? 0);
   if (crowd !== null) px(ctx, `${t('hall.watching')} ${crowd}`, CANVAS_W - 6, 230, 8, PAL.cyan, 'right');
+  const myStrip = creditStrip(snap.credits ?? 0, world.hall?.freePlay ?? false);
+  if (myStrip !== null) px(ctx, `${t('hall.credits')} ${myStrip}`, 8, 222, 8, PAL.yellow);
+  if (recordFlashVisible(recordFlashAt, performance.now())) {
+    const f = Math.floor(performance.now() / 180) % 2 === 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 84, CANVAS_W, 52);
+    px(ctx, t('record.new'), CANVAS_W / 2, 92, 18, f ? PAL.yellow : PAL.white, 'center');
+  }
   if (snap.table.paused) {
     ctx.fillStyle = 'rgba(0,0,0,0.62)';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
@@ -436,7 +470,13 @@ function cabinetScreenData(game: GameId): { data: unknown; demo: boolean } | nul
   return cab && cab.data !== null ? { data: cab.data, demo: cab.demo } : null;
 }
 
-function renderCabinet(slot: (typeof HALL_SLOTS)[number], i: number, ms: number, selected: boolean): void {
+function renderCabinet(
+  slot: (typeof HALL_SLOTS)[number],
+  i: number,
+  ms: number,
+  selected: boolean,
+  focusIdx: number | null = null,
+): void {
   const { x, y, w } = slot;
   const screenX = x + 6;
   const screenY = y + 16;
@@ -497,9 +537,26 @@ function renderCabinet(slot: (typeof HALL_SLOTS)[number], i: number, ms: number,
     ctx.fillStyle = PAL.navy;
     for (let sy = 0; sy < screenH; sy += 4) ctx.fillRect(screenX + ((ms / 13 + sy * 7) % screenW), screenY + sy, 3, 1);
   }
+  if (focusIdx === i) {
+    ctx.strokeStyle = PAL.cyan;
+    ctx.strokeRect(x - 3.5, y - 3.5, w + 7, slot.h + 7);
+  }
   if (selected) {
     ctx.strokeStyle = blink(ms, 400) ? PAL.yellow : PAL.orange;
     ctx.strokeRect(x - 1.5, y - 1.5, w + 3, slot.h + 3);
+  }
+  // R33 credit digits: yours on every cabinet you point at; free-play hides them,
+  // OOO wins visually (the marquee overlay already claims attention)
+  const strip = creditStrip(world.hall?.credits ?? 0, world.hall?.freePlay ?? false);
+  if (strip !== null && lamp !== 'out-of-order') {
+    px(ctx, `${t('hall.credits')} ${strip}`, x + w - 2, y + slot.h - 8, 7, PAL.yellow, 'right');
+  }
+  // R37 attract INSERT COIN blink: idle cabinets only, OOO and live win first
+  if (lamp === 'idle' && !isOoo(slot.game) && !(world.hall?.freePlay ?? false)
+    && blinkOn(Math.floor(ms / 320), 6, 0.5)) {
+    ctx.strokeStyle = PAL.orange;
+    ctx.strokeRect(screenX + 0.5, screenY + 0.5, screenW - 1, screenH - 1);
+    px(ctx, t('hall.insertCoin'), screenX + screenW / 2, screenY + screenH / 2, 8, PAL.yellow, 'center');
   }
 }
 
@@ -528,12 +585,21 @@ function renderHall(ms: number): void {
   const freePlay = world.hall?.freePlay ?? false;
   px(ctx, freePlay ? 'FREE PLAY' : 'COIN 1C', CANVAS_W - 6, 2, 8, freePlay && blink(ms, 500) ? PAL.lime : PAL.orange, 'right');
   // R21.1 tournament banner with 1982 color chase
+  if (freePlayBannerVisible(world.hall?.freePlay ?? false)) {
+    const fp = t('hall.freePlay');
+    const w = ctx.measureText(fp).width;
+    ctx.fillStyle = PAL.navy;
+    ctx.fillRect(cx - 60, CANVAS_H - 56, 120, 12);
+    px(ctx, fp, cx, CANVAS_H - 54, 9, blink(ms, 500) ? PAL.lime : PAL.cyan, 'center');
+    void w;
+  }
   const banner = tournamentBanner((world.hall?.cabinets ?? []) as BannerCabinet[], ms);
   const bannerColors = [PAL.red, PAL.orange, PAL.yellow, PAL.lime, PAL.cyan, PAL.magenta];
   px(ctx, banner.text, cx, 24, 9, bannerColors[banner.colorIdx]!, 'center');
 
   // six cabinets on the floor
-  HALL_SLOTS.forEach((slot, i) => renderCabinet(slot, i, ms, i === sel));
+  const focusIdx = cabinetFocus(sel, HALL_SLOTS.map((_s, i) => i));
+  HALL_SLOTS.forEach((slot, i) => renderCabinet(slot, i, ms, i === sel, focusIdx));
 
   // carpet with neon grid
   const floorY = FLOOR_Y;
