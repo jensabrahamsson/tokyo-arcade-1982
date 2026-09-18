@@ -59,7 +59,7 @@ for *what*, `ARCHITECTURE.md` for *where*, this file for *how*.
 ## Layout & commands
 
 ```
-packages/core     engine/, games/<6>/, protocol/, i18n/, audio/, difficulty/
+packages/core     engine/, games/<7>/, protocol/, i18n/, audio/, difficulty/
 packages/server   http.ts, arcade.ts, session.ts, highscores.ts
 packages/client   main.ts, net.ts, input.ts, namepad.ts, audio/, renderers/, static/
 ```

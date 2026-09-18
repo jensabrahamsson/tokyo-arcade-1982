@@ -28,6 +28,7 @@ Env: `ARKAD_PORT` (default 8442), `ARKAD_DATA` (default `./data`).
 | GALAXY RAIDER / ギャラクシーレイダー | Galaga | ✅ | — |
 | RIVER FROG / カエルのリバー | Frogger | ✅ | — |
 | MYRIAD / ムカデ | Centipede | ✅ | — |
+| COAST RUNNER / コーストランナー | OutRun (1986) — the road to **LO Castle**, Liseberg | ✅ | — |
 
 ## Controls
 
@@ -84,7 +85,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 233 tests across engine, games, server, client
+npm test          # vitest: 248 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```

@@ -256,7 +256,7 @@ describe('Arcade', () => {
     expect(halls.length).toBeGreaterThan(0);
     const latest = halls[halls.length - 1]!;
     expect(latest.cabinets.map((c) => c.game).sort()).toEqual(
-      ['block', 'galaxy', 'myriad', 'puck', 'river', 'snake'].sort(),
+      ['block', 'coast', 'galaxy', 'myriad', 'puck', 'river', 'snake'].sort(),
     );
     expect(latest.cabinets.every((c) => c.demo)).toBe(true);
     expect(latest.cabinets.every((c) => c.data !== null)).toBe(true);

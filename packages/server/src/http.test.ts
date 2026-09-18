@@ -120,7 +120,7 @@ describe('game server (real websockets)', () => {
       type: 'hallTables';
       cabinets: { game: string; demo: boolean; data: unknown }[];
     }>('hallTables');
-    expect(hall.cabinets).toHaveLength(6);
+    expect(hall.cabinets).toHaveLength(7);
     expect(hall.cabinets.every((c) => c.demo && c.data !== null)).toBe(true);
     const snake = hall.cabinets.find((c) => c.game === 'snake')!;
     await new Promise((r) => setTimeout(r, 150));

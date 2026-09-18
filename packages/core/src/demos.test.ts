@@ -7,6 +7,7 @@ import { blockSpec, type BlockState } from './games/block/block';
 import { riverSpec, type RiverState } from './games/river/river';
 import { galaxySpec, type GalaxyState } from './games/galaxy/galaxy';
 import { myriadSpec, type MyriadState } from './games/myriad/myriad';
+import { coastSpec, type CoastState } from './games/coast/coast';
 import type { AnyGameSpec, GameSpec, PlayerInput, GameStateBase } from './engine/types';
 import type { Dir } from './engine/vec';
 
@@ -103,6 +104,16 @@ describe('demo bots actually play their cabinets', () => {
       if (s.bullets.length > 0) fired = true;
     }
     expect(fired).toBe(true);
+  });
+
+  it('coast bot reaches the first checkpoint within 2000 ticks', () => {
+    let s: CoastState = { ...coastSpec.create(cfg('coast')), phase: 'playing' };
+    let reached = false;
+    for (let i = 0; i < 2000 && s.phase === 'playing'; i++) {
+      s = coastSpec.step(s, { demo: coastSpec.demo!(s, i) });
+      if (s.checkpoints >= 1) reached = true;
+    }
+    expect(reached).toBe(true);
   });
 
   it('river bot crosses (hops up at least once) within 400 ticks', () => {

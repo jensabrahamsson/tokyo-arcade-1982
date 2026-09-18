@@ -26,6 +26,8 @@ export const EN = {
   'game.galaxy.tag': 'DEFEND THE SKY',
   'game.river': 'RIVER FROG',
   'game.river.tag': 'CROSS THE BUSY RIVER',
+  'game.coast': 'COAST RUNNER',
+  'game.coast.tag': 'RUN TO LO CASTLE',
   'game.myriad': 'MYRIAD',
   'game.myriad.tag': 'DONT TOUCH THE BUG',
   'hud.score': 'SCORE',
