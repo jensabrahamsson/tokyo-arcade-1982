@@ -83,7 +83,7 @@ defines done. Each item is verified by a test, a live check, or both.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (210 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (233 tests, incl. real-WebSocket E2E for 2- and
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
@@ -152,3 +152,56 @@ defines done. Each item is verified by a test, a live check, or both.
 - R15.1 Continuous polish inside the 1982 CRT + chiptune frame: hall
   floor reflections, marquee light chase, cabinet bezels, attract color
   cycles, coin-slot glints. No new large games, no new dependencies.
+
+## R16 — Operator service menu
+
+- R16.1 A hidden key combination (hold `Shift` + `S`) from the title or
+  hall opens the operator service menu, 1982 bookkeeping style.
+- R16.2 It shows real server-side bookkeeping: total plays, total coin
+  drops, free-play mode and server uptime; counters persist across
+  restarts under `ARKAD_DATA/service.json` and survive corrupt files.
+- R16.3 The service menu exits cleanly back to the hall and must never
+  disturb or crash live tables (it only reads stats and toggles R17).
+
+## R17 — Free play vs coin mode
+
+- R17.1 The operator toggles the hall between coin mode (default) and
+  free play from the service menu; the setting persists.
+- R17.2 In coin mode `start` requires a credit: one `coin` per player
+  per game; a start without credit is rejected with `insert-coin` and
+  seats nobody. Spectating stays free.
+- R17.3 The current mode is displayed in the hall as a badge (COIN 1C /
+  FREE PLAY) delivered on the hall channel.
+
+## R18 — Insert-coin animation
+
+- R18.1 In coin mode, pressing start on a cabinet plays a short
+  coin-insert animation at the cabinet slot plus the chiptune coin sfx
+  before the game takes over the demo.
+- R18.2 Contract stays clean: the client inserts a `coin` message, then
+  `start` after the animation; the server gates credits, not vibes.
+  No audio files, no browser dialogs.
+
+## R19 — CRT knobs
+
+- R19.1 Three operator knobs — brightness, contrast, scanline density —
+  adjustable from the service menu, each a 3-step detent.
+- R19.2 Knobs affect presentation only (CSS filter / overlay opacity
+  computed by one pure helper) and persist in localStorage; they never
+  touch the simulation or protocol.
+
+## R20 — Language attract cycle
+
+- R20.1 Attract text (hall sign, marquee flavor lines) cycles EN ↔ JA
+  on a fixed period using the existing i18n tables, via a pure helper
+  `attractLang(ms, period)` — deterministic and unit-tested.
+
+## R21 — Tournament banner & accessibility palette
+
+- R21.1 The hall shows a tournament banner derived from the live
+  high-score board (leader name + score, 1982 color chase), computed by
+  a pure helper with a default banner when the board is empty.
+- R21.2 An accessibility palette mode (high contrast / color-blind
+  assist) is toggleable from the service menu and credits; it only
+  remaps presentation colors (pure helper + CSS filter) and persists in
+  localStorage — no new dependencies, no sim changes.

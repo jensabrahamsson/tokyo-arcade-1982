@@ -85,6 +85,11 @@ node dist/server/index.cjs   # ARKAD_PORT / ARKAD_DATA
   by the server inside snapshot batches — never call audio from core.
 - Server resilience: per-table `try/catch` in `tick()`, `ws.on('error')`
   everywhere, store writes that log instead of throw.
+- Presentation-only state (CRT knobs, accessibility mode) lives in
+  localStorage via pure helpers and must never reach core, protocol or
+  simulation. Operator bookkeeping (coins, plays, free-play) lives
+  server-side in `ServiceStore` and is validated at the edge like
+  everything else.
 
 ## Definition of done
 

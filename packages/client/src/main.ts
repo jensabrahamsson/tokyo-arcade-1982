@@ -23,6 +23,12 @@ import { renderRiver } from './renderers/river';
 import { renderMyriad } from './renderers/myriad';
 import { createNamePad, moveCursor, pressKey, keyAt, type NamePad } from './namepad';
 import { HALL_SLOTS, MAP_SLOTS, FLOOR_Y, moveHallSel } from './hall';
+import {
+  DEFAULT_KNOBS, cycleKnob, crtFilterCss, scanlineOpacity, nextAccess,
+  loadKnobs, saveKnobs, loadAccess, saveAccess, attractLang, tournamentBanner,
+  type CrtKnobs, type AccessMode, type BannerCabinet,
+} from './tweaks';
+import type { StatsReplyMsg } from '@arkad/core';
 
 const t = (key: Parameters<typeof translate>[1], params?: Record<string, string | number>) =>
   translate(lang, key, params);
@@ -46,10 +52,17 @@ const keys = new Keys();
 const audio = new Chiptune();
 
 let lang: Lang = (localStorage.getItem('arkad-lang') as Lang) === 'ja' ? 'ja' : 'en';
-type Scene = 'splash' | 'title' | 'name' | 'hall' | 'map' | 'table' | 'scores' | 'credits';
+type Scene = 'splash' | 'title' | 'name' | 'hall' | 'map' | 'table' | 'scores' | 'credits' | 'service' | 'coinInsert';
 let scene: Scene = 'splash';
 const bootAt = performance.now();
 let creditsFrom: Scene = 'title';
+let serviceFrom: Scene = 'title';
+let knobs: CrtKnobs = loadKnobs(localStorage, DEFAULT_KNOBS);
+let access: AccessMode = loadAccess(localStorage, 'normal');
+let stats: StatsReplyMsg | null = null;
+let statsAskedAt = 0;
+let coinInsertAt = 0;
+let pendingMode: GameMode = 'solo';
 let namePad: NamePad = createNamePad();
 let sel = 0;
 type GameInfo = { id: GameId; solo: boolean; versus: boolean };
@@ -90,6 +103,9 @@ net.onMessage((msg: ServerMessage) => {
       break;
     case 'hallTables':
       world.hall = msg as HallTablesMsg;
+      break;
+    case 'statsReply':
+      stats = msg as StatsReplyMsg;
       break;
     case 'error':
       world.error = (msg as { code: string }).code;
@@ -137,6 +153,21 @@ function confirmName(): void {
 }
 
 function startGame(mode: GameMode): void {
+  const coinMode = world.hall ? !world.hall.freePlay : false;
+  if (coinMode) {
+    // R18: the coin goes in first, the game takes the cabinet over after
+    audio.unlock();
+    net.send({ type: 'coin' });
+    audio.play('coin');
+    pendingMode = mode;
+    coinInsertAt = performance.now();
+    scene = 'coinInsert';
+    return;
+  }
+  beginGame(mode);
+}
+
+function beginGame(mode: GameMode): void {
   const game = GAME_IDS[sel]!;
   net.send({ type: 'hall', watch: false });
   net.send({ type: 'start', game, mode });
@@ -145,6 +176,26 @@ function startGame(mode: GameMode): void {
   lastSentDir = null;
   lastSentBtn = false;
   scene = 'table';
+}
+
+function applyPresentation(): void {
+  canvas.style.filter = crtFilterCss(knobs, access);
+  const scan = document.querySelector('.scanlines') as HTMLElement | null;
+  if (scan) scan.style.opacity = String(scanlineOpacity(knobs, access));
+}
+
+function openService(from: Scene): void {
+  serviceFrom = from;
+  scene = 'service';
+  net.send({ type: 'stats' });
+  statsAskedAt = performance.now();
+}
+
+function toggleFreePlay(): void {
+  const now = world.hall ? !world.hall.freePlay : true;
+  net.send({ type: 'freePlay', on: now });
+  if (world.hall) world.hall = { ...world.hall, freePlay: now };
+  net.send({ type: 'stats' });
 }
 
 function back(): void {
@@ -169,6 +220,27 @@ function update(ms: number): void {
       scene = 'title';
       keys.clear();
     }
+  } else if (scene === 'coinInsert') {
+    if (performance.now() - coinInsertAt > 750 || keys.take('Space', 'Enter')) beginGame(pendingMode);
+  } else if (scene === 'service') {
+    if (performance.now() - statsAskedAt > 2000) {
+      net.send({ type: 'stats' });
+      statsAskedAt = performance.now();
+    }
+    if (keys.take('KeyF')) toggleFreePlay();
+    if (keys.take('KeyA')) {
+      access = nextAccess(access);
+      saveAccess(localStorage, access);
+      applyPresentation();
+    }
+    for (const k of ['KeyQ', 'KeyW', 'KeyE']) {
+      if (keys.take(k)) {
+        knobs = cycleKnob(knobs, k);
+        saveKnobs(localStorage, knobs);
+        applyPresentation();
+      }
+    }
+    if (keys.take('Escape', 'KeyB')) scene = serviceFrom === 'hall' ? 'hall' : 'title';
   } else if (scene === 'title') {
     if (keys.take('Space', 'Enter', 'NumpadEnter')) {
       if (joined) enterHall();
@@ -178,6 +250,7 @@ function update(ms: number): void {
       creditsFrom = 'title';
       scene = 'credits';
     }
+    if (keys.isHeld('ShiftLeft', 'ShiftRight') && keys.take('KeyS')) openService('title');
     if (keys.take('KeyL')) toggleLang();
   } else if (scene === 'name') {
     if (keys.take('ArrowLeft', 'KeyA')) namePad = moveCursor(namePad, { dr: 0, dc: -1 });
@@ -202,10 +275,16 @@ function update(ms: number): void {
       creditsFrom = 'hall';
       scene = 'credits';
     }
+    if (keys.isHeld('ShiftLeft', 'ShiftRight') && keys.take('KeyS')) openService('hall');
     if (keys.take('KeyL')) toggleLang();
   } else if (scene === 'map') {
     if (keys.take('KeyM', 'Escape', 'KeyB')) scene = 'hall';
   } else if (scene === 'credits') {
+    if (keys.take('KeyA')) {
+      access = nextAccess(access);
+      saveAccess(localStorage, access);
+      applyPresentation();
+    }
     if (keys.take('Escape', 'KeyB', 'KeyC')) scene = creditsFrom === 'hall' ? 'hall' : 'title';
   } else if (scene === 'table') {
     const dir = keys.heldDir();
@@ -358,7 +437,15 @@ function renderHall(ms: number): void {
   ctx.fillRect(0, 0, CANVAS_W, 34);
   ctx.fillStyle = '#191327';
   ctx.fillRect(0, 34, CANVAS_W, 12);
-  px(ctx, t('hall.name'), cx, 2, 8, PAL.gray, 'center');
+  const attract = attractLang(ms);
+  px(ctx, translate(attract, 'hall.name'), cx, 2, 8, PAL.gray, 'center');
+  // R17.3 coin badge, delivered on the hall channel
+  const freePlay = world.hall?.freePlay ?? false;
+  px(ctx, freePlay ? 'FREE PLAY' : 'COIN 1C', CANVAS_W - 6, 2, 8, freePlay && blink(ms, 500) ? PAL.lime : PAL.orange, 'right');
+  // R21.1 tournament banner with 1982 color chase
+  const banner = tournamentBanner((world.hall?.cabinets ?? []) as BannerCabinet[], ms);
+  const bannerColors = [PAL.red, PAL.orange, PAL.yellow, PAL.lime, PAL.cyan, PAL.magenta];
+  px(ctx, banner.text, cx, 24, 9, bannerColors[banner.colorIdx]!, 'center');
 
   // six cabinets on the floor
   HALL_SLOTS.forEach((slot, i) => renderCabinet(slot, i, ms, i === sel));
@@ -443,6 +530,48 @@ function renderCredits(ms: number): void {
   if (blink(ms)) px(ctx, `ESC: ${t('menu.back')}`, cx, 196, 9, PAL.yellow, 'center');
 }
 
+function knobMark(level: 0 | 1 | 2): string {
+  return `${'-'.repeat(level)}${level === 0 ? '' : ''}${'▮'.repeat(0)}${['○', '◐', '●'][level]}`;
+}
+
+function renderService(ms: number): void {
+  const cx = CANVAS_W / 2;
+  px(ctx, 'OPERATOR ONLY', cx, 8, 12, PAL.red, 'center');
+  px(ctx, t('service.title'), cx, 26, 10, PAL.yellow, 'center');
+  const up = stats ? `${Math.floor(stats.uptimeSec / 60)}:${String(stats.uptimeSec % 60).padStart(2, '0')}` : '--:--';
+  px(ctx, `PLAYS ${stats?.plays ?? 0}   COINS ${stats?.coins ?? 0}`, 40, 52, 9, PAL.white);
+  px(ctx, `UPTIME ${up}`, 40, 66, 9, PAL.white);
+  px(ctx, `MODE: ${stats?.freePlay ?? false ? 'FREE PLAY' : 'COIN 1C'}`, 40, 80, 9, (stats?.freePlay ?? false) ? PAL.lime : PAL.orange);
+  px(ctx, `BRIGHT ${knobMark(knobs.brightness)}  CONTRAST ${knobMark(knobs.contrast)}  SCAN ${knobMark(knobs.scanlines)}`, 40, 102, 9, PAL.cyan);
+  px(ctx, `ACCESS: ${access.toUpperCase()}`, 40, 116, 9, access === 'normal' ? PAL.gray : PAL.yellow);
+  px(ctx, 'Q/W/E: KNOB   F: FREE PLAY   A: ACCESS', cx, 146, 8, PAL.white, 'center');
+  px(ctx, `ESC: ${t('menu.back')}`, cx, 160, 8, PAL.gray, 'center');
+  px(ctx, 'DO NOT ADJUST DURING PLAY', cx, 186, 8, blink(ms, 900) ? PAL.red : PAL.darkred, 'center');
+  drawError();
+}
+
+function renderCoinInsert(ms: number): void {
+  const cx = CANVAS_W / 2;
+  const t0 = performance.now() - coinInsertAt;
+  px(ctx, t('hall.insertCoin'), cx, 40, 10, PAL.yellow, 'center');
+  // cabinet slot
+  ctx.fillStyle = PAL.navy;
+  ctx.fillRect(cx - 26, 96, 52, 60);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(cx - 3, 104, 6, 26);
+  // the coin dropping in
+  const drop = Math.min(1, t0 / 420);
+  ctx.fillStyle = PAL.yellow;
+  ctx.beginPath();
+  ctx.arc(cx, 60 + drop * 48, 6, 0, Math.PI * 2);
+  ctx.fill();
+  if (t0 > 420 && blink(ms, 150)) {
+    ctx.fillStyle = PAL.white;
+    ctx.fillRect(cx - 8, 100, 16, 2);
+  }
+  px(ctx, t('hall.pressStart'), cx, 176, 8, PAL.gray, 'center');
+}
+
 function renderTitle(ms: number): void {
   const cx = CANVAS_W / 2;
   const title = t('app.title');
@@ -461,7 +590,8 @@ function renderTitle(ms: number): void {
 
   const idx = Math.floor(ms / 2200) % GAME_IDS.length;
   const g = GAME_IDS[idx]!;
-  px(ctx, `${translate('en', `game.${g}` as never)} / ${translate('ja', `game.${g}` as never)}`, cx, 130, 8, PAL.gray, 'center');
+  const flavorLang = attractLang(ms, 3000);
+  px(ctx, translate(flavorLang, `game.${g}` as never), cx, 130, 8, PAL.gray, 'center');
   px(ctx, t(`game.${g}.tag` as never), cx, 144, 8, PAL.cyan, 'center');
 
   if (blink(ms)) px(ctx, t('hall.insertCoin'), cx, 176, 12, PAL.yellow, 'center');
@@ -535,7 +665,9 @@ function frame(ms: number): void {
     if (world.snap) renderGame(ms);
     else px(ctx, t('lobby.waiting'), CANVAS_W / 2, 116, 10, PAL.gray, 'center');
   } else if (scene === 'scores') renderScores(ms);
-  requestAnimationFrame(frame);
+  applyPresentation();
+requestAnimationFrame(frame);
 }
 
+applyPresentation();
 requestAnimationFrame(frame);

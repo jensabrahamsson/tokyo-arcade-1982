@@ -33,12 +33,35 @@ export interface ScoresMsg {
 export interface BackMsg {
   type: 'back';
 }
+/** insert one credit into the cabinet (R17/R18) */
+export interface CoinMsg {
+  type: 'coin';
+}
+/** operator bookkeeping request (R16) */
+export interface StatsMsg {
+  type: 'stats';
+}
+/** operator free-play toggle (R17) */
+export interface FreePlayMsg {
+  type: 'freePlay';
+  on: boolean;
+}
 /** subscribe/unsubscribe to the hall's live cabinet board (R8) */
 export interface HallMsg {
   type: 'hall';
   watch: boolean;
 }
-export type ClientMessage = JoinMsg | SetNameMsg | StartMsg | InputMsg | ScoresMsg | BackMsg | HallMsg;
+export type ClientMessage =
+  | JoinMsg
+  | SetNameMsg
+  | StartMsg
+  | InputMsg
+  | ScoresMsg
+  | BackMsg
+  | HallMsg
+  | CoinMsg
+  | StatsMsg
+  | FreePlayMsg;
 
 export interface TablePlayerView {
   id: string;
@@ -102,8 +125,24 @@ export interface HallCabinet {
 export interface HallTablesMsg {
   type: 'hallTables';
   cabinets: HallCabinet[];
+  /** coin mode badge for the hall (R17.3) */
+  freePlay: boolean;
 }
-export type ServerMessage = WelcomeMsg | RosterMsg | SnapshotMsg | ScoreListMsg | ErrorMsg | HallTablesMsg;
+export interface StatsReplyMsg {
+  type: 'statsReply';
+  plays: number;
+  coins: number;
+  freePlay: boolean;
+  uptimeSec: number;
+}
+export type ServerMessage =
+  | WelcomeMsg
+  | RosterMsg
+  | SnapshotMsg
+  | ScoreListMsg
+  | ErrorMsg
+  | HallTablesMsg
+  | StatsReplyMsg;
 
 const isDir = (d: unknown): d is Dir => {
   if (typeof d !== 'object' || d === null) return false;
@@ -152,6 +191,12 @@ export function parseClientMessage(raw: string): ClientMessage | null {
       return { type: 'back' };
     case 'hall':
       return typeof o.watch === 'boolean' ? { type: 'hall', watch: o.watch } : null;
+    case 'coin':
+      return { type: 'coin' };
+    case 'stats':
+      return { type: 'stats' };
+    case 'freePlay':
+      return typeof o.on === 'boolean' ? { type: 'freePlay', on: o.on } : null;
     default:
       return null;
   }
