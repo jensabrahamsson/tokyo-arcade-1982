@@ -400,3 +400,63 @@ defines done. Each item is verified by a test, a live check, or both.
   core stays pure. Real-ws server checks from /tmp scripts when
   seating/sockets/credits are touched. When green: commit, push,
   summary with the new test count.
+
+## R38 — Pixel art assets (Grok Imagine pipeline)
+
+- R38.1 Client-only art under `packages/client/static/art/` (PNG).
+  Core never loads Image/DOM/fetch. A small manifest helper (pure
+  path list) is unit-tested.
+- R38.2 Style: 1982 Tokyo arcade / CRT, limited palette, pixel feel
+  that survives 320x240 upscale. Own art / GPL-compatible — no
+  copyrighted sprites from commercial games.
+- R38.3 First batch (placeholders until Cursor drops real PNGs with
+  the same filenames): `hall-floor.png`, `cabinet-bezel.png`,
+  `coast-lo-castle.png`, `splash-logo.png`.
+- R38.4 Client loads assets async; renderers `drawImage` where they
+  fit. Missing/failed load falls back to the existing procedural
+  drawing (never a crash). Tests mock Image or cover only the
+  path/manifest helpers.
+- R38.5 AGENTS.md documents the handoff: Cursor/Grok Imagine
+  delivers PNGs into `static/art/`; OpenCode writes code/wiring only.
+  Bundle budget R7.4 — keep files small (ideally 16-32 KB each).
+
+## R39 — Attract demo speed tiers
+
+- R39.1 A pure helper `attractDemoTier(idleMs)` maps how long a
+  cabinet has stood without a human seat to slow/normal/fast;
+  attract bots tick-skip via the tier (pure `demoRuns` helper),
+  deterministic and unit-tested.
+- R39.2 Presentation: an optional tiny tier indicator; no protocol
+  change beyond what demos already use.
+
+## R40 — Cabinet power LED
+
+- R40.1 Every cabinet has a power LED: dim when idle, bright on NOW
+  PLAYING, red pulse when OUT OF ORDER. A pure `powerLed(state)`
+  helper returns color/duty; renderer-only.
+- R40.2 Unit-tested LED states with priority OOO > playing > idle.
+
+## R41 — High-score roll crawl
+
+- R41.1 On an idle cabinet mini-screen, the top-3 high scores
+  (name + score) crawl vertically via a pure
+  `scoreCrawlOffset(ms, rowH, period)` helper — deterministic, EN/JA
+  labels via the existing i18n.
+- R41.2 An empty table falls back to the existing attract text. No
+  simulation changes.
+
+## R42 — Operator note / sticker
+
+- R42.1 The service menu can set a short hall sticker string
+  (max 24 chars, validated on the server), persisted in
+  service.json.
+- R42.2 The hall shows the sticker as a 1982 canvas decal (EN/JA
+  label); empty hides it. Tests cover validation, persistence and
+  junk rejection.
+
+## Constraints for R38-R42
+
+- GPL-3.0-only; canvas-only UI; chiptune only; core stays pure; no
+  new npm dependencies. Real-ws server checks from /tmp scripts when
+  sockets/credits/service data are touched. When green: commit,
+  push, summary with the new test count.

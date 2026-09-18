@@ -38,6 +38,14 @@ for *what*, `ARCHITECTURE.md` for *where*, this file for *how*.
    — verify `git log -1 --format='%ae'` before pushing; never the
    jens-krypto identity.
 
+## Art pipeline (R38)
+
+`packages/client/static/art/*.png` is the drop zone for pixel art
+(Cursor / Grok Imagine handoff): 1982 Tokyo arcade style, limited
+palette, small files (16-32 KB each). OpenCode never draws art — it
+writes the manifest/loader/wiring only. Core must never touch
+Image/DOM/fetch; missing files fall back to procedural drawing.
+
 ## Working agreements
 
 - Small, verifiable steps. Run the suite after every handful of edits,
