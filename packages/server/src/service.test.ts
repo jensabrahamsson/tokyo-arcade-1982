@@ -16,9 +16,9 @@ describe('ServiceStore (R16)', () => {
 
   it('defaults to coin mode with zero counters', () => {
     const s = new ServiceStore(join(dir, 'service.json'));
-    // R24 added outOfOrder, R31 the day bucket to the persisted service shape
+    // R24 added outOfOrder, R31 the day bucket, R42 the sticker to the shape
     expect(s.snapshot()).toEqual({
-      plays: 0, coins: 0, freePlay: false, outOfOrder: [], day: '', playsToday: 0, coinsToday: 0,
+      plays: 0, coins: 0, freePlay: false, outOfOrder: [], day: '', playsToday: 0, coinsToday: 0, note: '',
     });
   });
 
@@ -33,7 +33,7 @@ describe('ServiceStore (R16)', () => {
     // day is the live Stockholm bucket, asserted by shape not value
     const snap = t.snapshot();
     expect({ ...snap, day: 'today' }).toEqual({
-      plays: 1, coins: 2, freePlay: true, outOfOrder: [], day: 'today', playsToday: 1, coinsToday: 2,
+      plays: 1, coins: 2, freePlay: true, outOfOrder: [], day: 'today', playsToday: 1, coinsToday: 2, note: '',
     });
   });
 
@@ -200,6 +200,30 @@ describe('out-of-order flags (R24)', () => {
     const p = join(dir, 'service.json');
     writeFileSync(p, JSON.stringify({ outOfOrder: ['coast', 'flappy', 5, null, 'snake'] }));
     expect(new ServiceStore(p).snapshot().outOfOrder).toEqual(['coast', 'snake']);
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('sticker note (R42)', () => {
+  it('persists and clears through the store', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'arkad-note-'));
+    const p = join(dir, 'service.json');
+    const s = new ServiceStore(p);
+    expect(s.snapshot().note).toBe('');
+    s.setNote('FREE DROPS TUESDAY');
+    expect(new ServiceStore(p).snapshot().note).toBe('FREE DROPS TUESDAY');
+    s.setNote('');
+    expect(new ServiceStore(p).snapshot().note).toBe('');
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('drops junk and oversized notes on load', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'arkad-note2-'));
+    const p = join(dir, 'service.json');
+    writeFileSync(p, JSON.stringify({ note: 'x'.repeat(40) }));
+    expect(new ServiceStore(p).snapshot().note).toBe('');
+    writeFileSync(p, JSON.stringify({ note: 99 }));
+    expect(new ServiceStore(p).snapshot().note).toBe('');
     rmSync(dir, { recursive: true, force: true });
   });
 });

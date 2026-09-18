@@ -24,5 +24,6 @@ export { blockSpec, BLOCK_W, BLOCK_H, type BlockState } from './games/block/bloc
 export { galaxySpec, type GalaxyState, type Alien } from './games/galaxy/galaxy';
 export { riverSpec, HOME_ROWS, type RiverState, type Lane } from './games/river/river';
 export { myriadSpec, MYRIAD_W, MYRIAD_H, type MyriadState } from './games/myriad/myriad';
+export { attractDemoTier, demoRuns, type DemoTier } from './engine/attract';
 export { coastSpec, curveAt, TRACK_LEN, CHECKPOINTS, MAX_SPEED, OFF_ROAD_X, type CoastState, type Obstacle } from './games/coast/coast';
 export { REGISTRY } from './games/registry';

@@ -12,6 +12,7 @@ import {
   t as translate,
 } from '@arkad/core';
 import { Net } from './net';
+import { art, loadArtBrowser } from './art';
 import { Keys } from './input';
 import { Chiptune } from './audio/chiptune';
 import { CANVAS_W, CANVAS_H, PAL, PLAYER_COLORS, px, blink } from './ui';
@@ -29,7 +30,8 @@ import {
   loadKnobs, saveKnobs, loadAccess, saveAccess, attractLang, tournamentBanner,
   volumeGain, effectiveGain, cycleVolume, loadVolume, saveVolume, loadMuted, saveMuted,
   joinCountdown, marqueeOffset, marqueeLamp, visibleSpectators, rejectToast, toastVisible, TOAST_MS, walkBob, creditStrip,
-  freePlayBannerVisible, cabinetFocus, isNewRecord, recordFlashVisible, blinkOn, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  freePlayBannerVisible, cabinetFocus, isNewRecord, recordFlashVisible, blinkOn,
+  powerLed, ledState, scoreCrawlOffset, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -53,12 +55,14 @@ const ctx = canvas.getContext('2d')!;
 canvas.width = CANVAS_W;
 canvas.height = CANVAS_H;
 
+loadArtBrowser(); // R38: async pixel-art atlas; renderers fall back until it lands
+
 const net = new Net();
 const keys = new Keys();
 const audio = new Chiptune();
 
 let lang: Lang = (localStorage.getItem('arkad-lang') as Lang) === 'ja' ? 'ja' : 'en';
-type Scene = 'splash' | 'title' | 'name' | 'hall' | 'map' | 'table' | 'scores' | 'credits' | 'service' | 'coinInsert';
+type Scene = 'splash' | 'title' | 'name' | 'hall' | 'map' | 'table' | 'scores' | 'credits' | 'service' | 'note' | 'coinInsert';
 let scene: Scene = 'splash';
 const bootAt = performance.now();
 let creditsFrom: Scene = 'title';
@@ -273,6 +277,11 @@ function update(ms: number): void {
       applyPresentation();
     }
     if (keys.take('KeyO')) toggleOoo();
+    if (keys.take('KeyN')) {
+      audio.unlock();
+      namePad = createNamePad();
+      scene = 'note';
+    }
     if (keys.take('KeyA')) {
       access = nextAccess(access);
       saveAccess(localStorage, access);
@@ -306,6 +315,21 @@ function update(ms: number): void {
     if (keys.take('Backspace')) namePad = pressKey(namePad, '<');
     if (keys.take('Escape')) scene = 'title';
     if (namePad.done) confirmName();
+  } else if (scene === 'note') {
+    if (keys.take('ArrowLeft', 'KeyA')) namePad = moveCursor(namePad, { dr: 0, dc: -1 });
+    if (keys.take('ArrowRight', 'KeyD')) namePad = moveCursor(namePad, { dr: 0, dc: 1 });
+    if (keys.take('ArrowUp', 'KeyW')) namePad = moveCursor(namePad, { dr: -1, dc: 0 });
+    if (keys.take('ArrowDown', 'KeyS')) namePad = moveCursor(namePad, { dr: 1, dc: 0 });
+    if (keys.take('KeyZ', 'Space', 'Enter', 'NumpadEnter')) namePad = pressKey(namePad, keyAt(namePad, namePad.cursor));
+    if (keys.take('Backspace')) namePad = pressKey(namePad, '<');
+    if (keys.take('Escape')) scene = 'service';
+    if (namePad.done) {
+      const text = namePad.text.trim().replace(/\s+/g, ' ').slice(0, 24);
+      net.send({ type: 'note', text });
+      if (world.hall) world.hall = { ...world.hall, note: text };
+      scene = 'service';
+      audio.play('coin');
+    }
   } else if (scene === 'hall') {
     for (const k of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS']) {
       if (keys.take(k)) {
@@ -459,6 +483,12 @@ function renderSplash(ms: number): void {
     ctx.fillText(title[i]!, x, 108);
     x += ctx.measureText(title[i]!).width;
   }
+  const logo = art()['splash-logo.png'];
+  if (logo) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(logo, cx - 48, 56, 96, 96);
+    ctx.imageSmoothingEnabled = true;
+  }
   colorBar(130, 4, ms);
   px(ctx, 'BIOS 1982.6 ... OK', cx, 152, 8, PAL.lime, 'center');
   px(ctx, 'CARTRIDGES 6/6 ... OK', cx, 164, 8, PAL.lime, 'center');
@@ -484,7 +514,13 @@ function renderCabinet(
   const screenH = Math.round(screenW * 0.75);
 
   // body
-  ctx.fillStyle = '#181a26';
+  const bezel = art()['cabinet-bezel.png'];
+  if (bezel) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(bezel, x, y, w, slot.h);
+    ctx.imageSmoothingEnabled = true;
+  }
+  ctx.fillStyle = 'rgba(24,26,38,0.75)';
   ctx.fillRect(x, y, w, slot.h);
   ctx.fillStyle = selected ? PAL.navy : '#10121c';
   ctx.fillRect(x + 2, y + 2, w - 4, slot.h - 4);
@@ -533,10 +569,35 @@ function renderCabinet(
     if (crowd !== null) {
       px(ctx, `${t('hall.watching')} ${crowd}`, screenX + 2, screenY + 2, 7, PAL.cyan);
     }
+    const scores = cab?.scores ?? [];
+    if (live.demo && scores.length > 0) {
+      // R41: top-3 roll crawl over the attract noise
+      ctx.fillStyle = 'rgba(0,0,10,0.78)';
+      ctx.fillRect(screenX + screenW - 62, screenY, 62, screenH);
+      px(ctx, t('hall.topScores'), screenX + screenW - 60, screenY + 1, 6, PAL.yellow);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(screenX + screenW - 62, screenY + 10, 62, screenH - 20);
+      ctx.clip();
+      const off = scoreCrawlOffset(ms, 9, 5000);
+      const strip = [...scores.slice(0, 3), null];
+      strip.forEach((e, r) => {
+        const ry = screenY + 11 + r * 9 - off + screenH;
+        if (!e || ry < screenY - 2 || ry > screenY + screenH) return;
+        px(ctx, e.name.slice(0, 5).toUpperCase(), screenX + screenW - 60, ry, 6, PAL.white);
+        px(ctx, String(e.score).slice(0, 6), screenX + screenW - 4, ry, 6, PAL.cyan, 'right');
+      });
+      ctx.restore();
+    }
   } else if (blink(ms, 260)) {
     ctx.fillStyle = PAL.navy;
     for (let sy = 0; sy < screenH; sy += 4) ctx.fillRect(screenX + ((ms / 13 + sy * 7) % screenW), screenY + sy, 3, 1);
   }
+  // R40 power LED: OOO > playing > idle, red pulses
+  const led = powerLed(ledState({ live: lamp === 'now-playing', ooo: isOoo(slot.game) }));
+  const ledOn = led.duty === 1 || (led.duty > 0 ? blinkOn(Math.floor(ms / 300), 4, led.duty) : false);
+  ctx.fillStyle = ledOn ? (led.color === 'red' ? PAL.red : led.color === 'lime' ? PAL.lime : PAL.gray) : PAL.dim;
+  ctx.fillRect(x + 2, y + slot.h - 4, 3, 3);
   if (focusIdx === i) {
     ctx.strokeStyle = PAL.cyan;
     ctx.strokeRect(x - 3.5, y - 3.5, w + 7, slot.h + 7);
@@ -593,6 +654,19 @@ function renderHall(ms: number): void {
     px(ctx, fp, cx, CANVAS_H - 54, 9, blink(ms, 500) ? PAL.lime : PAL.cyan, 'center');
     void w;
   }
+  const note = world.hall?.note ?? '';
+  if (note) {
+    ctx.font = '8px monospace';
+    const nw = ctx.measureText(note).width + 18;
+    ctx.save();
+    ctx.translate(cx, 46);
+    ctx.rotate(-0.03);
+    ctx.fillStyle = PAL.yellow;
+    ctx.fillRect(-nw / 2, -3, nw, 12);
+    px(ctx, note, 0, 0, 8, PAL.black, 'center');
+    ctx.restore();
+    px(ctx, t('hall.sticker'), cx - nw / 2 - 2, 40, 6, PAL.gray, 'right');
+  }
   const banner = tournamentBanner((world.hall?.cabinets ?? []) as BannerCabinet[], ms);
   const bannerColors = [PAL.red, PAL.orange, PAL.yellow, PAL.lime, PAL.cyan, PAL.magenta];
   px(ctx, banner.text, cx, 24, 9, bannerColors[banner.colorIdx]!, 'center');
@@ -605,6 +679,17 @@ function renderHall(ms: number): void {
   const floorY = FLOOR_Y;
   ctx.fillStyle = '#12081c';
   ctx.fillRect(0, floorY, CANVAS_W, CANVAS_H - floorY);
+  const floor = art()['hall-floor.png'];
+  if (floor) {
+    const pat = ctx.createPattern(floor, 'repeat');
+    if (pat) {
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = pat;
+      ctx.fillRect(0, floorY, CANVAS_W, CANVAS_H - floorY);
+      ctx.restore();
+    }
+  }
   ctx.fillStyle = 'rgba(224, 58, 138, 0.16)';
   for (let gy = floorY + 6; gy < CANVAS_H - 16; gy += 10) ctx.fillRect(0, gy, CANVAS_W, 1);
   for (let gx = (Math.floor(ms / 130) % 16) * 20 - 20; gx < CANVAS_W; gx += 20) ctx.fillRect(gx, floorY, 1, CANVAS_H - floorY - 16);
@@ -703,6 +788,8 @@ function renderService(ms: number): void {
   const oooGame = GAME_IDS[sel]!;
   px(ctx, `CAB: ${oooGame.toUpperCase()} ${isOoo(oooGame) ? 'OUT OF ORDER' : 'IN SERVICE'}`, 40, 30, 8, isOoo(oooGame) ? PAL.red : PAL.lime);
   px(ctx, `O: TOGGLE OUT OF ORDER (${GAME_IDS.length} CABINET BY HALL SELECTION)`, cx, 167, 7, PAL.gray, 'center');
+  const noteNow = world.hall?.note ?? '';
+  px(ctx, `N: STICKER ${noteNow ? `= ${noteNow}` : '(NONE)'}`, 40, 141, 8, noteNow ? PAL.yellow : PAL.gray);
   px(ctx, `ESC: ${t('menu.back')}`, cx, 160, 8, PAL.gray, 'center');
   px(ctx, 'DO NOT ADJUST DURING PLAY', cx, 186, 8, blink(ms, 900) ? PAL.red : PAL.darkred, 'center');
   drawError();

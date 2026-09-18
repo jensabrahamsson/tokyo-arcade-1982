@@ -31,6 +31,8 @@ export const JA: Record<keyof typeof EN, string> = {
   'hall.credits': 'クレジット',
   'hall.freePlay': 'フリープレイ',
   'record.new': '新記録',
+  'hall.topScores': 'トップ',
+  'hall.sticker': 'ステッカー',
 'cab.ooo': '故障中',
   'game.snake': 'ヘビ',
   'game.snake.tag': 'シッポ を ダセ!',

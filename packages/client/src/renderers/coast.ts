@@ -1,6 +1,7 @@
 import type { CoastState } from '@arkad/core';
 import { curveAt, OFF_ROAD_X, TRACK_LEN, MAX_SPEED } from '@arkad/core';
 import { PAL } from '../ui';
+import { art } from '../art';
 
 const W = 320;
 const H = 240;
@@ -31,6 +32,13 @@ function project(dist: number, camDist: number, playerX: number): { y: number; s
 function drawCastle(ctx: CanvasRenderingContext2D, shift: number, tMs: number): void {
   const bx = CX + shift;
   const by = HORIZON + 2;
+  const img = art()['coast-lo-castle.png'];
+  if (img) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, bx - 40, by - 42, 80, 42);
+    ctx.imageSmoothingEnabled = true;
+    return;
+  }
   ctx.fillStyle = '#3a2a4e';
   ctx.fillRect(bx - 34, by - 22, 68, 22);
   ctx.fillRect(bx - 40, by - 16, 12, 16);

@@ -58,6 +58,11 @@ export interface OooMsg {
   game: GameId;
   out: boolean;
 }
+/** operator sets the hall sticker, max 24 chars, trimmed (R42) */
+export interface NoteMsg {
+  type: 'note';
+  text: string;
+}
 /** subscribe/unsubscribe to the hall's live cabinet board (R8) */
 export interface HallMsg {
   type: 'hall';
@@ -75,7 +80,8 @@ export type ClientMessage =
   | StatsMsg
   | FreePlayMsg
   | OooMsg
-  | PauseMsg;
+  | PauseMsg
+  | NoteMsg;
 
 export interface TablePlayerView {
   id: string;
@@ -162,6 +168,8 @@ export interface HallTablesMsg {
   tick: number;
   /** recipient's remaining credits in coin mode (R33) */
   credits: number;
+  /** operator hall sticker, '' when unset (R42) */
+  note: string;
 }
 export interface StatsReplyMsg {
   type: 'statsReply';
@@ -234,6 +242,10 @@ export function parseClientMessage(raw: string): ClientMessage | null {
       if (o.game === undefined) return { type: 'coin' };
       return isGameId(o.game) ? { type: 'coin', game: o.game } : null;
     }
+    case 'note':
+      return typeof o.text === 'string'
+        ? { type: 'note', text: o.text.trim().replace(/\s+/g, ' ').slice(0, 24) }
+        : null;
     case 'pause':
       // strictly the bare frame: any extra field is a malformed toggle (R26.3)
       return Object.keys(o).length === 1 ? { type: 'pause' } : null;

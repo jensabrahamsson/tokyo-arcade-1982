@@ -13,6 +13,8 @@ export interface ServiceState {
   day: string;
   playsToday: number;
   coinsToday: number;
+  /** operator hall sticker, max 24 chars, '' = none (R42) */
+  note: string;
 }
 
 /** Operator bookkeeping (R16/R17): counters + free-play mode, persisted under data/. */
@@ -24,7 +26,7 @@ export class ServiceStore {
   }
 
   private load(): ServiceState {
-    const clean: ServiceState = { plays: 0, coins: 0, freePlay: false, outOfOrder: [], day: '', playsToday: 0, coinsToday: 0 };
+    const clean: ServiceState = { plays: 0, coins: 0, freePlay: false, outOfOrder: [], day: '', playsToday: 0, coinsToday: 0, note: '' };
     try {
       const parsed: unknown = JSON.parse(readFileSync(this.path, 'utf8'));
       if (typeof parsed !== 'object' || parsed === null) return clean;
@@ -42,6 +44,7 @@ export class ServiceStore {
         day: typeof o.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.day) ? o.day : '',
         playsToday: count(o.playsToday),
         coinsToday: count(o.coinsToday),
+        note: typeof o.note === 'string' && o.note.length <= 24 ? o.note : '',
       };
     } catch {
       return clean;
@@ -82,6 +85,11 @@ export class ServiceStore {
 
   setFreePlay(on: boolean): void {
     this.data.freePlay = on;
+    this.save();
+  }
+
+  setNote(text: string): void {
+    this.data.note = text.length <= 24 ? text : text.slice(0, 24);
     this.save();
   }
 

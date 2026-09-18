@@ -29,6 +29,8 @@ export const EN = {
   'hall.credits': 'CREDITS',
   'hall.freePlay': 'FREE PLAY',
   'record.new': 'NEW RECORD',
+  'hall.topScores': 'TOP',
+  'hall.sticker': 'STICKER',
 'cab.ooo': 'OUT OF ORDER',
   'game.snake': 'SNAKE',
   'game.snake.tag': 'TRON-STYLE TAIL TAG',

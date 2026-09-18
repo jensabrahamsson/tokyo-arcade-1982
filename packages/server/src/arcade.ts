@@ -1,4 +1,6 @@
 import {
+  attractDemoTier,
+  demoRuns,
   REGISTRY,
   GAME_IDS,
   type GameSpec,
@@ -70,6 +72,8 @@ export class Arcade {
   private interval: NodeJS.Timeout | null = null;
   private hallWatchers = new Set<string>();
   private credits = new Map<string, number>();
+  /** last tick a human sat at each cabinet, for attract energy tiers (R39) */
+  private lastHuman = new Map<GameId, number>();
   private readonly bootMs = Date.now();
 
   constructor(private readonly opts: ArcadeOptions) {
@@ -184,6 +188,10 @@ export class Arcade {
         }
         break;
       }
+      case 'note':
+        this.opts.service.setNote(msg.text);
+        this.broadcastHall();
+        break;
       case 'ooo': {
         // operator switch (R24.1): flag it, persist it, tell the hall
         this.opts.service.setOutOfOrder(msg.game, msg.out);
@@ -222,6 +230,7 @@ export class Arcade {
   }
 
   private seat(connId: string, game: GameId, mode: GameMode): void {
+    this.lastHuman.set(game, this.tickCount);
     const spec = REGISTRY[game] as AnyGameSpec | undefined;
     if (!spec) {
       this.send(connId, { type: 'error', code: 'unknown-game' });
@@ -408,6 +417,9 @@ export class Arcade {
   }
 
   private tickDemo(table: Table): void {
+    // sleepy cabinets idle on their own clock; humans always wake them (R39.1)
+    const idleMs = (this.tickCount - (this.lastHuman.get(table.game) ?? 0)) * (1000 / 60);
+    if (!demoRuns(attractDemoTier(idleMs), this.tickCount)) return;
     const session = table.session ?? (table.session = this.demoSession(table));
     if (session.state.phase !== 'playing' && session.state.phase !== 'ready') {
       // demo runs out: flip the cabinet back to attract and re-deal (never scores)
@@ -441,7 +453,7 @@ export class Arcade {
       if (this.conns.has(connId)) {
         // credits are per connection: every watcher gets its own digit (R33)
         const credits = this.credits.get(connId) ?? 0;
-        this.send(connId, { type: 'hallTables', cabinets, freePlay: svc.freePlay, ooo: svc.outOfOrder, tick: this.tickCount, credits });
+        this.send(connId, { type: 'hallTables', cabinets, freePlay: svc.freePlay, ooo: svc.outOfOrder, tick: this.tickCount, credits, note: svc.note });
       }
     }
   }

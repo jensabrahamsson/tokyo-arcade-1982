@@ -392,6 +392,15 @@ describe('Arcade', () => {
     expect(hallMsgs('c3').at(-1)?.credits).toBe(0);
   });
 
+  it('an operator note rides the hall channel (R42)', () => {
+    arcade.handleMessage('c3', { type: 'hall', watch: true });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    expect(hallMsgs('c3').at(-1)?.note).toBe('');
+    arcade.handleMessage('c1', { type: 'note', text: 'PIZZA HOUR 17:00' });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    expect(hallMsgs('c3').at(-1)?.note).toBe('PIZZA HOUR 17:00');
+  });
+
   const hallMsgs = (c = 'c1') =>
     net.take(c).filter((m) => m.type === 'hallTables') as unknown as {
       type: 'hallTables';
@@ -399,6 +408,7 @@ describe('Arcade', () => {
       ooo: string[];
       tick: number;
       credits: number;
+      note: string;
     }[];
 
   it('the hall runs attract demos for every cabinet (R8)', () => {
