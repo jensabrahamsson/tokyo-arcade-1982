@@ -564,3 +564,13 @@ defines done. Each item is verified by a test, a live check, or both.
   agent (Cursor delivers after 22:00). Real-ws checks from /tmp when
   seating/sockets are touched. When green: commit, push, summary
   with the new test count.
+
+## R53 — Playtest UX: fullscreen (playtest feedback)
+
+- R53.1 Entering the hall auto-requests browser fullscreen (Fullscreen
+  API, graceful no-op where missing); `F` toggles it; Esc / normal
+  browser exit always works — no locked kiosk.
+- R53.2 A first-run canvas hint ("F: FULLSCREEN") shows for a fixed
+  window. Pure helpers `shouldRequestFullscreen(scene)` and
+  `fullscreenHintVisible(msSinceBoot, windowMs)`; the Fullscreen API
+  itself is manually verified. Presentation only.
