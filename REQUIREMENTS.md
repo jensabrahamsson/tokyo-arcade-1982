@@ -516,3 +516,51 @@ defines done. Each item is verified by a test, a live check, or both.
   core stays pure; no new npm dependencies. Real-ws checks from /tmp
   scripts when sockets/credits/service are touched. When green:
   commit, push, summary with the new test count.
+
+## R48 — Attract demo volume dip
+
+- R48.1 When a human sits at a cabinet, the attract/demo chiptune
+  channel ducks (pure `attractGain(hasHuman)` helper) so live sfx
+  cut through; full gain resumes when the seat empties.
+  Presentation/audio only — no simulation changes.
+- R48.2 Unit tests for the gain helper; operator mute (R23) still
+  wins over everything.
+
+## R49 — Cabinet heat shimmer
+
+- R49.1 An idle cabinet that has been attracting for a long time
+  gets a subtle heat/scanline shimmer from a pure
+  `heatShimmer(idleMs, tick)` helper (offset + alpha).
+  Renderer-only, deterministic, unit-tested.
+- R49.2 OUT OF ORDER and NOW PLAYING suppress the shimmer.
+
+## R50 — Versus ready countdown
+
+- R50.1 When a versus table's required seats are all filled, a
+  canvas READY 3-2-1 plays before the game starts ticking — a
+  server-authoritative window (same moment for every client), derived
+  by the pure `readyCountdown(msSinceFull)` helper.
+- R50.2 Tests: countdown length, cancel when a seat empties, and no
+  new client frame exists for it (nothing to forge; existing edge
+  validation stands).
+
+## R51 — High-score initials glow
+
+- R51.1 While the initials pad is open, the current slot glows via a
+  pure `initialGlow(tick)` pulse helper; EN/JA copy unchanged.
+- R51.2 Renderer-only; the namepad protocol is untouched.
+
+## R52 — Operator test tone
+
+- R52.1 The service menu gets TEST TONE: a short client-side
+  chiptune beep (existing Web Audio stack, core stays pure),
+  rate-limited by a pure helper.
+- R52.2 Mute (R23) is respected; rate-limit helper unit-tested.
+
+## Constraints for R48-R52
+
+- GPL-3.0-only; canvas-only UI; chiptune only; TypeScript strict; the
+  core stays pure; no new npm dependencies; no new PNG art from the
+  agent (Cursor delivers after 22:00). Real-ws checks from /tmp when
+  seating/sockets are touched. When green: commit, push, summary
+  with the new test count.
