@@ -34,7 +34,7 @@ import {
   powerLed, ledState, scoreCrawlOffset,
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
-  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, cartridgeBadge, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -538,7 +538,7 @@ function renderSplash(ms: number): void {
   }
   colorBar(130, 4, ms);
   px(ctx, 'BIOS 1982.6 ... OK', cx, 152, 8, PAL.lime, 'center');
-  px(ctx, 'CARTRIDGES 6/6 ... OK', cx, 164, 8, PAL.lime, 'center');
+  px(ctx, `CARTRIDGES ${cartridgeBadge(GAME_IDS.length)} ... OK`, cx, 164, 8, PAL.lime, 'center');
   if (blink(ms, 500)) px(ctx, 'PRESS ANY KEY', cx, 190, 10, PAL.yellow, 'center');
 }
 
@@ -758,7 +758,7 @@ function renderHall(ms: number): void {
   const bannerColors = [PAL.red, PAL.orange, PAL.yellow, PAL.lime, PAL.cyan, PAL.magenta];
   px(ctx, banner.text, cx, 24, 9, bannerColors[banner.colorIdx]!, 'center');
 
-  // six cabinets on the floor
+  // all cabinets on the floor
   const focusIdx = cabinetFocus(sel, HALL_SLOTS.map((_s, i) => i));
   HALL_SLOTS.forEach((slot, i) => renderCabinet(slot, i, ms, i === sel, focusIdx));
 
@@ -848,7 +848,7 @@ function renderCredits(ms: number): void {
   px(ctx, 'LICENSE GPL-3.0-ONLY', cx, 94, 9, PAL.gray, 'center');
   px(ctx, 'TYPESCRIPT · NODE · WS', cx, 116, 8, PAL.lime, 'center');
   px(ctx, 'CANVAS2D · WEB AUDIO · VITEST', cx, 128, 8, PAL.lime, 'center');
-  px(ctx, '6 CABINETS · TOKYO 1982', cx, 150, 8, PAL.gray, 'center');
+  px(ctx, `${GAME_IDS.length} CABINETS · TOKYO 1982`, cx, 150, 8, PAL.gray, 'center');
   px(ctx, 'NO AUDIO FILES WERE HARMED', cx, 162, 8, PAL.gray, 'center');
   colorBar(176, 3, ms);
   if (blink(ms)) px(ctx, `ESC: ${t('menu.back')}`, cx, 196, 9, PAL.yellow, 'center');

@@ -339,3 +339,6 @@ export function shouldRequestFullscreen(scene: 'splash' | 'title' | 'hall' | 'ta
 export function fullscreenHintVisible(msSinceBoot: number, windowMs = 10_000): boolean {
   return msSinceBoot < windowMs;
 }
+
+/** boot splash cartridge count follows the registry (regression: was hardcoded 6/6) */
+export const cartridgeBadge = (count: number): string => `${count}/${count}`;
