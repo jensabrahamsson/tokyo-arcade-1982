@@ -460,3 +460,59 @@ defines done. Each item is verified by a test, a live check, or both.
   new npm dependencies. Real-ws server checks from /tmp scripts when
   sockets/credits/service data are touched. When green: commit,
   push, summary with the new test count.
+
+## R43 — Join-queue waiting dots
+
+- R43.1 When a cabinet is NOW PLAYING (R28) and the standing player
+  is on that tile but not seated, the mini-screen shows a compact
+  WAIT / 待機 with animated dots from a pure `waitDots(tick, period)`
+  helper — deterministic, unit-tested. The R30 soft-reject toasts
+  stay as-is for failed joins; this is the calm waiting cue.
+- R43.2 OUT OF ORDER (R24) and seated play win over the dots.
+  Renderer/client only; no protocol change.
+
+## R44 — Coin-slot thunk SFX
+
+- R44.1 On a successful coin insert (the existing R18 path), a short
+  chiptune thunk plays through the existing Web Audio stack — no new
+  deps, no copyrighted samples. Mute and the operator volume detent
+  (R23) apply like on every other sound.
+- R44.2 The envelope/timing helper is pure and unit-tested where
+  feasible; wiring follows the existing audio patterns. Missing
+  AudioContext fails closed.
+
+## R45 — Hall wall clock
+
+- R45.1 A neon wall clock (HH:MM, 24h) draws on the hall back wall.
+  `formatHallClock(epochMs, tzOffsetMin)` is pure (no Date.now inside
+  helpers; the source is injected) and unit-tested; the renderer gets
+  wall time from the client loop.
+- R45.2 EN/JA label, tiny; presentation only — no sim or protocol
+  involvement.
+
+## R46 — Art pack 2 (manifest + placeholders)
+
+- R46.1 The R38 manifest gains `marquee-neon.png`, `coin-slot.png`,
+  `credit-panel.png`, `wait-badge.png`, with tiny palette
+  placeholders (<1 KB) until Cursor drops real 16-32 KB PNGs under
+  the same filenames.
+- R46.2 drawImage is wired where they fit (marquee strip, coin slot
+  chrome, credit-strip backdrop, wait badge); procedural fallbacks
+  stay. Core never touches Image/DOM/fetch. AGENTS lists the new
+  drop-zone filenames. Bundle budget R7.4.
+
+## R47 — Thank-you exit toast
+
+- R47.1 When a seated player leaves a cabinet (stand up / session
+  end), a short THANKS / ありがとう canvas flash plays (~1.2 s) via a
+  pure `exitToastVisible(sinceMs, nowMs, durMs)` helper,
+  unit-tested.
+- R47.2 No alert/prompt and no scoring changes. The R36 NEW RECORD
+  flash wins if both would show.
+
+## Constraints for R43-R47
+
+- GPL-3.0-only; canvas-only UI; chiptune only; TypeScript strict; the
+  core stays pure; no new npm dependencies. Real-ws checks from /tmp
+  scripts when sockets/credits/service are touched. When green:
+  commit, push, summary with the new test count.
