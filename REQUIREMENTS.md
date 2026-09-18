@@ -343,3 +343,60 @@ defines done. Each item is verified by a test, a live check, or both.
   core stays pure. Real-ws server checks from /tmp scripts when
   seating/sockets are touched. When green: commit, push, summary with
   the new test count.
+
+## R33 — Coin-mode credit digits
+
+- R33.1 In coin mode, every hall mini-screen (and the in-cabinet HUD
+  while seated) shows a compact CREDITS / クレジット digit strip for
+  the player's remaining credits on that cabinet; hidden entirely in
+  free-play.
+- R33.2 Digits derive from the authoritative server-side credit count
+  (delivered per connection on the hall channel and snapshots) via a
+  pure helper; unit-tested. Never invents credits or bypasses the
+  coin gate (R17/R18).
+- R33.3 Zero credits still shows `0` in coin mode (INSERT COIN
+  framing stays honest). OUT OF ORDER (R24) wins visually over the
+  strip.
+
+## R34 — FREE PLAY hall banner
+
+- R34.1 While the operator has free-play enabled (R17), the hall
+  flies a clear FREE PLAY / フリープレイ banner (canvas, EN/JA via
+  i18n) so nobody hunts for a coin slot.
+- R34.2 Banner visibility is a pure function of the free-play flag;
+  unit-tested; coin mode hides it. Presentation only — the flag is
+  read from the existing hall channel, no new protocol fields.
+
+## R35 — Standing-at-cabinet focus ring
+
+- R35.1 With the "you are here" token standing on a cabinet tile,
+  that cabinet gets a subtle 1982 focus ring so the active machine
+  reads instantly in a busy hall.
+- R35.2 Pure `cabinetFocus(playerTile, cabinetTiles)` helper —
+  deterministic, unit-tested, highlights at most one cabinet.
+  Renderer-only; no core/protocol/sim changes.
+
+## R36 — NEW RECORD canvas flash
+
+- R36.1 When a finished run posts a score that enters the cabinet's
+  top table, the client flashes a short NEW RECORD / 新記録 canvas
+  overlay (EN/JA) over the game-over screen. No alert/prompt; no
+  change to scoring rules or high-score persistence shape.
+- R36.2 A pure `isNewRecord(score, tableScores, maxRows)` helper
+  decides; unit-tested. A timing helper auto-clears the flash.
+
+## R37 — Attract INSERT COIN blink
+
+- R37.1 Idle coin-mode cabinets (attract/demo, not out-of-order, not
+  live) blink an INSERT COIN / コインを入れて frame on the mini-screen
+  via a pure `blinkOn(tick, period, duty)` helper — deterministic,
+  unit-tested.
+- R37.2 Presentation only. Free-play hides the blink (R34 covers
+  that mode); OUT OF ORDER (R24) and NOW PLAYING (R28) win over it.
+
+## Constraints for R33-R37
+
+- GPL-3.0-only; canvas-only UI; chiptune only; TypeScript strict; the
+  core stays pure. Real-ws server checks from /tmp scripts when
+  seating/sockets/credits are touched. When green: commit, push,
+  summary with the new test count.
