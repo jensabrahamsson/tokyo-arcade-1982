@@ -16,7 +16,8 @@ describe('ServiceStore (R16)', () => {
 
   it('defaults to coin mode with zero counters', () => {
     const s = new ServiceStore(join(dir, 'service.json'));
-    expect(s.snapshot()).toEqual({ plays: 0, coins: 0, freePlay: false });
+    // R24 added outOfOrder to the persisted service shape
+    expect(s.snapshot()).toEqual({ plays: 0, coins: 0, freePlay: false, outOfOrder: [] });
   });
 
   it('persists counters and mode across reloads', () => {
@@ -26,7 +27,8 @@ describe('ServiceStore (R16)', () => {
     s.addPlay();
     s.setFreePlay(true);
     const t = new ServiceStore(join(dir, 'service.json'));
-    expect(t.snapshot()).toEqual({ plays: 1, coins: 2, freePlay: true });
+    // R24 added outOfOrder to the persisted service shape
+    expect(t.snapshot()).toEqual({ plays: 1, coins: 2, freePlay: true, outOfOrder: [] });
   });
 
   it('survives corrupt files without throwing', () => {
@@ -173,5 +175,25 @@ describe('coin mode and the operator (Arcade, R16-R18)', () => {
     };
     expect(snap.table.phase).toBe('playing');
     expect(snap.table.players).toHaveLength(2);
+  });
+});
+
+describe('out-of-order flags (R24)', () => {
+  it('round-trips through disk', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'arkad-ooo-'));
+    const p = join(dir, 'service.json');
+    new ServiceStore(p).setOutOfOrder('coast', true);
+    expect(new ServiceStore(p).snapshot().outOfOrder).toEqual(['coast']);
+    new ServiceStore(p).setOutOfOrder('coast', false);
+    expect(new ServiceStore(p).snapshot().outOfOrder).toEqual([]);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('drops unknown ids and junk on load', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'arkad-ooo2-'));
+    const p = join(dir, 'service.json');
+    writeFileSync(p, JSON.stringify({ outOfOrder: ['coast', 'flappy', 5, null, 'snake'] }));
+    expect(new ServiceStore(p).snapshot().outOfOrder).toEqual(['coast', 'snake']);
+    rmSync(dir, { recursive: true, force: true });
   });
 });

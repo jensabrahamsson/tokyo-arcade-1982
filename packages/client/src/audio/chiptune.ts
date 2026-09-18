@@ -6,6 +6,12 @@ const MASTER = 0.16;
 /** 1982-ish two-voice synth on the Web Audio API. */
 export class Chiptune {
   private ctx: AudioContext | null = null;
+  private master = 1;
+
+  /** operator volume detent / mute (R23): output gain only */
+  setMaster(v: number): void {
+    this.master = Math.min(1, Math.max(0, v));
+  }
 
   private ensure(): AudioContext | null {
     if (typeof AudioContext === 'undefined') return null;
@@ -32,7 +38,7 @@ export class Chiptune {
     const ctx = this.ensure();
     if (!ctx) return;
     let t = ctx.currentTime + 0.01;
-    const vol = (def.volume ?? 1) * MASTER;
+    const vol = (def.volume ?? 1) * MASTER * this.master;
     for (const note of def.notes) {
       const freq = noteFreq(note);
       if (def.wave === 'noise') this.noise(ctx, t, def.stepMs / 1000, vol);
@@ -47,7 +53,7 @@ export class Chiptune {
     osc.type = def.wave === 'triangle' ? 'triangle' : 'square';
     osc.frequency.value = freq;
     const dur = (def.stepMs / 1000) * 0.9;
-    gain.gain.setValueAtTime((def.volume ?? 1) * MASTER, t);
+    gain.gain.setValueAtTime((def.volume ?? 1) * MASTER * this.master, t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
     osc.connect(gain).connect(ctx.destination);
     osc.start(t);

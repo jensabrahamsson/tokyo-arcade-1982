@@ -88,3 +88,38 @@ describe('operator protocol (R16-R18)', () => {
     expect(parseClientMessage('{"type":"coin","hack":true}')).toEqual({ type: 'coin' });
   });
 });
+
+describe('out-of-order + targeted coin (R24)', () => {
+  it('parses a well-formed ooo toggle', () => {
+    expect(parseClientMessage(JSON.stringify({ type: 'ooo', game: 'coast', out: true }))).toEqual({
+      type: 'ooo',
+      game: 'coast',
+      out: true,
+    });
+  });
+
+  it('rejects ooo with junk game id or missing/non-boolean out', () => {
+    expect(parseClientMessage(JSON.stringify({ type: 'ooo', game: 'pingpong', out: true }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: 'ooo', game: 'coast' }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: 'ooo', game: 'coast', out: 'yes' }))).toBeNull();
+  });
+
+  it('coin keeps working without a game and accepts a valid targeted one', () => {
+    expect(parseClientMessage(JSON.stringify({ type: 'coin' }))).toEqual({ type: 'coin' });
+    expect(parseClientMessage(JSON.stringify({ type: 'coin', game: 'snake' }))).toEqual({ type: 'coin', game: 'snake' });
+    expect(parseClientMessage(JSON.stringify({ type: 'coin', game: 42 }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: 'coin', game: 'flappy' }))).toBeNull();
+  });
+});
+
+describe('pause toggle frame (R26)', () => {
+  it('accepts exactly the bare pause frame', () => {
+    expect(parseClientMessage(JSON.stringify({ type: 'pause' }))).toEqual({ type: 'pause' });
+  });
+
+  it('rejects junk pause frames', () => {
+    expect(parseClientMessage(JSON.stringify({ type: 'pause', on: true }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: 'pause', game: 'snake' }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: 'pause', n: 3 }))).toBeNull();
+  });
+});

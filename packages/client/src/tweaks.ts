@@ -109,3 +109,62 @@ export function tournamentBanner(
     : 'TOKYO ARCADE OPEN HALL';
   return { text, colorIdx: Math.floor(ms / 1600) % BANNER_COLORS };
 }
+
+/** 4-step master volume detent + mute (R23). Web Audio gain only. */
+export type VolumeDetent = 0 | 1 | 2 | 3;
+export const DEFAULT_VOLUME: VolumeDetent = 2;
+const VOLUME_GAIN: readonly number[] = [0, 0.35, 0.7, 1];
+
+export const volumeGain = (v: VolumeDetent): number => VOLUME_GAIN[v]!;
+
+export function cycleVolume(v: VolumeDetent): VolumeDetent {
+  return ((v + 1) % 4) as VolumeDetent;
+}
+
+export function effectiveGain(v: VolumeDetent, muted: boolean): number {
+  return muted ? 0 : volumeGain(v);
+}
+
+const VOLUME_KEY = 'arkad-volume';
+const MUTE_KEY = 'arkad-mute';
+
+const isDetent4 = (v: unknown): v is VolumeDetent => v === 0 || v === 1 || v === 2 || v === 3;
+
+export function loadVolume(store: StorageLike, fallback: VolumeDetent): VolumeDetent {
+  try {
+    const raw = store.getItem(VOLUME_KEY);
+    if (raw === null) return fallback;
+    const parsed: unknown = JSON.parse(raw);
+    return isDetent4(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveVolume(store: StorageLike, v: VolumeDetent): void {
+  store.setItem(VOLUME_KEY, JSON.stringify(v));
+}
+
+export function loadMuted(store: StorageLike, fallback: boolean): boolean {
+  const v = store.getItem(MUTE_KEY);
+  return v === 'true' ? true : v === 'false' ? false : fallback;
+}
+
+export function saveMuted(store: StorageLike, muted: boolean): void {
+  store.setItem(MUTE_KEY, String(muted));
+}
+
+/** whole seconds left in a join window, derived from server ticks (R25); null = no window */
+export function joinCountdown(deadlineTick: number | null, nowTick: number): number | null {
+  if (deadlineTick === null || deadlineTick === undefined) return null;
+  const left = deadlineTick - nowTick;
+  if (left <= 0) return null;
+  return Math.ceil(left / 60);
+}
+
+/** x-offset from the marquee center for a right-to-left scroll; pure clock math (R27) */
+export function marqueeOffset(ms: number, width: number, period: number): number {
+  if (width <= 0 || period <= 0) return 0;
+  const p = (Math.max(0, ms) % period) / period;
+  return width - p * (width * 2);
+}

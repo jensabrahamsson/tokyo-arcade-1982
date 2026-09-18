@@ -23,6 +23,7 @@ export interface SfxDef {
 }
 
 export const chiptune: Record<SfxName, SfxDef> = {
+  pause: { wave: 'triangle', notes: ['G4', 'D4'], stepMs: 85, volume: 0.6 },
   eat: { wave: 'square', notes: ['E5', 'B5'], stepMs: 28 },
   power: { wave: 'square', notes: ['C4', 'G4', 'C5', 'E5'], stepMs: 45 },
   die: { wave: 'square', notes: ['B4', 'F#4', 'D4', 'A#3', 'F4', 'C4'], stepMs: 60 },

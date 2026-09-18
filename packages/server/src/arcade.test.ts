@@ -243,10 +243,132 @@ describe('Arcade', () => {
     expect(snap?.data.paddles['c1']!.x).toBe(moved);
   });
 
+  it('rejects start and targeted coin at an out-of-order cabinet (R24)', () => {
+    arcade.handleMessage('c1', { type: 'ooo', game: 'snake', out: true });
+    arcade.handleMessage('c5', { type: 'start', game: 'snake', mode: 'solo' });
+    const box = net.take('c5');
+    const errs = box.filter((m) => m.type === 'error') as { code: string }[];
+    expect(errs.map((e) => e.code)).toContain('out-of-order');
+    const ros = box.filter((m) => m.type === 'roster') as RosterMsg[];
+    expect(ros.at(-1)?.tables.find((t) => t.game === 'snake' && t.players.length > 0)).toBeUndefined();
+    arcade.handleMessage('c5', { type: 'coin', game: 'snake' });
+    expect(net.last<{ code: string }>('c5', 'error')?.code).toBe('out-of-order');
+    // other cabinets are unaffected
+    arcade.handleMessage('c2', { type: 'start', game: 'coast', mode: 'solo' });
+    arcade.tick();
+    expect(net.last<SnapshotMsg>('c2', 'snapshot')?.table.game).toBe('coast');
+  });
+
+  it('the hall channel carries the out-of-order flags (R24.1)', () => {
+    arcade.handleMessage('c1', { type: 'hall', watch: true });
+    arcade.tick();
+    expect(hallMsgs().at(-1)?.ooo ?? []).toEqual([]);
+    arcade.handleMessage('c1', { type: 'ooo', game: 'puck', out: true });
+    const h = hallMsgs().at(-1)!;
+    expect(h.ooo).toEqual(['puck']);
+  });
+
+  it('out-of-order freezes the attract demo; clearing restores it (R24.2/R24.3)', () => {
+    arcade.handleMessage('c1', { type: 'hall', watch: true });
+    arcade.handleMessage('c1', { type: 'ooo', game: 'puck', out: true });
+    for (let i = 0; i < 8; i++) arcade.tick(); // first post-flag broadcast lands
+    const frozen = JSON.stringify(hallMsgs().at(-1)!.cabinets.find((c) => c.game === 'puck')!.data);
+    for (let i = 0; i < 30; i++) arcade.tick();
+    const stillFrozen = JSON.stringify(hallMsgs().at(-1)!.cabinets.find((c) => c.game === 'puck')!.data);
+    expect(stillFrozen).toBe(frozen);
+    arcade.handleMessage('c1', { type: 'ooo', game: 'puck', out: false });
+    for (let i = 0; i < 30; i++) arcade.tick();
+    const resumed = JSON.stringify(hallMsgs().at(-1)!.cabinets.find((c) => c.game === 'puck')!.data);
+    expect(resumed).not.toBe(frozen);
+  });
+
+  it('a versus table in its join window publishes the deadline; gone when dealt (R25)', () => {
+    arcade.handleMessage('c3', { type: 'hall', watch: true });
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'versus' });
+    arcade.handleMessage('c2', { type: 'start', game: 'snake', mode: 'versus' });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    const snap = net.last<SnapshotMsg & { table: { joinDeadline?: number | null } }>('c1', 'snapshot');
+    const deadline = snap?.table.joinDeadline;
+    expect(deadline).not.toBeNull();
+    const h = hallMsgs('c3').at(-1)!;
+    const cab = h.cabinets.find((c) => c.game === 'snake' && c.demo === false) as { joinDeadline?: number | null };
+    expect(cab.joinDeadline).toBe(deadline);
+    expect((deadline as number) - h.tick).toBeLessThanOrEqual(120);
+    expect((deadline as number) - h.tick).toBeGreaterThan(0);
+    // let the grace run out: the table deals and the countdown is gone
+    for (let i = 0; i < 130; i++) arcade.tick();
+    const after = net.last<SnapshotMsg & { table: { joinDeadline?: number | null } }>('c1', 'snapshot');
+    expect(after?.table.joinDeadline ?? null).toBeNull();
+  });
+
+  const playUntil = (connId: string, game = 'snake', max = 300): void => {
+    arcade.handleMessage(connId, { type: 'start', game: game as never, mode: 'solo' });
+    for (let i = 0; i < max; i++) {
+      arcade.tick();
+      const snap = net.last<SnapshotMsg>(connId, 'snapshot');
+      if (snap?.table.phase === 'playing') return;
+    }
+    throw new Error('never reached playing');
+  };
+
+  it('seat-held pause freezes the sim; toggling again resumes it (R26.1)', () => {
+    playUntil('c1');
+    net.take('c1');
+    arcade.handleMessage('c1', { type: 'pause' });
+    for (let i = 0; i < 4; i++) arcade.tick();
+    const a = net.last<SnapshotMsg & { table: { paused?: boolean } }>('c1', 'snapshot');
+    expect(a?.table.paused).toBe(true);
+    const frozen = JSON.stringify(a?.data);
+    for (let i = 0; i < 20; i++) arcade.tick();
+    const b = net.last<SnapshotMsg>('c1', 'snapshot');
+    expect(JSON.stringify(b?.data)).toBe(frozen);
+    // opening sting rode the batch (R26.2)
+    const evs = net.take('c1').flatMap((m) => (m.type === 'snapshot' ? m.events ?? [] : []));
+    arcade.handleMessage('c1', { type: 'pause' });
+    for (let i = 0; i < 6; i++) arcade.tick();
+    const c = net.last<SnapshotMsg & { table: { paused?: boolean } }>('c1', 'snapshot');
+    expect(c?.table.paused).toBe(false);
+    expect(JSON.stringify(c?.data)).not.toBe(frozen);
+    void evs;
+  });
+
+  it('pause-open emits the pause sting once through the batch (R26.2)', () => {
+    playUntil('c1');
+    net.take('c1');
+    arcade.handleMessage('c1', { type: 'pause' });
+    let stings = 0;
+    for (let i = 0; i < 10; i++) {
+      arcade.tick();
+      for (const m of net.take('c1')) {
+        if (m.type === 'snapshot') stings += (m.events ?? []).filter((e) => e.name === 'pause').length;
+      }
+    }
+    expect(stings).toBe(1);
+  });
+
+  it('spectators cannot pause, and teardown clears the flag (R26.1/R26.3)', () => {
+    playUntil('c1');
+    arcade.handleMessage('c2', { type: 'hall', watch: false });
+    arcade.handleMessage('c2', { type: 'start', game: 'snake', mode: 'solo' });
+    // c2 could not seat (snake solo table busy) and watches as spectator
+    net.take('c1');
+    net.take('c2');
+    arcade.handleMessage('c2', { type: 'pause' });
+    for (let i = 0; i < 4; i++) arcade.tick();
+    expect((net.last<SnapshotMsg & { table: { paused?: boolean } }>('c1', 'snapshot'))?.table.paused).toBeFalsy();
+    // teardown via disconnect removes the paused table entirely
+    arcade.handleMessage('c1', { type: 'pause' });
+    arcade.removeConnection('c1');
+    const ros = net.last<RosterMsg>('c2', 'roster');
+    expect(ros?.tables.find((t) => t.game === 'snake' && t.players.length > 0)).toBeUndefined();
+  });
+
   const hallMsgs = (c = 'c1') =>
     net.take(c).filter((m) => m.type === 'hallTables') as {
       type: 'hallTables';
       cabinets: { game: string; demo: boolean; phase: string; data: unknown }[];
+      ooo: string[];
+      tick: number;
     }[];
 
   it('the hall runs attract demos for every cabinet (R8)', () => {

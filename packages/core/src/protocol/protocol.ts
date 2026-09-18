@@ -36,6 +36,8 @@ export interface BackMsg {
 /** insert one credit into the cabinet (R17/R18) */
 export interface CoinMsg {
   type: 'coin';
+  /** which cabinet the credit is aimed at (R24: reject at out-of-order cabinets) */
+  game?: GameId;
 }
 /** operator bookkeeping request (R16) */
 export interface StatsMsg {
@@ -45,6 +47,16 @@ export interface StatsMsg {
 export interface FreePlayMsg {
   type: 'freePlay';
   on: boolean;
+}
+/** seated player toggles the table pause (R26); strictly payload-free */
+export interface PauseMsg {
+  type: 'pause';
+}
+/** operator marks a cabinet out-of-order (R24) */
+export interface OooMsg {
+  type: 'ooo';
+  game: GameId;
+  out: boolean;
 }
 /** subscribe/unsubscribe to the hall's live cabinet board (R8) */
 export interface HallMsg {
@@ -61,7 +73,9 @@ export type ClientMessage =
   | HallMsg
   | CoinMsg
   | StatsMsg
-  | FreePlayMsg;
+  | FreePlayMsg
+  | OooMsg
+  | PauseMsg;
 
 export interface TablePlayerView {
   id: string;
@@ -78,6 +92,10 @@ export interface TableView {
   players: TablePlayerView[];
   turn?: string;
   winner?: string;
+  /** absolute server tick when the join window closes; null = no window (R25) */
+  joinDeadline?: number | null;
+  /** operator-visible frozen flag while the seated player holds the pause (R26) */
+  paused?: boolean;
 }
 export interface WelcomeMsg {
   type: 'welcome';
@@ -97,6 +115,8 @@ export interface SnapshotMsg {
   data: unknown;
   /** sound events produced during this tick */
   events?: SfxEvent[];
+  /** authoritative server tick, for deriving join-window countdowns (R25) */
+  tick?: number;
 }
 export interface ScoreEntry {
   name: string;
@@ -121,12 +141,18 @@ export interface HallCabinet {
   phase: string;
   data: unknown;
   scores: { name: string; score: number }[];
+  /** absolute server tick when the join window closes; null = no window (R25) */
+  joinDeadline: number | null;
 }
 export interface HallTablesMsg {
   type: 'hallTables';
   cabinets: HallCabinet[];
   /** coin mode badge for the hall (R17.3) */
   freePlay: boolean;
+  /** cabinets marked out-of-order by the operator (R24) */
+  ooo: GameId[];
+  /** authoritative server tick, for join-window countdowns (R25) */
+  tick: number;
 }
 export interface StatsReplyMsg {
   type: 'statsReply';
@@ -191,8 +217,17 @@ export function parseClientMessage(raw: string): ClientMessage | null {
       return { type: 'back' };
     case 'hall':
       return typeof o.watch === 'boolean' ? { type: 'hall', watch: o.watch } : null;
-    case 'coin':
-      return { type: 'coin' };
+    case 'coin': {
+      if (o.game === undefined) return { type: 'coin' };
+      return isGameId(o.game) ? { type: 'coin', game: o.game } : null;
+    }
+    case 'pause':
+      // strictly the bare frame: any extra field is a malformed toggle (R26.3)
+      return Object.keys(o).length === 1 ? { type: 'pause' } : null;
+    case 'ooo':
+      return isGameId(o.game) && typeof o.out === 'boolean'
+        ? { type: 'ooo', game: o.game, out: o.out }
+        : null;
     case 'stats':
       return { type: 'stats' };
     case 'freePlay':

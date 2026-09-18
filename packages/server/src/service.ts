@@ -1,10 +1,13 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { GAME_IDS, type GameId } from '@arkad/core';
 
 export interface ServiceState {
   plays: number;
   coins: number;
   freePlay: boolean;
+  /** cabinets the operator took out of service (R24) */
+  outOfOrder: GameId[];
 }
 
 /** Operator bookkeeping (R16/R17): counters + free-play mode, persisted under data/. */
@@ -16,17 +19,21 @@ export class ServiceStore {
   }
 
   private load(): ServiceState {
-    const clean: ServiceState = { plays: 0, coins: 0, freePlay: false };
+    const clean: ServiceState = { plays: 0, coins: 0, freePlay: false, outOfOrder: [] };
     try {
       const parsed: unknown = JSON.parse(readFileSync(this.path, 'utf8'));
       if (typeof parsed !== 'object' || parsed === null) return clean;
       const o = parsed as Record<string, unknown>;
       const count = (v: unknown): number =>
         typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
+      const ooo = Array.isArray(o.outOfOrder)
+        ? (o.outOfOrder.filter((g: unknown) => GAME_IDS.includes(g as GameId)) as GameId[])
+        : [];
       return {
         plays: count(o.plays),
         coins: count(o.coins),
         freePlay: typeof o.freePlay === 'boolean' ? o.freePlay : false,
+        outOfOrder: ooo,
       };
     } catch {
       return clean;
@@ -58,6 +65,14 @@ export class ServiceStore {
 
   setFreePlay(on: boolean): void {
     this.data.freePlay = on;
+    this.save();
+  }
+
+  setOutOfOrder(game: GameId, out: boolean): void {
+    const set = new Set(this.data.outOfOrder);
+    if (out) set.add(game);
+    else set.delete(game);
+    this.data.outOfOrder = [...set].sort();
     this.save();
   }
 }
