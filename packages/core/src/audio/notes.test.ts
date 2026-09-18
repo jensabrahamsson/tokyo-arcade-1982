@@ -27,3 +27,12 @@ describe('chiptune sequences', () => {
     }
   });
 });
+
+describe('hall audio (R14)', () => {
+  it('a high-score jingle exists and is playable', () => {
+    const def = chiptune.jingle;
+    expect(def).toBeDefined();
+    expect(def.notes.length).toBeGreaterThanOrEqual(4);
+    for (const n of def.notes) expect(() => noteFreq(n)).not.toThrow();
+  });
+});

@@ -105,6 +105,27 @@ describe('game server (real websockets)', () => {
     expect(existsSync(join(dir, 'scores.json'))).toBe(true);
   }, 30000);
 
+  it('hall subscription streams live demo cabinets over real sockets (R8)', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'arkad-hall-'));
+    handle = await createGameServer({ port: 0, dataDir: dir });
+    const a = await peer(`ws://127.0.0.1:${handle.port}/ws`);
+    peers.push(a);
+    a.ws.send(JSON.stringify({ type: 'join', name: 'WALKER', lang: 'en' }));
+    await a.waitFor('welcome');
+    a.ws.send(JSON.stringify({ type: 'hall', watch: true }));
+    const hall = await a.waitFor<{
+      type: 'hallTables';
+      cabinets: { game: string; demo: boolean; data: unknown }[];
+    }>('hallTables');
+    expect(hall.cabinets).toHaveLength(6);
+    expect(hall.cabinets.every((c) => c.demo && c.data !== null)).toBe(true);
+    const snake = hall.cabinets.find((c) => c.game === 'snake')!;
+    await new Promise((r) => setTimeout(r, 150));
+    const hall2 = await a.waitFor<{ cabinets: { game: string; data: Record<string, unknown> }[] }>('hallTables');
+    const snake2 = hall2.cabinets.find((c) => c.game === 'snake')!;
+    expect(JSON.stringify(snake.data)).not.toBe(JSON.stringify(snake2.data));
+  }, 15000);
+
   it('four players can play snake versus over real sockets', async () => {
     dir = mkdtempSync(join(tmpdir(), 'arkad-ws4-'));
     handle = await createGameServer({ port: 0, dataDir: dir });

@@ -5,19 +5,38 @@ for *what*, `ARCHITECTURE.md` for *where*, this file for *how*.
 
 ## Prime directives
 
-1. **Test-first.** New behavior gets a failing test before code. Bug
-   fixes ship with a regression test that would have caught the bug.
-   A fix without a test is not finished.
+1. **Test-first, no exceptions.** New behavior gets a failing test
+   *before* the code that makes it pass. Bug fixes ship with a
+   regression test that would have caught the bug. A change without a
+   test is not finished — "I'll add tests after" is not a plan, it is
+   a wish. If a behavior cannot be unit-tested (browser-only), extract
+   a pure helper and test that, and cover the rest with a real-server
+   check.
 2. **The core is sacred.** `packages/core` is pure: no DOM, no Node
-   APIs, no `Math.random`/`Date.now`, no I/O, no timers. `step()` never
-   mutates its input state (shallow copies are not clones — clone what
-   you write). State must stay plain JSON.
+   APIs, no `Math.random`/`Date.now`, no I/O, no timers, no
+   `console.*`. `step()`/`demo()` never mutate their input state
+   (shallow copies are not clones — clone what you write). State must
+   stay plain JSON: anything that cannot survive `JSON.parse(JSON.stringify(state))`
+   is a bug. Bots/demos live in core as pure functions, never in
+   server or client.
 3. **Validate at the edge.** The server trusts nothing that was not
-   approved by `parseClientMessage`. A client (or a curl) must never be
-   able to crash the hall.
+   approved by `parseClientMessage` — every new message type gets its
+   validator case and a rejection test *in the same commit*. Bounds on
+   everything: lengths, finiteness, enum values, payload size. A client
+   (or a curl) must never be able to crash the hall; prove it with a
+   test that throws junk at the socket handler.
 4. **Finish green, always.** Before any commit:
-   `npx tsc -b && npm test && node build.mjs` — all three, no exceptions.
-   Never weaken or delete a test to get green; fix the code.
+   `npx tsc -b && npm test && node build.mjs` — all three, no
+   exceptions, twice for flake-checking.
+5. **Tests are immutable evidence.** Never weaken, delete, skip
+   (`.skip`, `xit`, loose asserts) or "update" a test to accommodate
+   new code. A test that disagrees with your change means your change
+   is wrong — or the test needs a *reasoned*, commented correction
+   with the old expectation explained in the commit message. README
+   test counts move up, never down.
+6. **Commits are authored as Jens Abrahamsson `<jens.abrahamsson@makeitso.se>`**
+   — verify `git log -1 --format='%ae'` before pushing; never the
+   jens-krypto identity.
 
 ## Working agreements
 
@@ -69,6 +88,8 @@ node dist/server/index.cjs   # ARKAD_PORT / ARKAD_DATA
 
 ## Definition of done
 
-`tsc -b` clean · `npm test` green (count updated in README) ·
-`node build.mjs` OK · a live-server smoke of the touched flow ·
-no requirement in `REQUIREMENTS.md` violated.
+`tsc -b` clean · `npm test` green twice (count updated in README) ·
+`node build.mjs` OK · a live-server smoke of the touched flow (real
+server + `ws` script for anything socket-facing) · every requirement ID
+touched by the change verified or downgraded with a note · no
+requirement in `REQUIREMENTS.md` violated · author check passes.

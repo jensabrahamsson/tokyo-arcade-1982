@@ -1,6 +1,7 @@
 import {
   REGISTRY,
   GAME_IDS,
+  type GameSpec,
   type AnyGameSpec,
   type ClientMessage,
   type GameId,
@@ -29,6 +30,8 @@ interface Table {
   id: string;
   game: GameId;
   mode: GameMode;
+  /** attract-mode cabinet: seatless, bot-driven, never scores */
+  demo: boolean;
   session: Session | null;
   seats: Seating[];
   seed: number;
@@ -39,6 +42,8 @@ interface Table {
 }
 
 const SNAPSHOT_EVERY = 2;
+const HALL_EVERY = 6;
+const DEMO_PLAYER = 'demo';
 /** ticks a half-filled versus table waits for extra players before dealing (2 s at 60 Hz) */
 export const START_GRACE = 120;
 
@@ -59,8 +64,43 @@ export class Arcade {
   private tableSeq = 0;
   private tickCount = 0;
   private interval: NodeJS.Timeout | null = null;
+  private hallWatchers = new Set<string>();
 
-  constructor(private readonly opts: ArcadeOptions) {}
+  constructor(private readonly opts: ArcadeOptions) {
+    this.openDemoTables();
+  }
+
+  /** every idle cabinet plays itself, 1982 style (R8) */
+  private openDemoTables(): void {
+    for (const game of GAME_IDS) {
+      const table: Table = {
+        id: `demo-${game}`,
+        game,
+        mode: 'solo',
+        demo: true,
+        session: null,
+        seats: [],
+        seed: (Math.random() * 2 ** 31) >>> 0,
+        openTick: 0,
+        graceTick: -1,
+        lastSnap: -999,
+        pendingEvents: [],
+      };
+      table.session = this.demoSession(table);
+      this.tables.set(table.id, table);
+    }
+  }
+
+  private demoSession(table: Table): Session {
+    const spec = REGISTRY[table.game] as AnyGameSpec;
+    const session = new Session(table.id, spec, {
+      mode: 'solo',
+      playerIds: [DEMO_PLAYER],
+      seed: (Math.random() * 2 ** 31) >>> 0,
+    });
+    session.begin();
+    return session;
+  }
 
   addConnection(conn: Conn): void {
     this.conns.set(conn.id, conn);
@@ -69,6 +109,7 @@ export class Arcade {
 
   removeConnection(connId: string): void {
     this.conns.delete(connId);
+    this.hallWatchers.delete(connId);
     for (const table of this.tables.values()) {
       table.seats = table.seats.filter((s) => s.connId !== connId);
       if (!table.seats.some((s) => !s.spectator)) this.closeTable(table);
@@ -107,6 +148,10 @@ export class Arcade {
           entries: this.opts.store.top(msg.game, msg.mode),
         });
         break;
+      case 'hall':
+        if (msg.watch) this.hallWatchers.add(connId);
+        else this.hallWatchers.delete(connId);
+        break;
       case 'back': {
         const table = this.tableOf(connId);
         if (table) {
@@ -139,6 +184,13 @@ export class Arcade {
     // one cabinet per game+mode in the hall: seat if free, otherwise spectate
     let table = [...this.tables.values()].find((t) => t.game === game && t.mode === mode);
     if (!table) table = this.openTable(game, mode);
+    if (table.demo) {
+      // coin drop: the attract bot steps aside for a real game (R8.4)
+      table.demo = false;
+      table.session = null;
+      table.graceTick = -1;
+      table.openTick = this.tickCount;
+    }
     const capacity = mode === 'versus' ? (spec.capacity ?? 2) : 1;
     const seated = table.seats.filter((s) => !s.spectator).length;
     // once the simulation has dealt, late arrivals can only watch
@@ -157,6 +209,7 @@ export class Arcade {
       id: `t${++this.tableSeq}`,
       game,
       mode,
+      demo: false,
       session: null,
       seats: [],
       seed: (Math.random() * 2 ** 31) >>> 0,
@@ -184,7 +237,7 @@ export class Arcade {
 
   private recordScores(tableId: string, state: GameStateBase): void {
     const table = this.tables.get(tableId);
-    if (!table) return;
+    if (!table || table.demo) return;
     for (const seat of table.seats) {
       if (seat.spectator) continue;
       const conn = this.conns.get(seat.connId);
@@ -220,6 +273,10 @@ export class Arcade {
   tick(): void {
     this.tickCount++;
     for (const table of [...this.tables.values()]) {
+      if (table.demo) {
+        this.tickDemo(table);
+        continue;
+      }
       const session = table.session;
       const dueSnap = this.tickCount - table.lastSnap >= SNAPSHOT_EVERY;
       if (!session) {
@@ -258,6 +315,38 @@ export class Arcade {
       }
       if (session.state.phase === 'attract') this.closeTable(table);
     }
+    if (this.tickCount % HALL_EVERY === 0 && this.hallWatchers.size > 0) this.broadcastHall();
+  }
+
+  private tickDemo(table: Table): void {
+    const session = table.session ?? (table.session = this.demoSession(table));
+    if (session.state.phase !== 'playing' && session.state.phase !== 'ready') {
+      // demo runs out: flip the cabinet back to attract and re-deal (never scores)
+      table.session = this.demoSession(table);
+      return;
+    }
+    const spec = REGISTRY[table.game] as AnyGameSpec;
+    if (spec.demo) session.setInput(DEMO_PLAYER, spec.demo(session.state, this.tickCount));
+    try {
+      session.tick();
+    } catch (err) {
+      console.error(`[arkad] demo ${table.game} tick failed; re-dealing`, err);
+      table.session = this.demoSession(table);
+    }
+  }
+
+  private broadcastHall(): void {
+    const cabinets = [...this.tables.values()].map((t) => ({
+      game: t.game,
+      mode: t.mode,
+      demo: t.demo,
+      phase: t.session?.state.phase ?? 'ready',
+      data: t.session?.state ?? null,
+      scores: this.opts.store.top(t.game, t.mode, 3).map((e) => ({ name: e.name, score: e.score })),
+    }));
+    for (const connId of this.hallWatchers) {
+      if (this.conns.has(connId)) this.send(connId, { type: 'hallTables', cabinets });
+    }
   }
 
   private tableView(table: Table): TableView {
@@ -283,7 +372,7 @@ export class Arcade {
 
   private broadcastRoster(): void {
     const players = [...this.conns.values()].map((c) => ({ id: c.id, name: c.name }));
-    const tables = [...this.tables.values()].map((t) => this.tableView(t));
+    const tables = [...this.tables.values()].filter((t) => !t.demo).map((t) => this.tableView(t));
     for (const conn of this.conns.values()) {
       this.send(conn.id, { type: 'roster', players, tables });
     }

@@ -229,6 +229,43 @@ function step(state: SnakeState, inputs: Record<string, PlayerInput>): SnakeStat
   return s;
 }
 
+/** attract-mode bot: chase the food, never step into a body, never into a wall */
+function demoSnake(state: SnakeState, tick: number): PlayerInput {
+  const id = Object.keys(state.snakes)[0]!;
+  const sn = state.snakes[id]!;
+  if (!sn.alive) return { dir: null, button: false };
+  const head = sn.body[0]!;
+  const blocked = new Set<string>();
+  for (const [oid, o] of Object.entries(state.snakes)) {
+    for (let i = oid === id ? 3 : 0; i < o.body.length; i++) {
+      blocked.add(`${o.body[i]!.x},${o.body[i]!.y}`);
+    }
+  }
+  const { w, h } = GRID;
+  const turns: Dir[] = [sn.dir, { dx: -sn.dir.dy, dy: sn.dir.dx }, { dx: sn.dir.dy, dy: -sn.dir.dx }];
+  const food = state.food;
+  let best: Dir | null = null;
+  let bestDist = Infinity;
+  for (const d of turns) {
+    if (d.dx === -sn.dir.dx && d.dy === -sn.dir.dy) continue;
+    let nx = head.x + d.dx;
+    let ny = head.y + d.dy;
+    if (state.mode === 'versus') {
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+    } else {
+      nx = (nx + w) % w;
+      ny = (ny + h) % h;
+    }
+    if (blocked.has(`${nx},${ny}`)) continue;
+    const dist = food ? Math.abs(food.x - nx) + Math.abs(food.y - ny) : 0;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = d;
+    }
+  }
+  return { dir: best ?? sn.dir, button: false, seq: tick };
+}
+
 export const snakeSpec: GameSpec<SnakeState> = {
   id: 'snake',
   supportsVersus: true,
@@ -236,4 +273,5 @@ export const snakeSpec: GameSpec<SnakeState> = {
   turnBased: false,
   create,
   step,
+  demo: demoSnake,
 };

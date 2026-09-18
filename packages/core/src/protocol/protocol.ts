@@ -33,7 +33,12 @@ export interface ScoresMsg {
 export interface BackMsg {
   type: 'back';
 }
-export type ClientMessage = JoinMsg | SetNameMsg | StartMsg | InputMsg | ScoresMsg | BackMsg;
+/** subscribe/unsubscribe to the hall's live cabinet board (R8) */
+export interface HallMsg {
+  type: 'hall';
+  watch: boolean;
+}
+export type ClientMessage = JoinMsg | SetNameMsg | StartMsg | InputMsg | ScoresMsg | BackMsg | HallMsg;
 
 export interface TablePlayerView {
   id: string;
@@ -85,7 +90,20 @@ export interface ErrorMsg {
   type: 'error';
   code: string;
 }
-export type ServerMessage = WelcomeMsg | RosterMsg | SnapshotMsg | ScoreListMsg | ErrorMsg;
+/** one cabinet's live screen for the hall view: demo or match, plus its board */
+export interface HallCabinet {
+  game: GameId;
+  mode: GameMode;
+  demo: boolean;
+  phase: string;
+  data: unknown;
+  scores: { name: string; score: number }[];
+}
+export interface HallTablesMsg {
+  type: 'hallTables';
+  cabinets: HallCabinet[];
+}
+export type ServerMessage = WelcomeMsg | RosterMsg | SnapshotMsg | ScoreListMsg | ErrorMsg | HallTablesMsg;
 
 const isDir = (d: unknown): d is Dir => {
   if (typeof d !== 'object' || d === null) return false;
@@ -132,6 +150,8 @@ export function parseClientMessage(raw: string): ClientMessage | null {
       return isGameId(o.game) && isMode(o.mode) ? { type: 'scores', game: o.game, mode: o.mode } : null;
     case 'back':
       return { type: 'back' };
+    case 'hall':
+      return typeof o.watch === 'boolean' ? { type: 'hall', watch: o.watch } : null;
     default:
       return null;
   }

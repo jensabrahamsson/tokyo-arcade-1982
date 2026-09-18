@@ -31,10 +31,20 @@ Env: `ARKAD_PORT` (default 8442), `ARKAD_DATA` (default `./data`).
 
 ## Controls
 
-- **Move:** Arrow keys or WASD
+- **Move:** Arrow keys or WASD — cursor keys work everywhere, always paired
 - **Start / coin:** `Space` — first press opens the marquee keyboard (in-canvas, arrow keys + `Z`, up to 12 chars — no browser dialog)
 - **Fire / button:** hold `Space` (or `Z`/`J`) inside a cabinet — galaxy and myriad shoot, paddles and the stick respond everywhere
-- **Solo:** `Z` · **VS. duel:** `X` · **High scores:** `H` · **Language EN/JP:** `L` · **Back:** `Esc` / `B`
+- **Solo:** `Z` · **VS. duel:** `X` · **High scores:** `H` · **Hall map:** `M` · **Credits:** `C` · **Language EN/JP:** `L` · **Back:** `Esc` / `B`
+
+## The hall is alive (1982 mode)
+
+The game select is not a menu — it is a rendered arcade hall: six cabinets
+with lit marquees, floor reflections and a "you are here" token you walk
+around with the arrow keys. Every idle cabinet runs a live attract demo
+(built-in deterministic bots playing their own games), so the hall hums
+like a real one even at 3 AM. Drop a coin and the demo steps aside
+instantly. `M` opens the floor plan, `C` the credits, and opening the
+high-score board gets its own chiptune jingle. A boot splash starts it all.
 
 ## Multiplayer over the LAN
 
@@ -68,7 +78,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 175 tests across engine, games, server, client
+npm test          # vitest: 210 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```
@@ -88,5 +98,4 @@ Copyright (C) 2026 Jens Abrahamsson.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
-version — see [`LICENSE`](LICENSE).
+Foundation, **version 3 only** (`GPL-3.0-only`) — see [`LICENSE`](LICENSE).

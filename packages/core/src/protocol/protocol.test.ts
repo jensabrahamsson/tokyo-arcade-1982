@@ -61,3 +61,15 @@ describe('input seq hygiene', () => {
     expect((msg as { seq?: number }).seq).toBe(4);
   });
 });
+
+describe('hall subscription (R8)', () => {
+  it('accepts hall watch on/off', () => {
+    expect(parseClientMessage('{"type":"hall","watch":true}')).toEqual({ type: 'hall', watch: true });
+    expect(parseClientMessage('{"type":"hall","watch":false}')).toEqual({ type: 'hall', watch: false });
+  });
+  it('rejects malformed hall messages', () => {
+    expect(parseClientMessage('{"type":"hall"}')).toBeNull();
+    expect(parseClientMessage('{"type":"hall","watch":"yes"}')).toBeNull();
+    expect(parseClientMessage('{"type":"hall","watch":1}')).toBeNull();
+  });
+});

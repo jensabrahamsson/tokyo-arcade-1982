@@ -205,6 +205,18 @@ function step(state: GalaxyState, inputs: Record<string, PlayerInput>): GalaxySt
   return s;
 }
 
+/** attract-mode bot: chase the lowest alien, keep the cannon busy */
+function demoGalaxy(state: GalaxyState, tick: number): PlayerInput {
+  const target = state.aliens.reduce<{ x: number; y: number } | null>(
+    (best, a) => (best === null || a.y > best.y ? a : best),
+    null,
+  );
+  if (!target) return { dir: null, button: false, seq: tick };
+  const dx = target.x - state.player.x;
+  const dir = Math.abs(dx) < 0.4 ? null : { dx: dx > 0 ? 1 : -1, dy: 0 };
+  return { dir, button: true, seq: tick };
+}
+
 export const galaxySpec: GameSpec<GalaxyState> = {
   id: 'galaxy',
   supportsVersus: false,
@@ -212,4 +224,5 @@ export const galaxySpec: GameSpec<GalaxyState> = {
   turnBased: false,
   create: createGalaxy,
   step,
+  demo: demoGalaxy,
 };
