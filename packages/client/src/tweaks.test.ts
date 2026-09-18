@@ -7,6 +7,7 @@ import {
   DEFAULT_VOLUME, joinCountdown, marqueeOffset, marqueeLamp, visibleSpectators,
   rejectToast, toastVisible, TOAST_MS, walkBob, creditStrip,
   freePlayBannerVisible, cabinetFocus, isNewRecord, recordFlashVisible, blinkOn,
+  powerLed, ledState, scoreCrawlOffset,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -318,5 +319,37 @@ describe('attract blink (R37)', () => {
     expect(blinkOn(5, 20, 0)).toBe(false);
     expect(blinkOn(5, 0, 0.5)).toBe(false); // no period, no blink
     expect(blinkOn(-3, 20, 0.5)).toBe(blinkOn(17, 20, 0.5));
+  });
+});
+
+describe('cabinet power LED (R40)', () => {
+  it('maps each state to its colour and duty', () => {
+    expect(powerLed('idle')).toEqual({ color: 'gray', duty: 0 });
+    expect(powerLed('playing')).toEqual({ color: 'lime', duty: 1 });
+    expect(powerLed('ooo')).toEqual({ color: 'red', duty: 0.5 });
+  });
+
+  it('derivation keeps the priority OOO > playing > idle', () => {
+    expect(ledState({ live: true, ooo: true })).toBe('ooo');
+    expect(ledState({ live: true, ooo: false })).toBe('playing');
+    expect(ledState({ live: false, ooo: true })).toBe('ooo');
+    expect(ledState({ live: false, ooo: false })).toBe('idle');
+  });
+});
+
+describe('high-score roll crawl (R41)', () => {
+  it('is deterministic and cycles the strip of rows once per period', () => {
+    expect(scoreCrawlOffset(0, 10, 4000)).toBe(0);
+    expect(scoreCrawlOffset(4000, 10, 4000)).toBe(0); // wraps
+    expect(scoreCrawlOffset(2000, 10, 4000)).toBe(20); // half: two rows up (3 rows + gap)
+    expect(scoreCrawlOffset(1000, 10, 4000)).toBe(10);
+    for (let ms = 0; ms <= 9000; ms += 97) {
+      const v = scoreCrawlOffset(ms, 10, 4000);
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThan(40); // 3 rows + 1 gap
+      expect(scoreCrawlOffset(ms, 10, 4000)).toBe(v);
+    }
+    expect(scoreCrawlOffset(500, 0, 4000)).toBe(0);
+    expect(scoreCrawlOffset(500, 10, 0)).toBe(0);
   });
 });

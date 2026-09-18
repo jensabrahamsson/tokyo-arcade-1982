@@ -123,3 +123,23 @@ describe('pause toggle frame (R26)', () => {
     expect(parseClientMessage(JSON.stringify({ type: 'pause', n: 3 }))).toBeNull();
   });
 });
+
+describe('operator note / sticker frame (R42)', () => {
+  it('accepts, trims and hard-caps the sticker text', () => {
+    expect(parseClientMessage(JSON.stringify({ type: 'note', text: 'OPEN TILL LATE' }))).toEqual({
+      type: 'note',
+      text: 'OPEN TILL LATE',
+    });
+    const long = parseClientMessage(JSON.stringify({ type: 'note', text: 'X'.repeat(60) })) as { text?: string } | null;
+    expect(long?.text).toHaveLength(24);
+    const padded = parseClientMessage(JSON.stringify({ type: 'note', text: '  HI  ' })) as { text?: string } | null;
+    expect(padded?.text).toBe('HI');
+    expect(parseClientMessage(JSON.stringify({ type: 'note', text: '' }))).toEqual({ type: 'note', text: '' });
+  });
+
+  it('rejects junk note frames', () => {
+    expect(parseClientMessage(JSON.stringify({ type: 'note' }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: 'note', text: 42 }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: 'note', text: { a: 1 } }))).toBeNull();
+  });
+});

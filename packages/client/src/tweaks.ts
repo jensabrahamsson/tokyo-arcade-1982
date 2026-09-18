@@ -244,3 +244,24 @@ export function blinkOn(tick: number, period: number, duty: number): boolean {
   const phase = ((Math.trunc(tick) % period) + period) % period;
   return phase < duty * period;
 }
+
+/** cabinet power LED (R40): dim idle, bright while playing, red pulse when broken */
+export type LedState = 'idle' | 'playing' | 'ooo';
+export function powerLed(state: LedState): { color: 'gray' | 'lime' | 'red'; duty: number } {
+  if (state === 'ooo') return { color: 'red', duty: 0.5 };
+  if (state === 'playing') return { color: 'lime', duty: 1 };
+  return { color: 'gray', duty: 0 };
+}
+
+/** the one truth: OUT OF ORDER beats NOW PLAYING beats idle */
+export function ledState({ live, ooo }: { live: boolean; ooo: boolean }): LedState {
+  if (ooo) return 'ooo';
+  return live ? 'playing' : 'idle';
+}
+
+/** vertical crawl offset for a strip of 3 rows + 1 gap (R41) */
+export function scoreCrawlOffset(ms: number, rowH: number, period: number): number {
+  if (rowH <= 0 || period <= 0) return 0;
+  const p = (Math.max(0, ms) % period) / period;
+  return p * (rowH * 4);
+}
