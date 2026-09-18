@@ -9,6 +9,8 @@ import {
   freePlayBannerVisible, cabinetFocus, isNewRecord, recordFlashVisible, blinkOn,
   powerLed, ledState, scoreCrawlOffset,
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
+  attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
+  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -396,5 +398,88 @@ describe('thank-you exit toast (R47)', () => {
     expect(exitToastVisible(0, 1200, 1200)).toBe(false);
     expect(exitToastVisible(5, 0, 1200)).toBe(false);
     expect(exitToastVisible(1000, 2100, 1200)).toBe(true);
+  });
+});
+
+describe('attract volume dip (R48)', () => {
+  it('ducks attract sound while a human is seated', () => {
+    expect(attractGain(false)).toBe(1);
+    expect(attractGain(true)).toBeLessThan(1);
+    expect(attractGain(true)).toBeGreaterThan(0);
+  });
+
+  it('mute wins over everything', () => {
+    expect(effectiveAttractGain(false, true)).toBe(0);
+    expect(effectiveAttractGain(true, true)).toBe(0);
+    expect(effectiveAttractGain(false, false)).toBe(1);
+  });
+});
+
+describe('heat shimmer (R49)', () => {
+  it('is off for fresh attract and grows with idle time, capped', () => {
+    expect(heatShimmer(0, 10).alpha).toBe(0);
+    expect(heatShimmer(30_000, 10).alpha).toBe(0);
+    const a = heatShimmer(60_000, 10).alpha;
+    const b = heatShimmer(120_000, 10).alpha;
+    expect(a).toBeGreaterThan(0);
+    expect(b).toBeGreaterThanOrEqual(a);
+    expect(heatShimmer(10 ** 9, 10).alpha).toBeLessThanOrEqual(0.18);
+  });
+
+  it('offset is small, deterministic and periodic in tick', () => {
+    for (let t = 0; t < 40; t++) {
+      const { offset } = heatShimmer(60_000, t);
+      expect(Math.abs(offset)).toBeLessThanOrEqual(1);
+      expect(heatShimmer(60_000, t).offset).toBe(offset);
+      expect(heatShimmer(60_000, t + 4).offset).toBe(offset);
+    }
+  });
+});
+
+describe('versus ready countdown (R50)', () => {
+  it('counts 3,2,1 over the window and null after', () => {
+    expect(readyCountdown(0)).toBe(3);
+    expect(readyCountdown(1000)).toBe(2);
+    expect(readyCountdown(2000)).toBe(1);
+    expect(readyCountdown(2999)).toBe(1);
+    expect(readyCountdown(3000)).toBeNull();
+    expect(readyCountdown(-1)).toBeNull();
+  });
+});
+
+describe('initials glow (R51)', () => {
+  it('is a bounded deterministic pulse', () => {
+    for (let t = 0; t < 40; t++) {
+      const g = initialGlow(t);
+      expect(g).toBeGreaterThanOrEqual(0.4);
+      expect(g).toBeLessThanOrEqual(1);
+      expect(initialGlow(t + 4)).toBe(g);
+    }
+    expect(new Set([0, 1, 2, 3].map(initialGlow)).size).toBeGreaterThan(1);
+  });
+});
+
+describe('operator test tone rate limit (R52)', () => {
+  it('allows one tone per gap from a cold start', () => {
+    expect(testToneAllowed(0, 0, 800)).toBe(true);
+    expect(testToneAllowed(0, 500, 800)).toBe(false);
+    expect(testToneAllowed(0, 800, 800)).toBe(true);
+    expect(testToneAllowed(0, 801, 800)).toBe(true);
+    expect(testToneAllowed(100, 50, 800)).toBe(false);
+  });
+});
+
+describe('fullscreen ux helpers (R53)', () => {
+  it('requests fullscreen on hall and table scenes only', () => {
+    expect(shouldRequestFullscreen('hall')).toBe(true);
+    expect(shouldRequestFullscreen('table')).toBe(true);
+    expect(shouldRequestFullscreen('splash')).toBe(false);
+    expect(shouldRequestFullscreen('service')).toBe(false);
+  });
+
+  it('the hint shows for a fixed window after boot', () => {
+    expect(fullscreenHintVisible(0, 10_000)).toBe(true);
+    expect(fullscreenHintVisible(9999, 10_000)).toBe(true);
+    expect(fullscreenHintVisible(10_000, 10_000)).toBe(false);
   });
 });

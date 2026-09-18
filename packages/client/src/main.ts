@@ -32,7 +32,9 @@ import {
   joinCountdown, marqueeOffset, marqueeLamp, visibleSpectators, rejectToast, toastVisible, TOAST_MS, walkBob, creditStrip,
   freePlayBannerVisible, cabinetFocus, isNewRecord, recordFlashVisible, blinkOn,
   powerLed, ledState, scoreCrawlOffset,
-  waitDots, thunkEnvelope, formatHallClock, exitToastVisible, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
+  attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
+  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -81,6 +83,8 @@ let sel = 0;
 let hallSteps = 0;
 let recordFlashAt = 0;
 let exitToastAt = 0;
+let lastToneAt = 0;
+const idleSince: Partial<Record<GameId, number>> = {};
 let recordCheckedFor = '';
 let pendingRecord: { tableId: string; game: GameId; mode: GameMode; myScore: number } | null = null;
 type GameInfo = { id: GameId; solo: boolean; versus: boolean };
@@ -162,6 +166,7 @@ function toggleLang(): void {
 
 function enterHall(): void {
   scene = 'hall';
+  requestHallFullscreen(); // R53: playtest wants the hall to fill the screen
   if (joined) net.send({ type: 'hall', watch: true });
 }
 
@@ -206,7 +211,29 @@ function beginGame(mode: GameMode): void {
   scene = 'table';
 }
 
+function requestHallFullscreen(): void {
+  if (!shouldRequestFullscreen('hall')) return;
+  try {
+    const el = document.documentElement as HTMLElement & { requestFullscreen?: () => Promise<void> };
+    void el.requestFullscreen?.().catch(() => undefined);
+  } catch {
+    /* graceful no-op where the API is missing */
+  }
+}
+
+function toggleFullscreen(): void {
+  try {
+    const doc = document as Document & { exitFullscreen?: () => Promise<void> };
+    if (document.fullscreenElement) void doc.exitFullscreen?.().catch(() => undefined);
+    else requestHallFullscreen();
+  } catch {
+    /* graceful no-op */
+  }
+}
+
 function applyPresentation(): void {
+  const liveSeat = (world.hall?.cabinets ?? []).some((c) => !c.demo && c.players > 0);
+  audio.setAttract(scene === 'table' ? 1 : attractGain(liveSeat));
   audio.setMaster(effectiveGain(volume, muted));
   canvas.style.filter = crtFilterCss(knobs, access);
   const scan = document.querySelector('.scanlines') as HTMLElement | null;
@@ -283,6 +310,13 @@ function update(ms: number): void {
       applyPresentation();
     }
     if (keys.take('KeyO')) toggleOoo();
+    if (keys.take('KeyT')) {
+      const now = performance.now();
+      if (testToneAllowed(lastToneAt, now)) {
+        lastToneAt = now;
+        audio.play('test');
+      }
+    }
     if (keys.take('KeyN')) {
       audio.unlock();
       namePad = createNamePad();
@@ -302,6 +336,7 @@ function update(ms: number): void {
     }
     if (keys.take('Escape', 'KeyB')) scene = serviceFrom === 'hall' ? 'hall' : 'title';
   } else if (scene === 'title') {
+    if (keys.take('KeyF')) toggleFullscreen();
     if (keys.take('Space', 'Enter', 'NumpadEnter')) {
       if (joined) enterHall();
       else openNamePad();
@@ -337,6 +372,7 @@ function update(ms: number): void {
       audio.play('coin');
     }
   } else if (scene === 'hall') {
+    if (keys.take('KeyF')) toggleFullscreen();
     for (const k of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS']) {
       if (keys.take(k)) {
         const next = moveHallSel(sel, k);
@@ -459,6 +495,11 @@ function renderGame(ms: number): void {
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     px(ctx, 'PAUSE', cx, 104, 24, blink(ms, 450) ? PAL.yellow : PAL.orange, 'center');
     px(ctx, t('pause.title'), cx, 130, 12, PAL.cyan, 'center');
+  }
+  if (snap.table.readyAt != null) {
+    const msSinceFull = 3000 - ((snap.table.readyAt - (snap.tick ?? snap.table.readyAt)) * 1000) / 60;
+    const secs = readyCountdown(msSinceFull);
+    if (secs !== null) px(ctx, `READY ${secs}`, CANVAS_W / 2, 104, 20, blink(ms, 400) ? PAL.yellow : PAL.orange, 'center');
   }
   const left = joinCountdown(snap.table.joinDeadline ?? null, snap.tick ?? 0);
   if (left !== null) {
@@ -634,6 +675,20 @@ function renderCabinet(
     }
     px(ctx, `${t('hall.credits')} ${strip}`, x + w - 2, y + slot.h - 8, 7, PAL.yellow, 'right');
   }
+  if (lamp === 'idle') {
+    if (idleSince[slot.game] === undefined) idleSince[slot.game] = ms;
+    const idleFor = Math.min(ms - idleSince[slot.game]!, 600_000);
+    const heat = heatShimmer(idleFor, Math.floor(ms / 130));
+    if (heat.alpha > 0) {
+      ctx.save();
+      ctx.globalAlpha = heat.alpha;
+      ctx.fillStyle = PAL.white;
+      for (let sy = 0; sy < screenH; sy += 4) ctx.fillRect(screenX + heat.offset, screenY + sy + heat.offset, screenW, 1);
+      ctx.restore();
+    }
+  } else {
+    idleSince[slot.game] = ms;
+  }
   // R37 attract INSERT COIN blink: idle cabinets only, OOO and live win first
   if (lamp === 'idle' && !isOoo(slot.game) && !(world.hall?.freePlay ?? false)
     && blinkOn(Math.floor(ms / 320), 6, 0.5)) {
@@ -738,6 +793,7 @@ function renderHall(ms: number): void {
 
   px(ctx, `Z: ${t('menu.solo')}  X: ${t('menu.versus')}  H: ${t('menu.highScores')}`, cx, CANVAS_H - 14, 8, PAL.lime, 'center');
   px(ctx, `M: ${t('menu.map')}  C: ${t('menu.credits')}  L: ${t('menu.language')}`, cx, CANVAS_H - 4, 7, PAL.gray, 'center');
+  if (fullscreenHintVisible(ms)) px(ctx, 'F: FULLSCREEN', 6, 2, 8, blink(ms, 700) ? PAL.cyan : PAL.gray);
   const online = world.roster?.players.length ?? 0;
   px(ctx, `${t('lobby.players')}: ${online}`, 6, CANVAS_H - 4, 7, PAL.gray);
   drawError();
@@ -816,7 +872,7 @@ function renderService(ms: number): void {
   const volLabel = muted ? 'MUTE' : `VOL ${'▮'.repeat(volume)}${'░'.repeat(3 - volume)} ${volumeGain(volume).toFixed(2)}`;
   px(ctx, volLabel, 40, 130, 9, muted ? PAL.red : PAL.cyan);
   px(ctx, 'Q/W/E: KNOB   F: FREE PLAY   A: ACCESS', cx, 146, 8, PAL.white, 'center');
-  px(ctx, 'V: VOLUME   M: MUTE', cx, 153, 8, PAL.white, 'center');
+  px(ctx, 'V: VOLUME   M: MUTE   T: TEST TONE', cx, 153, 8, PAL.white, 'center');
   const oooGame = GAME_IDS[sel]!;
   px(ctx, `CAB: ${oooGame.toUpperCase()} ${isOoo(oooGame) ? 'OUT OF ORDER' : 'IN SERVICE'}`, 40, 30, 8, isOoo(oooGame) ? PAL.red : PAL.lime);
   px(ctx, `O: TOGGLE OUT OF ORDER (${GAME_IDS.length} CABINET BY HALL SELECTION)`, cx, 167, 7, PAL.gray, 'center');
@@ -905,6 +961,13 @@ function renderNamePad(ms: number): void {
       const w = label === 'SPACE' ? kw + 16 : label === 'DEL' ? kw : kw;
       const kx = x0 + c * kw + (label === 'SPACE' ? -8 : 0);
       const hot = namePad.cursor.row === r && namePad.cursor.col === c;
+      if (hot) {
+        ctx.save();
+        ctx.globalAlpha = initialGlow(Math.floor(ms / 200));
+        ctx.fillStyle = PAL.yellow;
+        ctx.fillRect(kx - 2, y - 2, w + 2, kh + 4);
+        ctx.restore();
+      }
       ctx.fillStyle = hot ? (blink(ms, 350) ? PAL.yellow : PAL.orange) : PAL.navy;
       ctx.fillRect(kx, y, w - 2, kh);
       px(ctx, label, kx + (w - 2) / 2, y + 4, 8, hot ? PAL.black : PAL.white, 'center');

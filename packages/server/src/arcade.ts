@@ -42,6 +42,8 @@ interface Table {
   graceTick: number;
   /** frozen by a seated player: step is skipped, snapshots keep flowing (R26) */
   paused: boolean;
+  /** tick the versus table became full; -1 = no ready window (R50) */
+  readyTick: number;
   lastSnap: number;
   pendingEvents: SfxEvent[];
 }
@@ -51,6 +53,8 @@ const HALL_EVERY = 6;
 const DEMO_PLAYER = 'demo';
 /** ticks a half-filled versus table waits for extra players before dealing (2 s at 60 Hz) */
 export const START_GRACE = 120;
+/** ticks a full versus table waits with READY 3-2-1 before dealing (R50) */
+export const READY_WINDOW = 180;
 
 export interface ArcadeOptions {
   send: (connId: string, msg: ServerMessage) => void;
@@ -94,6 +98,7 @@ export class Arcade {
         openTick: 0,
         graceTick: -1,
         paused: false,
+        readyTick: -1,
         lastSnap: -999,
         pendingEvents: [],
       };
@@ -124,6 +129,7 @@ export class Arcade {
     this.credits.delete(connId);
     for (const table of this.tables.values()) {
       table.seats = table.seats.filter((s) => s.connId !== connId);
+      this.clearReadyIfUnderstaffed(table);
       // a disconnected player must never leave others holding a frozen table (R26.3)
       if (table.paused) table.paused = false;
       if (!table.seats.some((s) => !s.spectator)) this.closeTable(table);
@@ -221,6 +227,7 @@ export class Arcade {
         const table = this.tableOf(connId);
         if (table) {
           table.seats = table.seats.filter((s) => s.connId !== connId);
+          this.clearReadyIfUnderstaffed(table);
           if (!table.seats.some((s) => !s.spectator)) this.closeTable(table);
           this.broadcastRoster();
         }
@@ -284,7 +291,14 @@ export class Arcade {
     if (table.session === null && table.graceTick < 0 && nowSeated >= 2 && nowSeated < capacity) {
       table.graceTick = this.tickCount;
     }
-    if (!table.session && nowSeated >= capacity) this.beginTable(table);
+    if (!table.session && nowSeated >= capacity) {
+      // versus tables get a READY 3-2-1 window; solo deals immediately (R50)
+      if (mode === 'versus') {
+        if (table.readyTick < 0) table.readyTick = this.tickCount;
+      } else {
+        this.beginTable(table);
+      }
+    }
     this.broadcastRoster();
   }
 
@@ -300,6 +314,7 @@ export class Arcade {
       openTick: this.tickCount,
       graceTick: -1,
       paused: false,
+      readyTick: -1,
       lastSnap: -999,
       pendingEvents: [],
     };
@@ -339,7 +354,16 @@ export class Arcade {
 
   private leave(table: Table, connId: string): void {
     table.seats = table.seats.filter((s) => s.connId !== connId);
+    this.clearReadyIfUnderstaffed(table);
     if (!table.seats.some((s) => !s.spectator)) this.closeTable(table);
+  }
+
+  /** an emptied seat cancels the ready window before it deals (R50.2) */
+  private clearReadyIfUnderstaffed(table: Table): void {
+    if (table.readyTick < 0 || table.session) return;
+    const cap = table.mode === 'versus' ? (REGISTRY[table.game]?.capacity ?? 2) : 1;
+    const seated = table.seats.filter((s) => !s.spectator).length;
+    if (seated < cap) table.readyTick = -1;
   }
 
   private closeTable(table: Table): void {
@@ -366,6 +390,13 @@ export class Arcade {
       const session = table.session;
       const dueSnap = this.tickCount - table.lastSnap >= SNAPSHOT_EVERY;
       if (!session) {
+        if (table.readyTick >= 0 && this.tickCount - table.readyTick >= READY_WINDOW) {
+          const capN = table.mode === 'versus' ? (REGISTRY[table.game]?.capacity ?? 2) : 1;
+          const stillFull = table.seats.filter((s) => !s.spectator).length >= capN;
+          if (stillFull) this.beginTable(table);
+          else table.readyTick = -1;
+          continue;
+        }
         const seated = table.seats.filter((s) => !s.spectator).length;
         const cap = table.mode === 'versus' ? (REGISTRY[table.game]?.capacity ?? 2) : 1;
         if (seated >= 2 && seated < cap && table.graceTick >= 0 && this.tickCount - table.graceTick >= START_GRACE) {
@@ -473,6 +504,7 @@ export class Arcade {
       mode: table.mode,
       joinDeadline: this.joinDeadlineOf(table),
       paused: table.paused,
+      readyAt: table.readyTick >= 0 && !table.session ? table.readyTick + READY_WINDOW : null,
       phase: state?.phase ?? 'ready',
       turn: state?.turn,
       winner: state?.winner,
