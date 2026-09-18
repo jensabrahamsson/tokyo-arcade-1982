@@ -42,8 +42,10 @@ for *what*, `ARCHITECTURE.md` for *where*, this file for *how*.
 
 `packages/client/static/art/*.png` is the drop zone for pixel art
 (Cursor / Grok Imagine handoff): 1982 Tokyo arcade style, limited
-palette, small files (16-32 KB each). OpenCode never draws art — it
-writes the manifest/loader/wiring only. Core must never touch
+palette, small files (16-32 KB each). Current roster: `hall-floor`,
+`cabinet-bezel`, `coast-lo-castle`, `splash-logo`, `marquee-neon`,
+`coin-slot`, `credit-panel`, `wait-badge` (all `.png`). OpenCode
+never draws art — it writes the manifest/loader/wiring only. Core must never touch
 Image/DOM/fetch; missing files fall back to procedural drawing.
 
 ## Working agreements
