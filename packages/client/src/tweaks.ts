@@ -205,3 +205,42 @@ export function walkBob(stepIndex: number): number {
   const i = ((Math.trunc(stepIndex) % 4) + 4) % 4;
   return BOB[i]!;
 }
+
+/** coin-mode credit digits for one player; free-play hides the strip (R33) */
+export function creditStrip(credits: number, freePlay: boolean): string | null {
+  if (freePlay) return null;
+  return String(Math.max(0, Math.trunc(credits)));
+}
+
+/** the hall's FREE PLAY banner flies only in free-play mode (R34) */
+export function freePlayBannerVisible(freePlay: boolean): boolean {
+  return freePlay;
+}
+
+/** index into cabinetTiles of the cabinet the token stands on; max one ring (R35) */
+export function cabinetFocus(playerTile: number, cabinetTiles: readonly number[]): number | null {
+  const i = cabinetTiles.findIndex((tile) => tile === playerTile);
+  return i === -1 ? null : i;
+}
+
+/** does a finished score enter the top-rows table? (R36) */
+export function isNewRecord(score: number, tableScores: readonly number[], maxRows: number): boolean {
+  if (score <= 0) return false;
+  if (tableScores.length < maxRows) return true;
+  const last = tableScores[tableScores.length - 1]!;
+  return score >= last;
+}
+
+export const RECORD_FLASH_MS = 2600;
+export function recordFlashVisible(shownAt: number, now: number): boolean {
+  return now - shownAt < RECORD_FLASH_MS;
+}
+
+/** duty-cycle square wave over integer ticks (R37); never blinks on a bad period */
+export function blinkOn(tick: number, period: number, duty: number): boolean {
+  if (period <= 0) return false;
+  if (duty <= 0) return false;
+  if (duty >= 1) return true;
+  const phase = ((Math.trunc(tick) % period) + period) % period;
+  return phase < duty * period;
+}

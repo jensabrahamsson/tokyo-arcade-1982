@@ -41,8 +41,11 @@ Env: `ARKAD_PORT` (default 8442), `ARKAD_DATA` (default `./data`).
 The hall starts in coin mode: watch the coin drop into the slot before the
 cabinet wakes up, or flip it to FREE PLAY from the service menu. Live
 cabinets light a NOW PLAYING lamp, crowd badges count the onlookers,
-rejections surface as 1982 canvas toasts, and the operator log keeps
-today's plays and coins beside the lifetime totals. Attract
+rejections surface as 1982 canvas toasts, the operator log keeps
+today's plays and coins beside the lifetime totals, credit digits
+ride the hall channel, a FREE PLAY banner flies in free-play mode,
+the standing cabinet gets a focus ring, finished runs flash NEW
+RECORD, and idle coin cabinets blink INSERT COIN. Attract
 signage alternates English and Japanese on its own timer, and a tournament
 banner tracks the live leader of the hall.
 
@@ -88,7 +91,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 282 tests across engine, games, server, client
+npm test          # vitest: 291 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```

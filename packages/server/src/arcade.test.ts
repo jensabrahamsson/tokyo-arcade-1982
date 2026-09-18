@@ -378,12 +378,27 @@ describe('Arcade', () => {
     expect((cab as unknown as { demo: boolean }).demo).toBe(false);
   });
 
+  it('hall channel carries the authoritative per-connection credit count (R33)', () => {
+    arcade.handleMessage('c1', { type: 'freePlay', on: false });
+    arcade.handleMessage('c3', { type: 'hall', watch: true });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    expect(hallMsgs('c3').at(-1)?.credits).toBe(0);
+    arcade.handleMessage('c3', { type: 'coin' });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    expect(hallMsgs('c3').at(-1)?.credits).toBe(1);
+    // spending at the cabinet drops it again; free-play hides nothing server-side
+    arcade.handleMessage('c3', { type: 'start', game: 'snake', mode: 'solo' });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    expect(hallMsgs('c3').at(-1)?.credits).toBe(0);
+  });
+
   const hallMsgs = (c = 'c1') =>
     net.take(c).filter((m) => m.type === 'hallTables') as unknown as {
       type: 'hallTables';
       cabinets: { game: string; demo: boolean; phase: string; data: unknown; players: number; spectators: number }[];
       ooo: string[];
       tick: number;
+      credits: number;
     }[];
 
   it('the hall runs attract demos for every cabinet (R8)', () => {

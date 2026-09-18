@@ -119,6 +119,8 @@ export interface SnapshotMsg {
   events?: SfxEvent[];
   /** authoritative server tick, for deriving join-window countdowns (R25) */
   tick?: number;
+  /** recipient's remaining credits in coin mode (R33) */
+  credits?: number;
 }
 export interface ScoreEntry {
   name: string;
@@ -158,6 +160,8 @@ export interface HallTablesMsg {
   ooo: GameId[];
   /** authoritative server tick, for join-window countdowns (R25) */
   tick: number;
+  /** recipient's remaining credits in coin mode (R33) */
+  credits: number;
 }
 export interface StatsReplyMsg {
   type: 'statsReply';

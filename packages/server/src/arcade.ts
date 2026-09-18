@@ -367,7 +367,7 @@ export class Arcade {
           table.lastSnap = this.tickCount;
           const view = this.tableView(table);
           for (const seat of table.seats) {
-            this.send(seat.connId, { type: 'snapshot', table: view, data: null, tick: this.tickCount });
+            this.send(seat.connId, { type: 'snapshot', table: view, data: null, tick: this.tickCount, credits: this.credits.get(seat.connId) ?? 0 });
           }
         }
         continue;
@@ -399,7 +399,7 @@ export class Arcade {
         table.pendingEvents = [];
         const view = this.tableView(table);
         for (const seat of table.seats) {
-          this.send(seat.connId, { type: 'snapshot', table: view, data: session.state, events, tick: this.tickCount });
+          this.send(seat.connId, { type: 'snapshot', table: view, data: session.state, events, tick: this.tickCount, credits: this.credits.get(seat.connId) ?? 0 });
         }
       }
       if (session.state.phase === 'attract') this.closeTable(table);
@@ -439,7 +439,9 @@ export class Arcade {
     const svc = this.opts.service.snapshot();
     for (const connId of this.hallWatchers) {
       if (this.conns.has(connId)) {
-        this.send(connId, { type: 'hallTables', cabinets, freePlay: svc.freePlay, ooo: svc.outOfOrder, tick: this.tickCount });
+        // credits are per connection: every watcher gets its own digit (R33)
+        const credits = this.credits.get(connId) ?? 0;
+        this.send(connId, { type: 'hallTables', cabinets, freePlay: svc.freePlay, ooo: svc.outOfOrder, tick: this.tickCount, credits });
       }
     }
   }
