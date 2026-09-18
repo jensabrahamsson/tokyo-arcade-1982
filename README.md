@@ -36,7 +36,7 @@ Env: `ARKAD_PORT` (default 8442), `ARKAD_DATA` (default `./data`).
 - **Start / coin:** `Space` — first press opens the marquee keyboard (in-canvas, arrow keys + `Z`, up to 12 chars — no browser dialog)
 - **Fire / button:** hold `Space` (or `Z`/`J`) inside a cabinet — galaxy and myriad shoot, paddles and the stick respond everywhere
 - **Solo:** `Z` · **VS. duel:** `X` · **High scores:** `H` · **Hall map:** `M` · **Credits:** `C` · **Language EN/JP:** `L` · **Back:** `Esc` / `B`
-- **Operator service menu:** hold `Shift` + `S` — bookkeeping (plays, coins, uptime), free-play/coin toggle, CRT knobs (`Q`/`W`/`E`), accessibility palette (`A`)
+- **Operator service menu:** hold `Shift` + `S` — bookkeeping (plays, coins, uptime), free-play/coin toggle, CRT knobs (`Q`/`W`/`E`), accessibility palette (`A`), master volume detent + mute (`V`/`M`), cabinet OUT-OF-ORDER switch (`O`, persists + broadcasts); seats can pause with `P`
 
 The hall starts in coin mode: watch the coin drop into the slot before the
 cabinet wakes up, or flip it to FREE PLAY from the service menu. Attract
@@ -85,7 +85,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 248 tests across engine, games, server, client
+npm test          # vitest: 270 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```

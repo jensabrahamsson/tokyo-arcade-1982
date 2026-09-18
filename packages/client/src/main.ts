@@ -27,12 +27,15 @@ import { HALL_SLOTS, MAP_SLOTS, FLOOR_Y, moveHallSel } from './hall';
 import {
   DEFAULT_KNOBS, cycleKnob, crtFilterCss, scanlineOpacity, nextAccess,
   loadKnobs, saveKnobs, loadAccess, saveAccess, attractLang, tournamentBanner,
-  type CrtKnobs, type AccessMode, type BannerCabinet,
+  volumeGain, effectiveGain, cycleVolume, loadVolume, saveVolume, loadMuted, saveMuted,
+  joinCountdown, marqueeOffset, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
 const t = (key: Parameters<typeof translate>[1], params?: Record<string, string | number>) =>
   translate(lang, key, params);
+
+const MARQUEE_KEYS = ['marquee.1', 'marquee.2', 'marquee.3'] as const;
 
 const renderers: Partial<Record<GameId, (ctx: CanvasRenderingContext2D, data: never, tMs: number) => void>> = {
   snake: (ctx, data, ms) => renderSnake(ctx, data, ms),
@@ -62,6 +65,8 @@ let serviceFrom: Scene = 'title';
 let knobs: CrtKnobs = loadKnobs(localStorage, DEFAULT_KNOBS);
 let access: AccessMode = loadAccess(localStorage, 'normal');
 let stats: StatsReplyMsg | null = null;
+let volume: VolumeDetent = loadVolume(localStorage, DEFAULT_VOLUME);
+let muted = loadMuted(localStorage, false);
 let statsAskedAt = 0;
 let coinInsertAt = 0;
 let pendingMode: GameMode = 'solo';
@@ -159,7 +164,7 @@ function startGame(mode: GameMode): void {
   if (coinMode) {
     // R18: the coin goes in first, the game takes the cabinet over after
     audio.unlock();
-    net.send({ type: 'coin' });
+    net.send({ type: 'coin', game: GAME_IDS[sel]! });
     audio.play('coin');
     pendingMode = mode;
     coinInsertAt = performance.now();
@@ -181,6 +186,7 @@ function beginGame(mode: GameMode): void {
 }
 
 function applyPresentation(): void {
+  audio.setMaster(effectiveGain(volume, muted));
   canvas.style.filter = crtFilterCss(knobs, access);
   const scan = document.querySelector('.scanlines') as HTMLElement | null;
   if (scan) scan.style.opacity = String(scanlineOpacity(knobs, access));
@@ -198,6 +204,17 @@ function toggleFreePlay(): void {
   net.send({ type: 'freePlay', on: now });
   if (world.hall) world.hall = { ...world.hall, freePlay: now };
   net.send({ type: 'stats' });
+}
+
+function toggleOoo(): void {
+  const game = GAME_IDS[sel]!;
+  const out = !(world.hall?.ooo ?? []).includes(game);
+  net.send({ type: 'ooo', game, out });
+  world.hall = world.hall ? { ...world.hall, ooo: out ? [...(world.hall.ooo ?? []), game].sort() : (world.hall.ooo ?? []).filter((g) => g !== game) } : world.hall;
+}
+
+function isOoo(game: GameId): boolean {
+  return (world.hall?.ooo ?? []).includes(game);
 }
 
 function back(): void {
@@ -230,6 +247,18 @@ function update(ms: number): void {
       statsAskedAt = performance.now();
     }
     if (keys.take('KeyF')) toggleFreePlay();
+    if (keys.take('KeyV')) {
+      volume = cycleVolume(volume);
+      saveVolume(localStorage, volume);
+      applyPresentation();
+      audio.play('bounce');
+    }
+    if (keys.take('KeyM')) {
+      muted = !muted;
+      saveMuted(localStorage, muted);
+      applyPresentation();
+    }
+    if (keys.take('KeyO')) toggleOoo();
     if (keys.take('KeyA')) {
       access = nextAccess(access);
       saveAccess(localStorage, access);
@@ -297,6 +326,10 @@ function update(ms: number): void {
       net.send({ type: 'input', dir, button, seq: ++inputSeq });
     }
     if (keys.take('KeyB', 'Escape')) back();
+    if (keys.take('KeyP') && world.snap?.table.players.some((p) => p.id === world.myId)) {
+      net.send({ type: 'pause' });
+      audio.unlock();
+    }
     if (world.snap && world.snap.table.phase === 'attract') back();
     if (performance.now() - lastSnapAt > 4000) back();
   } else if (scene === 'scores') {
@@ -348,6 +381,16 @@ function renderGame(ms: number): void {
   }
   const iAmSeated = snap.table.players.some((p) => p.id === world.myId);
   if (!iAmSeated) px(ctx, t('misc.spectate'), 8, 230, 8, PAL.gray);
+  if (snap.table.paused) {
+    ctx.fillStyle = 'rgba(0,0,0,0.62)';
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    px(ctx, 'PAUSE', cx, 104, 24, blink(ms, 450) ? PAL.yellow : PAL.orange, 'center');
+    px(ctx, t('pause.title'), cx, 130, 12, PAL.cyan, 'center');
+  }
+  const left = joinCountdown(snap.table.joinDeadline ?? null, snap.tick ?? 0);
+  if (left !== null) {
+    px(ctx, `${t('hud.joinWindow')} ${left}`, cx, 218, 10, left <= 2 && blink(ms, 300) ? PAL.red : PAL.orange, 'center');
+  }
 }
 
 function colorBar(y: number, h: number, ms: number): void {
@@ -404,6 +447,11 @@ function renderCabinet(slot: (typeof HALL_SLOTS)[number], i: number, ms: number,
   const lit = Math.floor(ms / 300 + i) % 2 === 0;
   ctx.fillStyle = lit ? marqueeColors[i % marqueeColors.length]! : PAL.gray;
   px(ctx, slot.game.toUpperCase().slice(0, 13), x + w / 2, y + 4, 8, lit ? PAL.black : PAL.black, 'center');
+  if (isOoo(slot.game)) {
+    ctx.fillStyle = PAL.darkred;
+    ctx.fillRect(x + 3, y + 2, w - 6, 12);
+    px(ctx, t('cab.ooo'), x + w / 2, y + 4, 8, blink(ms, 400) ? PAL.yellow : PAL.red, 'center');
+  }
 
   // screen
   ctx.fillStyle = '#000';
@@ -421,6 +469,11 @@ function renderCabinet(slot: (typeof HALL_SLOTS)[number], i: number, ms: number,
     ctx.restore();
     if (live.demo && blink(ms, 700)) {
       px(ctx, t('hall.attract'), screenX + 2, screenY + screenH - 9, 7, PAL.yellow);
+    }
+    const cab = world.hall?.cabinets.find((c) => c.game === slot.game);
+    const left = cab ? joinCountdown(cab.joinDeadline ?? null, world.hall?.tick ?? 0) : null;
+    if (left !== null) {
+      px(ctx, `JOIN ${left}`, screenX + screenW - 2, screenY + screenH - 9, 7, blink(ms, 400) ? PAL.red : PAL.orange, 'right');
     }
   } else if (blink(ms, 260)) {
     ctx.fillStyle = PAL.navy;
@@ -441,6 +494,18 @@ function renderHall(ms: number): void {
   ctx.fillRect(0, 34, CANVAS_W, 12);
   const attract = attractLang(ms);
   px(ctx, translate(attract, 'hall.name'), cx, 2, 8, PAL.gray, 'center');
+  // R27: neon marquee scroll along the back wall, EN/JA parity, presentation only
+  {
+    const flavorKey = MARQUEE_KEYS[Math.floor(ms / 9000) % MARQUEE_KEYS.length]!;
+    const flavor = translate(attractLang(ms, 3000), flavorKey);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(20, 8, CANVAS_W - 40, 10);
+    ctx.clip();
+    const off = marqueeOffset(ms, (CANVAS_W - 40) / 2 + 60, 7000);
+    px(ctx, flavor, cx + off, 12, 8, PAL.magenta, 'center');
+    ctx.restore();
+  }
   // R17.3 coin badge, delivered on the hall channel
   const freePlay = world.hall?.freePlay ?? false;
   px(ctx, freePlay ? 'FREE PLAY' : 'COIN 1C', CANVAS_W - 6, 2, 8, freePlay && blink(ms, 500) ? PAL.lime : PAL.orange, 'right');
@@ -546,7 +611,13 @@ function renderService(ms: number): void {
   px(ctx, `MODE: ${stats?.freePlay ?? false ? 'FREE PLAY' : 'COIN 1C'}`, 40, 80, 9, (stats?.freePlay ?? false) ? PAL.lime : PAL.orange);
   px(ctx, `BRIGHT ${knobMark(knobs.brightness)}  CONTRAST ${knobMark(knobs.contrast)}  SCAN ${knobMark(knobs.scanlines)}`, 40, 102, 9, PAL.cyan);
   px(ctx, `ACCESS: ${access.toUpperCase()}`, 40, 116, 9, access === 'normal' ? PAL.gray : PAL.yellow);
+  const volLabel = muted ? 'MUTE' : `VOL ${'▮'.repeat(volume)}${'░'.repeat(3 - volume)} ${volumeGain(volume).toFixed(2)}`;
+  px(ctx, volLabel, 40, 130, 9, muted ? PAL.red : PAL.cyan);
   px(ctx, 'Q/W/E: KNOB   F: FREE PLAY   A: ACCESS', cx, 146, 8, PAL.white, 'center');
+  px(ctx, 'V: VOLUME   M: MUTE', cx, 153, 8, PAL.white, 'center');
+  const oooGame = GAME_IDS[sel]!;
+  px(ctx, `CAB: ${oooGame.toUpperCase()} ${isOoo(oooGame) ? 'OUT OF ORDER' : 'IN SERVICE'}`, 40, 30, 8, isOoo(oooGame) ? PAL.red : PAL.lime);
+  px(ctx, `O: TOGGLE OUT OF ORDER (${GAME_IDS.length} CABINET BY HALL SELECTION)`, cx, 167, 7, PAL.gray, 'center');
   px(ctx, `ESC: ${t('menu.back')}`, cx, 160, 8, PAL.gray, 'center');
   px(ctx, 'DO NOT ADJUST DURING PLAY', cx, 186, 8, blink(ms, 900) ? PAL.red : PAL.darkred, 'center');
   drawError();

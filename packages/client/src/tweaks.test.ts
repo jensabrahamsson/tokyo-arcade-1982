@@ -3,7 +3,8 @@ import {
   DEFAULT_KNOBS, cycleKnob, crtFilterCss, scanlineOpacity,
   ACCESS_MODES, nextAccess, accessFilterCss,
   attractLang, tournamentBanner, loadKnobs, saveKnobs, loadAccess, saveAccess,
-  type CrtKnobs,
+  volumeGain, effectiveGain, cycleVolume, loadVolume, saveVolume, loadMuted, saveMuted,
+  DEFAULT_VOLUME, joinCountdown, marqueeOffset, type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
 const fakeStorage = (init: Record<string, string> = {}) => {
@@ -100,5 +101,91 @@ describe('tournament banner (R21.1)', () => {
     expect(b.text).toContain('999');
     const later = tournamentBanner(c, 60_000);
     expect(later.colorIdx).not.toBe(tournamentBanner(c, 0).colorIdx);
+  });
+});
+
+describe('operator volume / mute (R23)', () => {
+  it('detents are strictly monotonic and 0 means silence', () => {
+    expect(volumeGain(0)).toBe(0);
+    expect(volumeGain(1)).toBeGreaterThan(volumeGain(0));
+    expect(volumeGain(2)).toBeGreaterThan(volumeGain(1));
+    expect(volumeGain(3)).toBe(volumeGain(3));
+    expect(volumeGain(3)).toBeLessThanOrEqual(1);
+  });
+
+  it('mute forces gain 0 and unmute restores the detent', () => {
+    expect(effectiveGain(3, true)).toBe(0);
+    expect(effectiveGain(2, false)).toBe(volumeGain(2));
+    expect(effectiveGain(0, false)).toBe(0);
+  });
+
+  it('the detent cycles 0-1-2-3-0', () => {
+    let v: VolumeDetent = 0;
+    const seen: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      seen.push(v);
+      v = cycleVolume(v);
+    }
+    expect(seen).toEqual([0, 1, 2, 3]);
+    expect(v).toBe(0);
+  });
+
+  it('volume and mute survive the storage round-trip; junk falls back', () => {
+    const store = fakeStorage();
+    saveVolume(store, 1);
+    saveMuted(store, true);
+    expect(loadVolume(store, DEFAULT_VOLUME)).toBe(1);
+    expect(loadMuted(store, false)).toBe(true);
+    const junk = fakeStorage({ 'arkad-volume': '"loud"', 'arkad-mute': 'yes' });
+    expect(loadVolume(junk, DEFAULT_VOLUME)).toBe(DEFAULT_VOLUME);
+    expect(loadMuted(junk, false)).toBe(false);
+  });
+});
+
+describe('join-window countdown (R25)', () => {
+  it('mirrors the server deadline in whole seconds and never invents time', () => {
+    expect(joinCountdown(1120, 1000)).toBe(2); // 120 ticks = 2 s
+    expect(joinCountdown(1111, 1000)).toBe(2); // 111 ticks -> 1.85 s -> shows 2
+    expect(joinCountdown(1110, 1000)).toBe(2);
+    expect(joinCountdown(1109, 1000)).toBe(2);
+    expect(joinCountdown(1061, 1000)).toBe(2);
+    expect(joinCountdown(1060, 1000)).toBe(1);
+    expect(joinCountdown(1001, 1000)).toBe(1);
+    expect(joinCountdown(1000, 1000)).toBeNull();
+    expect(joinCountdown(999, 1000)).toBeNull();
+    expect(joinCountdown(null, 1000)).toBeNull();
+  });
+
+  it('counts down monotonically and deterministically', () => {
+    let prev = Infinity;
+    for (let now = 1000; now <= 1122; now++) {
+      const c = joinCountdown(1120, now);
+      const v = c ?? -1;
+      expect(v).toBeLessThanOrEqual(prev);
+      expect(joinCountdown(1120, now)).toBe(c);
+      prev = v;
+    }
+  });
+});
+
+describe('neon marquee scroll (R27)', () => {
+  it('is deterministic and bounded by the text width', () => {
+    expect(marqueeOffset(0, 100, 5000)).toBe(100);
+    expect(marqueeOffset(2500, 100, 5000)).toBeCloseTo(0);
+    expect(marqueeOffset(5000, 100, 5000)).toBe(100); // wraps to the start, seamless
+    expect(marqueeOffset(99999, 100, 5000)).toBeLessThanOrEqual(100);
+    expect(marqueeOffset(99999, 100, 5000)).toBeGreaterThanOrEqual(-100);
+    for (let ms = 0; ms <= 20000; ms += 137) {
+      const v = marqueeOffset(ms, 100, 5000);
+      expect(v).toBeLessThanOrEqual(100);
+      expect(v).toBeGreaterThanOrEqual(-100);
+      expect(marqueeOffset(ms, 100, 5000)).toBe(v);
+    }
+  });
+
+  it('degenerate inputs never produce NaN', () => {
+    expect(marqueeOffset(1000, 0, 5000)).toBe(0);
+    expect(marqueeOffset(1000, 100, 0)).toBe(0);
+    expect(marqueeOffset(-50, 100, 5000)).toBe(100);
   });
 });

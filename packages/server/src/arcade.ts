@@ -38,6 +38,8 @@ interface Table {
   seed: number;
   openTick: number;
   graceTick: number;
+  /** frozen by a seated player: step is skipped, snapshots keep flowing (R26) */
+  paused: boolean;
   lastSnap: number;
   pendingEvents: SfxEvent[];
 }
@@ -87,6 +89,7 @@ export class Arcade {
         seed: (Math.random() * 2 ** 31) >>> 0,
         openTick: 0,
         graceTick: -1,
+        paused: false,
         lastSnap: -999,
         pendingEvents: [],
       };
@@ -117,6 +120,8 @@ export class Arcade {
     this.credits.delete(connId);
     for (const table of this.tables.values()) {
       table.seats = table.seats.filter((s) => s.connId !== connId);
+      // a disconnected player must never leave others holding a frozen table (R26.3)
+      if (table.paused) table.paused = false;
       if (!table.seats.some((s) => !s.spectator)) this.closeTable(table);
     }
     this.broadcastRoster();
@@ -159,8 +164,31 @@ export class Arcade {
         break;
       case 'coin': {
         // one credit into this cabinet (R18.2)
+        if (msg.game && this.opts.service.snapshot().outOfOrder.includes(msg.game)) {
+          this.send(connId, { type: 'error', code: 'out-of-order' });
+          break;
+        }
         this.credits.set(connId, (this.credits.get(connId) ?? 0) + 1);
         this.opts.service.addCoin();
+        break;
+      }
+      case 'pause': {
+        // only a seated player of a live (non-demo) table can hold the pause (R26.1)
+        const table = this.tableOf(connId);
+        const seated = table?.seats.some((s) => s.connId === connId && !s.spectator);
+        if (table && seated && table.session && !table.demo) {
+          table.paused = !table.paused;
+          if (table.paused) {
+            table.pendingEvents.push({ name: 'pause', player: connId });
+          }
+        }
+        break;
+      }
+      case 'ooo': {
+        // operator switch (R24.1): flag it, persist it, tell the hall
+        this.opts.service.setOutOfOrder(msg.game, msg.out);
+        this.broadcastHall();
+        this.broadcastRoster();
         break;
       }
       case 'stats': {
@@ -194,6 +222,10 @@ export class Arcade {
     const spec = REGISTRY[game] as AnyGameSpec | undefined;
     if (!spec) {
       this.send(connId, { type: 'error', code: 'unknown-game' });
+      return;
+    }
+    if (this.opts.service.snapshot().outOfOrder.includes(game)) {
+      this.send(connId, { type: 'error', code: 'out-of-order' });
       return;
     }
     if (mode === 'versus' && !spec.supportsVersus) {
@@ -255,6 +287,7 @@ export class Arcade {
       seed: (Math.random() * 2 ** 31) >>> 0,
       openTick: this.tickCount,
       graceTick: -1,
+      paused: false,
       lastSnap: -999,
       pendingEvents: [],
     };
@@ -315,7 +348,7 @@ export class Arcade {
     this.tickCount++;
     for (const table of [...this.tables.values()]) {
       if (table.demo) {
-        this.tickDemo(table);
+        if (!this.opts.service.snapshot().outOfOrder.includes(table.game)) this.tickDemo(table);
         continue;
       }
       const session = table.session;
@@ -331,7 +364,19 @@ export class Arcade {
           table.lastSnap = this.tickCount;
           const view = this.tableView(table);
           for (const seat of table.seats) {
-            this.send(seat.connId, { type: 'snapshot', table: view, data: null });
+            this.send(seat.connId, { type: 'snapshot', table: view, data: null, tick: this.tickCount });
+          }
+        }
+        continue;
+      }
+      if (table.paused) {
+        if (dueSnap) {
+          table.lastSnap = this.tickCount;
+          const view = this.tableView(table);
+          const events = table.pendingEvents;
+          table.pendingEvents = [];
+          for (const seat of table.seats) {
+            this.send(seat.connId, { type: 'snapshot', table: view, data: session.state, events, tick: this.tickCount });
           }
         }
         continue;
@@ -351,7 +396,7 @@ export class Arcade {
         table.pendingEvents = [];
         const view = this.tableView(table);
         for (const seat of table.seats) {
-          this.send(seat.connId, { type: 'snapshot', table: view, data: session.state, events });
+          this.send(seat.connId, { type: 'snapshot', table: view, data: session.state, events, tick: this.tickCount });
         }
       }
       if (session.state.phase === 'attract') this.closeTable(table);
@@ -384,11 +429,20 @@ export class Arcade {
       phase: t.session?.state.phase ?? 'ready',
       data: t.session?.state ?? null,
       scores: this.opts.store.top(t.game, t.mode, 3).map((e) => ({ name: e.name, score: e.score })),
+      joinDeadline: this.joinDeadlineOf(t),
     }));
-    const freePlay = this.opts.service.snapshot().freePlay;
+    const svc = this.opts.service.snapshot();
     for (const connId of this.hallWatchers) {
-      if (this.conns.has(connId)) this.send(connId, { type: 'hallTables', cabinets, freePlay });
+      if (this.conns.has(connId)) {
+        this.send(connId, { type: 'hallTables', cabinets, freePlay: svc.freePlay, ooo: svc.outOfOrder, tick: this.tickCount });
+      }
     }
+  }
+
+  private joinDeadlineOf(table: Table): number | null {
+    if (table.session || table.mode !== 'versus' || table.graceTick < 0) return null;
+    const deadline = table.graceTick + START_GRACE;
+    return this.tickCount < deadline ? deadline : null;
   }
 
   private tableView(table: Table): TableView {
@@ -397,6 +451,8 @@ export class Arcade {
       id: table.id,
       game: table.game,
       mode: table.mode,
+      joinDeadline: this.joinDeadlineOf(table),
+      paused: table.paused,
       phase: state?.phase ?? 'ready',
       turn: state?.turn,
       winner: state?.winner,
