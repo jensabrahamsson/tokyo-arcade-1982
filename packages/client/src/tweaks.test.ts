@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { GAME_IDS } from '@arkad/core';
 import {
   DEFAULT_KNOBS, cycleKnob, crtFilterCss, scanlineOpacity,
   ACCESS_MODES, nextAccess, accessFilterCss,
@@ -10,7 +11,7 @@ import {
   powerLed, ledState, scoreCrawlOffset,
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
-  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible,
+  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, cartridgeBadge,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -481,5 +482,13 @@ describe('fullscreen ux helpers (R53)', () => {
     expect(fullscreenHintVisible(0, 10_000)).toBe(true);
     expect(fullscreenHintVisible(9999, 10_000)).toBe(true);
     expect(fullscreenHintVisible(10_000, 10_000)).toBe(false);
+  });
+});
+
+describe('boot cartridge badge (regression)', () => {
+  it('tracks the real cabinet count, never a hardcoded six', () => {
+    expect(cartridgeBadge(GAME_IDS.length)).toBe(`${GAME_IDS.length}/${GAME_IDS.length}`);
+    expect(cartridgeBadge(GAME_IDS.length)).not.toBe('6/6');
+    expect(cartridgeBadge(4)).toBe('4/4');
   });
 });

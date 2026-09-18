@@ -18,7 +18,7 @@ const CH = 78;
 /** top edge of the carpet floor, below the second cabinet row */
 export const FLOOR_Y = 40 + 2 * (CH + 6) - 6;
 
-/** where the six cabinets stand on the hall floor (R10) */
+/** where the cabinets stand on the hall floor (R10) */
 export const HALL_SLOTS: CabinetSlot[] = GAME_IDS.map((game, i) => ({
   game,
   x: 8 + (i % COLS) * CW,
