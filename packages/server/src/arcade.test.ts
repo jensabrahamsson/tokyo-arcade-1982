@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Arcade, type Conn } from './arcade';
 import { HighScoreStore } from './highscores';
+import { ServiceStore } from './service';
 import type { ServerMessage, RosterMsg, SnapshotMsg } from '@arkad/core';
 
 class FakeNet {
@@ -38,8 +39,14 @@ describe('Arcade', () => {
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'arkad-arcade-'));
     net = new FakeNet();
-    arcade = new Arcade({ send: net.send, store: new HighScoreStore(join(dir, 'scores.json')) });
+    arcade = new Arcade({
+      send: net.send,
+      store: new HighScoreStore(join(dir, 'scores.json')),
+      service: new ServiceStore(join(dir, 'service.json')),
+    });
     for (const c of conns) arcade.addConnection(c);
+    // this is a free-play test hall; coin mode itself is covered in service.test.ts
+    arcade.handleMessage('c1', { type: 'freePlay', on: true });
   });
   afterEach(() => {
     arcade.stop();
@@ -305,8 +312,13 @@ describe('Arcade smoke (all cabinets)', () => {
   for (const game of ['snake', 'puck', 'block', 'galaxy', 'river', 'myriad'] as const) {
     it(`${game}: runs 600 ticks without throwing and broadcasts snapshots`, () => {
       const net = new FakeNet();
-      const arcade = new Arcade({ send: net.send, store: new HighScoreStore(join(dir, 'scores.json')) });
+      const arcade = new Arcade({
+        send: net.send,
+        store: new HighScoreStore(join(dir, 'scores.json')),
+        service: new ServiceStore(join(dir, 'service.json')),
+      });
       arcade.addConnection({ id: 'c1', name: 'AKIRA', lang: 'en' });
+      arcade.handleMessage('c1', { type: 'freePlay', on: true });
       arcade.handleMessage('c1', { type: 'join', name: 'AKIRA', lang: 'en' });
       arcade.handleMessage('c1', { type: 'start', game, mode: 'solo' });
       for (let i = 0; i < 600; i++) {

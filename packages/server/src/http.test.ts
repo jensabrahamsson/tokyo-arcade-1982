@@ -82,6 +82,9 @@ describe('game server (real websockets)', () => {
     const wb = await b.waitFor<{ type: 'welcome'; playerId: string }>('welcome');
     expect(wa.playerId).not.toBe(wb.playerId);
 
+    // R17: the hall defaults to coin mode, so players insert credits first
+    a.ws.send(JSON.stringify({ type: 'coin' }));
+    b.ws.send(JSON.stringify({ type: 'coin' }));
     a.ws.send(JSON.stringify({ type: 'start', game: 'snake', mode: 'versus' }));
     b.ws.send(JSON.stringify({ type: 'start', game: 'snake', mode: 'versus' }));
 
@@ -141,7 +144,10 @@ describe('game server (real websockets)', () => {
       const w = await ps[i]!.waitFor<{ type: 'welcome'; playerId: string }>('welcome');
       ids.push(w.playerId);
     }
-    for (const p of ps) p.ws.send(JSON.stringify({ type: 'start', game: 'snake', mode: 'versus' }));
+    for (const p of ps) {
+      p.ws.send(JSON.stringify({ type: 'coin' }));
+      p.ws.send(JSON.stringify({ type: 'start', game: 'snake', mode: 'versus' }));
+    }
 
     const snap = await waitPhase(ps[0]!, 'playing');
     expect(snap.table.players).toHaveLength(4);

@@ -12,6 +12,7 @@ export const JA: Record<keyof typeof EN, string> = {
   'menu.language': 'コトバ',
   'menu.back': 'モドル',
   'menu.map': 'ホール チズ',
+  'service.title': 'サービス モード',
   'menu.credits': 'クレジット',
   'hall.attract': 'デモ チュウ',
   'name.title': 'ナマエ ヲ ニュウリョク シテクダサイ',

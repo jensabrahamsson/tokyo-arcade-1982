@@ -10,6 +10,7 @@ export const EN = {
   'menu.language': 'LANGUAGE',
   'menu.back': 'BACK',
   'menu.map': 'HALL MAP',
+  'service.title': 'SERVICE MODE',
   'menu.credits': 'CREDITS',
   'hall.attract': 'ATTRACT',
   'name.title': 'ENTER YOUR NAME',

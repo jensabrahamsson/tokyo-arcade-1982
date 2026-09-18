@@ -73,3 +73,18 @@ describe('hall subscription (R8)', () => {
     expect(parseClientMessage('{"type":"hall","watch":1}')).toBeNull();
   });
 });
+
+describe('operator protocol (R16-R18)', () => {
+  it('accepts coin, stats and freePlay messages', () => {
+    expect(parseClientMessage('{"type":"coin"}')).toEqual({ type: 'coin' });
+    expect(parseClientMessage('{"type":"stats"}')).toEqual({ type: 'stats' });
+    expect(parseClientMessage('{"type":"freePlay","on":true}')).toEqual({ type: 'freePlay', on: true });
+    expect(parseClientMessage('{"type":"freePlay","on":false}')).toEqual({ type: 'freePlay', on: false });
+  });
+  it('rejects malformed operator messages', () => {
+    expect(parseClientMessage('{"type":"freePlay"}')).toBeNull();
+    expect(parseClientMessage('{"type":"freePlay","on":"yes"}')).toBeNull();
+    expect(parseClientMessage('{"type":"freePlay","on":1}')).toBeNull();
+    expect(parseClientMessage('{"type":"coin","hack":true}')).toEqual({ type: 'coin' });
+  });
+});

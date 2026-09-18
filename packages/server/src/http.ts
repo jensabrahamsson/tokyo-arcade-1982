@@ -5,6 +5,7 @@ import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { parseClientMessage, serialize } from '@arkad/core';
 import { Arcade, type Conn } from './arcade';
 import { HighScoreStore } from './highscores';
+import { ServiceStore } from './service';
 
 export interface GameServerHandle {
   port: number;
@@ -20,7 +21,11 @@ const MIME: Record<string, string> = {
 };
 
 export function createArcade(dataDir: string, send: (id: string, msg: unknown) => void): Arcade {
-  return new Arcade({ send: send as never, store: new HighScoreStore(join(dataDir, 'scores.json')) });
+  return new Arcade({
+    send: send as never,
+    store: new HighScoreStore(join(dataDir, 'scores.json')),
+    service: new ServiceStore(join(dataDir, 'service.json')),
+  });
 }
 
 export async function createGameServer(opts: { port: number; dataDir: string; publicDir?: string }): Promise<GameServerHandle> {
@@ -33,6 +38,7 @@ export async function createGameServer(opts: { port: number; dataDir: string; pu
       if (ws && ws.readyState === ws.OPEN) ws.send(serialize(msg));
     },
     store: new HighScoreStore(join(opts.dataDir, 'scores.json')),
+    service: new ServiceStore(join(opts.dataDir, 'service.json')),
   });
   arcade.start();
 

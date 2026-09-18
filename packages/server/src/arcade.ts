@@ -14,6 +14,7 @@ import {
 } from '@arkad/core';
 import { Session } from './session';
 import type { HighScoreStore } from './highscores';
+import type { ServiceStore } from './service';
 
 export interface Conn {
   id: string;
@@ -50,6 +51,7 @@ export const START_GRACE = 120;
 export interface ArcadeOptions {
   send: (connId: string, msg: ServerMessage) => void;
   store: HighScoreStore;
+  service: ServiceStore;
 }
 
 const GAME_LIST = GAME_IDS.map((id) => ({
@@ -65,6 +67,8 @@ export class Arcade {
   private tickCount = 0;
   private interval: NodeJS.Timeout | null = null;
   private hallWatchers = new Set<string>();
+  private credits = new Map<string, number>();
+  private readonly bootMs = Date.now();
 
   constructor(private readonly opts: ArcadeOptions) {
     this.openDemoTables();
@@ -110,6 +114,7 @@ export class Arcade {
   removeConnection(connId: string): void {
     this.conns.delete(connId);
     this.hallWatchers.delete(connId);
+    this.credits.delete(connId);
     for (const table of this.tables.values()) {
       table.seats = table.seats.filter((s) => s.connId !== connId);
       if (!table.seats.some((s) => !s.spectator)) this.closeTable(table);
@@ -152,6 +157,27 @@ export class Arcade {
         if (msg.watch) this.hallWatchers.add(connId);
         else this.hallWatchers.delete(connId);
         break;
+      case 'coin': {
+        // one credit into this cabinet (R18.2)
+        this.credits.set(connId, (this.credits.get(connId) ?? 0) + 1);
+        this.opts.service.addCoin();
+        break;
+      }
+      case 'stats': {
+        const snap = this.opts.service.snapshot();
+        this.send(connId, {
+          type: 'statsReply',
+          plays: snap.plays,
+          coins: snap.coins,
+          freePlay: snap.freePlay,
+          uptimeSec: Math.floor((Date.now() - this.bootMs) / 1000),
+        });
+        break;
+      }
+      case 'freePlay':
+        this.opts.service.setFreePlay(msg.on);
+        if (this.hallWatchers.size > 0) this.broadcastHall();
+        break;
       case 'back': {
         const table = this.tableOf(connId);
         if (table) {
@@ -178,11 +204,29 @@ export class Arcade {
     if (current) {
       // sitting at this exact cabinet already: pressing start again is a no-op
       if (current.game === game && current.mode === mode) return;
-      this.leave(current, connId);
     }
 
     // one cabinet per game+mode in the hall: seat if free, otherwise spectate
     let table = [...this.tables.values()].find((t) => t.game === game && t.mode === mode);
+    const capacity = mode === 'versus' ? (spec.capacity ?? 2) : 1;
+    const seated = table?.seats.filter((s) => !s.spectator).length ?? 0;
+    // once the simulation has dealt, late arrivals can only watch;
+    // a demo session is not a dealing — the coin will take the cabinet over
+    const spectator = table
+      ? seated >= capacity || (!!table.session && !table.demo)
+      : false;
+
+    if (!spectator && !this.opts.service.snapshot().freePlay) {
+      // R17.2: playing costs one credit; watching is always free.
+      // Rejection changes nothing: no leave, no demo takeover, no seat.
+      if ((this.credits.get(connId) ?? 0) < 1) {
+        this.send(connId, { type: 'error', code: 'insert-coin' });
+        return;
+      }
+      this.credits.set(connId, (this.credits.get(connId) ?? 0) - 1);
+    }
+
+    if (current) this.leave(current, connId);
     if (!table) table = this.openTable(game, mode);
     if (table.demo) {
       // coin drop: the attract bot steps aside for a real game (R8.4)
@@ -191,10 +235,6 @@ export class Arcade {
       table.graceTick = -1;
       table.openTick = this.tickCount;
     }
-    const capacity = mode === 'versus' ? (spec.capacity ?? 2) : 1;
-    const seated = table.seats.filter((s) => !s.spectator).length;
-    // once the simulation has dealt, late arrivals can only watch
-    const spectator = seated >= capacity || !!table.session;
     table.seats.push({ connId, spectator });
     const nowSeated = table.seats.filter((s) => !s.spectator).length;
     if (table.session === null && table.graceTick < 0 && nowSeated >= 2 && nowSeated < capacity) {
@@ -232,6 +272,7 @@ export class Arcade {
     });
     session.onGameOver = (state) => this.recordScores(table.id, state);
     table.session = session;
+    if (seated.length > 0) this.opts.service.addPlay();
     session.begin();
   }
 
@@ -344,8 +385,9 @@ export class Arcade {
       data: t.session?.state ?? null,
       scores: this.opts.store.top(t.game, t.mode, 3).map((e) => ({ name: e.name, score: e.score })),
     }));
+    const freePlay = this.opts.service.snapshot().freePlay;
     for (const connId of this.hallWatchers) {
-      if (this.conns.has(connId)) this.send(connId, { type: 'hallTables', cabinets });
+      if (this.conns.has(connId)) this.send(connId, { type: 'hallTables', cabinets, freePlay });
     }
   }
 
