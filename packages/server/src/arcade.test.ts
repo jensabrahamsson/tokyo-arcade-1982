@@ -363,10 +363,25 @@ describe('Arcade', () => {
     expect(ros?.tables.find((t) => t.game === 'snake' && t.players.length > 0)).toBeUndefined();
   });
 
+  it('hall cabinets and snapshots carry server-counted seats and spectators (R29)', () => {
+    arcade.handleMessage('c3', { type: 'hall', watch: true });
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'solo' });
+    arcade.handleMessage('c2', { type: 'start', game: 'snake', mode: 'solo' });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    const h = hallMsgs('c3').at(-1)!;
+    const cab = h.cabinets.find((c) => c.game === 'snake' && c.demo === false)!;
+    expect(cab.players).toBe(1);
+    expect(cab.spectators).toBe(1);
+    const snap = net.last<SnapshotMsg & { table: { spectators?: number } }>('c2', 'snapshot');
+    expect(snap?.table.spectators).toBe(1);
+    // a live table reads NOW PLAYING; the torn-down fallback never double-lights
+    expect((cab as unknown as { demo: boolean }).demo).toBe(false);
+  });
+
   const hallMsgs = (c = 'c1') =>
-    net.take(c).filter((m) => m.type === 'hallTables') as {
+    net.take(c).filter((m) => m.type === 'hallTables') as unknown as {
       type: 'hallTables';
-      cabinets: { game: string; demo: boolean; phase: string; data: unknown }[];
+      cabinets: { game: string; demo: boolean; phase: string; data: unknown; players: number; spectators: number }[];
       ooo: string[];
       tick: number;
     }[];

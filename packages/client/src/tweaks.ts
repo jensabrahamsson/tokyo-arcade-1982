@@ -168,3 +168,40 @@ export function marqueeOffset(ms: number, width: number, period: number): number
   const p = (Math.max(0, ms) % period) / period;
   return width - p * (width * 2);
 }
+
+/** hall marquee lamp state: OUT OF ORDER beats NOW PLAYING beats idle (R28) */
+export type LampMode = 'idle' | 'now-playing' | 'out-of-order';
+export function marqueeLamp(cab: { demo: boolean; players: number }, ooo = false): LampMode {
+  if (ooo) return 'out-of-order';
+  return !cab.demo && cab.players > 0 ? 'now-playing' : 'idle';
+}
+
+/** the spectator badge only ever renders for a real audience (R29) */
+export function visibleSpectators(n: number): number | null {
+  return n > 0 ? n : null;
+}
+
+/** reason → i18n key for canvas reject toasts (R30); unknown reasons stay safe */
+const REJECT_KEYS: Record<string, string> = {
+  'insert-coin': 'toast.insertCoin',
+  'out-of-order': 'toast.outOfOrder',
+  'solo-only': 'toast.soloOnly',
+  'unknown-game': 'toast.unknownGame',
+};
+export const TOAST_MS = 1800;
+
+export function rejectToast(reason: string): string {
+  return REJECT_KEYS[reason] ?? 'toast.generic';
+}
+
+/** pure clear-window: shownAt/now are wall-clock ms supplied by the caller */
+export function toastVisible(shownAt: number, now: number): boolean {
+  return now - shownAt < TOAST_MS;
+}
+
+/** subtle vertical bob for the walking you-are-here token, 4-step cycle (R32) */
+const BOB: readonly number[] = [0, -1.5, -3, -1.5];
+export function walkBob(stepIndex: number): number {
+  const i = ((Math.trunc(stepIndex) % 4) + 4) % 4;
+  return BOB[i]!;
+}

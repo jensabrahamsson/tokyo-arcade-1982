@@ -199,6 +199,9 @@ export class Arcade {
           coins: snap.coins,
           freePlay: snap.freePlay,
           uptimeSec: Math.floor((Date.now() - this.bootMs) / 1000),
+          day: snap.day,
+          playsToday: snap.playsToday,
+          coinsToday: snap.coinsToday,
         });
         break;
       }
@@ -430,6 +433,8 @@ export class Arcade {
       data: t.session?.state ?? null,
       scores: this.opts.store.top(t.game, t.mode, 3).map((e) => ({ name: e.name, score: e.score })),
       joinDeadline: this.joinDeadlineOf(t),
+      players: t.seats.filter((x) => !x.spectator).length,
+      spectators: t.seats.filter((x) => x.spectator).length,
     }));
     const svc = this.opts.service.snapshot();
     for (const connId of this.hallWatchers) {
@@ -448,6 +453,7 @@ export class Arcade {
   private tableView(table: Table): TableView {
     const state = table.session?.state;
     return {
+      spectators: table.seats.filter((x) => x.spectator).length,
       id: table.id,
       game: table.game,
       mode: table.mode,

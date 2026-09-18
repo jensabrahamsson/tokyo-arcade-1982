@@ -28,7 +28,7 @@ import {
   DEFAULT_KNOBS, cycleKnob, crtFilterCss, scanlineOpacity, nextAccess,
   loadKnobs, saveKnobs, loadAccess, saveAccess, attractLang, tournamentBanner,
   volumeGain, effectiveGain, cycleVolume, loadVolume, saveVolume, loadMuted, saveMuted,
-  joinCountdown, marqueeOffset, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  joinCountdown, marqueeOffset, marqueeLamp, visibleSpectators, rejectToast, toastVisible, TOAST_MS, walkBob, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -72,6 +72,7 @@ let coinInsertAt = 0;
 let pendingMode: GameMode = 'solo';
 let namePad: NamePad = createNamePad();
 let sel = 0;
+let hallSteps = 0;
 type GameInfo = { id: GameId; solo: boolean; versus: boolean };
 let world = {
   myId: '',
@@ -294,7 +295,13 @@ function update(ms: number): void {
     if (namePad.done) confirmName();
   } else if (scene === 'hall') {
     for (const k of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS']) {
-      if (keys.take(k)) sel = moveHallSel(sel, k);
+      if (keys.take(k)) {
+        const next = moveHallSel(sel, k);
+        if (next !== sel) {
+          sel = next;
+          hallSteps++;
+        }
+      }
     }
     const game = GAME_IDS[sel]!;
     const info = world.games.find((g) => g.id === game);
@@ -381,6 +388,8 @@ function renderGame(ms: number): void {
   }
   const iAmSeated = snap.table.players.some((p) => p.id === world.myId);
   if (!iAmSeated) px(ctx, t('misc.spectate'), 8, 230, 8, PAL.gray);
+  const crowd = visibleSpectators(snap.table.spectators ?? 0);
+  if (crowd !== null) px(ctx, `${t('hall.watching')} ${crowd}`, CANVAS_W - 6, 230, 8, PAL.cyan, 'right');
   if (snap.table.paused) {
     ctx.fillStyle = 'rgba(0,0,0,0.62)';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
@@ -447,10 +456,16 @@ function renderCabinet(slot: (typeof HALL_SLOTS)[number], i: number, ms: number,
   const lit = Math.floor(ms / 300 + i) % 2 === 0;
   ctx.fillStyle = lit ? marqueeColors[i % marqueeColors.length]! : PAL.gray;
   px(ctx, slot.game.toUpperCase().slice(0, 13), x + w / 2, y + 4, 8, lit ? PAL.black : PAL.black, 'center');
-  if (isOoo(slot.game)) {
+  const cab = world.hall?.cabinets.find((c) => c.game === slot.game);
+  const lamp = marqueeLamp({ demo: cab?.demo ?? true, players: cab?.players ?? 0 }, isOoo(slot.game));
+  if (lamp === 'out-of-order') {
     ctx.fillStyle = PAL.darkred;
     ctx.fillRect(x + 3, y + 2, w - 6, 12);
     px(ctx, t('cab.ooo'), x + w / 2, y + 4, 8, blink(ms, 400) ? PAL.yellow : PAL.red, 'center');
+  } else if (lamp === 'now-playing') {
+    ctx.fillStyle = PAL.lime;
+    ctx.fillRect(x + 4, y + 4, 4, 4);
+    px(ctx, t('hall.nowPlaying'), x + w - 4, y + 4, 7, blink(ms, 600) ? PAL.lime : PAL.green, 'right');
   }
 
   // screen
@@ -470,10 +485,13 @@ function renderCabinet(slot: (typeof HALL_SLOTS)[number], i: number, ms: number,
     if (live.demo && blink(ms, 700)) {
       px(ctx, t('hall.attract'), screenX + 2, screenY + screenH - 9, 7, PAL.yellow);
     }
-    const cab = world.hall?.cabinets.find((c) => c.game === slot.game);
-    const left = cab ? joinCountdown(cab.joinDeadline ?? null, world.hall?.tick ?? 0) : null;
+    const left = joinCountdown(cab?.joinDeadline ?? null, world.hall?.tick ?? 0);
     if (left !== null) {
       px(ctx, `JOIN ${left}`, screenX + screenW - 2, screenY + screenH - 9, 7, blink(ms, 400) ? PAL.red : PAL.orange, 'right');
+    }
+    const crowd = visibleSpectators(cab?.spectators ?? 0);
+    if (crowd !== null) {
+      px(ctx, `${t('hall.watching')} ${crowd}`, screenX + 2, screenY + 2, 7, PAL.cyan);
     }
   } else if (blink(ms, 260)) {
     ctx.fillStyle = PAL.navy;
@@ -528,7 +546,7 @@ function renderHall(ms: number): void {
   // you-are-here token under the chosen cabinet
   const slot = HALL_SLOTS[sel]!;
   const tx = slot.x + slot.w / 2;
-  const ty = Math.min(CANVAS_H - 26, slot.y + slot.h + 4);
+  const ty = Math.min(CANVAS_H - 26, slot.y + slot.h + 4) + walkBob(hallSteps);
   ctx.fillStyle = PAL.yellow;
   ctx.fillRect(tx - 2, ty, 5, 2);
   ctx.fillRect(tx - 1, ty + 2, 3, 6);
@@ -608,6 +626,7 @@ function renderService(ms: number): void {
   const up = stats ? `${Math.floor(stats.uptimeSec / 60)}:${String(stats.uptimeSec % 60).padStart(2, '0')}` : '--:--';
   px(ctx, `PLAYS ${stats?.plays ?? 0}   COINS ${stats?.coins ?? 0}`, 40, 52, 9, PAL.white);
   px(ctx, `UPTIME ${up}`, 40, 66, 9, PAL.white);
+  px(ctx, `TODAY ${stats?.day ?? '----/--/--'}  PLAYS ${stats?.playsToday ?? 0}  COINS ${stats?.coinsToday ?? 0}`, 40, 93, 8, PAL.lime);
   px(ctx, `MODE: ${stats?.freePlay ?? false ? 'FREE PLAY' : 'COIN 1C'}`, 40, 80, 9, (stats?.freePlay ?? false) ? PAL.lime : PAL.orange);
   px(ctx, `BRIGHT ${knobMark(knobs.brightness)}  CONTRAST ${knobMark(knobs.contrast)}  SCAN ${knobMark(knobs.scanlines)}`, 40, 102, 9, PAL.cyan);
   px(ctx, `ACCESS: ${access.toUpperCase()}`, 40, 116, 9, access === 'normal' ? PAL.gray : PAL.yellow);
@@ -717,7 +736,16 @@ function renderScores(ms: number): void {
 }
 
 function drawError(): void {
-  if (world.error && performance.now() - world.errorAt < 2500) px(ctx, world.error, CANVAS_W / 2, 118, 8, PAL.red, 'center');
+  if (!world.error || !toastVisible(world.errorAt, performance.now())) return;
+  const msg = t(rejectToast(world.error) as never);
+  ctx.font = '9px monospace';
+  const w = ctx.measureText(msg).width + 14;
+  const x = (CANVAS_W - w) / 2;
+  ctx.fillStyle = PAL.navy;
+  ctx.fillRect(x, 110, w, 14);
+  ctx.strokeStyle = blink(world.errorAt + TOAST_MS / 2, 300) ? PAL.yellow : PAL.red;
+  ctx.strokeRect(x + 0.5, 110.5, w - 1, 13);
+  px(ctx, msg, CANVAS_W / 2, 114, 9, PAL.yellow, 'center');
 }
 
 // ---- main loop ----------------------------------------------------------
