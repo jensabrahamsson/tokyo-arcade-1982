@@ -136,7 +136,8 @@ describe('Arcade', () => {
 
   it('snake versus seats up to 4 players', () => {
     for (const c of ['c1', 'c2', 'c3', 'c4']) arcade.handleMessage(c, { type: 'start', game: 'snake', mode: 'versus' });
-    arcade.tick();
+    // R50: full versus tables deal after the READY window, so tick through it
+    for (let i = 0; i < 195; i++) arcade.tick();
     const snap = net.last<{ table: { players: unknown[]; phase: string } }>('c1', 'snapshot');
     expect(snap?.table.players).toHaveLength(4);
     expect(snap?.table.phase).toBe('playing');
@@ -160,7 +161,8 @@ describe('Arcade', () => {
   it('puck versus: turn hands over when a player loses all lives (integration)', () => {
     arcade.handleMessage('c1', { type: 'start', game: 'puck', mode: 'versus' });
     arcade.handleMessage('c2', { type: 'start', game: 'puck', mode: 'versus' });
-    arcade.tick();
+    // R50: deal after the READY window
+    for (let i = 0; i < 190; i++) arcade.tick();
     let snap = net.last<{ table: { turn?: string; players: { id: string; score: number; lives: number }[] } }>('c1', 'snapshot');
     expect(snap?.table.turn).toBe('c1');
     for (let i = 0; i < 60000; i++) {
@@ -399,6 +401,28 @@ describe('Arcade', () => {
     arcade.handleMessage('c1', { type: 'note', text: 'PIZZA HOUR 17:00' });
     for (let i = 0; i < 8; i++) arcade.tick();
     expect(hallMsgs('c3').at(-1)?.note).toBe('PIZZA HOUR 17:00');
+  });
+
+  it('a full versus table shows READY and deals after the window; leave cancels (R50)', () => {
+    arcade.handleMessage('c1', { type: 'start', game: 'puck', mode: 'versus' });
+    arcade.handleMessage('c2', { type: 'start', game: 'puck', mode: 'versus' });
+    for (let i = 0; i < 4; i++) arcade.tick();
+    const full = net.last<SnapshotMsg & { table: { readyAt?: number | null } }>('c2', 'snapshot');
+    expect(full?.table.readyAt).not.toBeNull();
+    expect((full!.table.readyAt as number)).toBeGreaterThan(0);
+    // still waiting: session has not dealt
+    expect(full?.data).toBeNull();
+    // cancel: c2 leaves before the window closes
+    arcade.handleMessage('c2', { type: 'back' });
+    for (let i = 0; i < 4; i++) arcade.tick();
+    const cancelled = net.last<SnapshotMsg & { table: { readyAt?: number | null } }>('c1', 'snapshot');
+    expect(cancelled?.table.readyAt ?? null).toBeNull();
+    // refill and let the window run out: the table deals
+    arcade.handleMessage('c2', { type: 'start', game: 'puck', mode: 'versus' });
+    for (let i = 0; i < 190; i++) arcade.tick();
+    const dealt = net.last<SnapshotMsg & { table: { readyAt?: number | null; phase: string } }>('c2', 'snapshot');
+    expect(dealt?.table.readyAt ?? null).toBeNull();
+    expect(['ready', 'playing', 'roundOver', 'gameOver']).toContain(dealt?.table.phase);
   });
 
   const hallMsgs = (c = 'c1') =>

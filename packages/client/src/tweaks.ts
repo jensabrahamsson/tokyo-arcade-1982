@@ -292,3 +292,50 @@ export function exitToastVisible(sinceMs: number, nowMs: number, durMs: number):
   const elapsed = nowMs - sinceMs;
   return elapsed >= 0 && elapsed < durMs;
 }
+
+/** attract/demo channel gain: ducks while a human seat is occupied (R48) */
+export function attractGain(hasHumanSeat: boolean): number {
+  return hasHumanSeat ? 0.35 : 1;
+}
+
+/** mute (R23) always wins over the attract dip */
+export function effectiveAttractGain(hasHumanSeat: boolean, muted: boolean): number {
+  return muted ? 0 : attractGain(hasHumanSeat);
+}
+
+/** subtle long-attract heat shimmer: grows after 30 s, capped, periodic in tick (R49) */
+const HEAT_OFFSETS: readonly number[] = [0, 1, 0, -1];
+export function heatShimmer(idleMs: number, tick: number): { alpha: number; offset: number } {
+  const idle = Math.max(0, idleMs);
+  const alpha = idle <= 30_000 ? 0 : Math.min(0.18, ((idle - 30_000) / 150_000) * 0.18);
+  const t = ((Math.trunc(tick) % 4) + 4) % 4;
+  return { alpha, offset: HEAT_OFFSETS[t]! };
+}
+
+/** READY 3-2-1 over a 3 s server-authoritative window; null outside it (R50) */
+export function readyCountdown(msSinceFull: number, windowMs = 3000): number | null {
+  if (msSinceFull < 0 || msSinceFull >= windowMs) return null;
+  return Math.ceil((windowMs - msSinceFull) / 1000);
+}
+
+/** glow pulse for the current initials slot (R51) */
+const GLOW: readonly number[] = [0.4, 0.7, 1, 0.7];
+export function initialGlow(tick: number): number {
+  const t = ((Math.trunc(tick) % 4) + 4) % 4;
+  return GLOW[t]!;
+}
+
+/** rate gate for the operator test tone (R52) */
+export function testToneAllowed(lastMs: number, nowMs: number, gapMs = 800): boolean {
+  // lastMs === nowMs is the cold start (boot clock 0); otherwise the gap applies
+  return nowMs === lastMs || nowMs - lastMs >= gapMs;
+}
+
+/** fullscreen belongs to hall and table scenes (R53) */
+export function shouldRequestFullscreen(scene: 'splash' | 'title' | 'hall' | 'table' | 'service' | string): boolean {
+  return scene === 'hall' || scene === 'table';
+}
+
+export function fullscreenHintVisible(msSinceBoot: number, windowMs = 10_000): boolean {
+  return msSinceBoot < windowMs;
+}

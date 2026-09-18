@@ -104,6 +104,8 @@ export interface TableView {
   paused?: boolean;
   /** server-counted spectators; badges only, seating rules untouched (R29) */
   spectators?: number;
+  /** absolute server tick when a full versus table deals; null = no window (R50) */
+  readyAt?: number | null;
 }
 export interface WelcomeMsg {
   type: 'welcome';
