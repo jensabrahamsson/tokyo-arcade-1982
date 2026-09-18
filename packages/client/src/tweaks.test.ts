@@ -8,6 +8,7 @@ import {
   rejectToast, toastVisible, TOAST_MS, walkBob, creditStrip,
   freePlayBannerVisible, cabinetFocus, isNewRecord, recordFlashVisible, blinkOn,
   powerLed, ledState, scoreCrawlOffset,
+  waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -351,5 +352,49 @@ describe('high-score roll crawl (R41)', () => {
     }
     expect(scoreCrawlOffset(500, 0, 4000)).toBe(0);
     expect(scoreCrawlOffset(500, 10, 0)).toBe(0);
+  });
+});
+
+describe('join-queue waiting dots (R43)', () => {
+  it('cycles 0,1,2,3 dots deterministically over the period', () => {
+    expect(waitDots(0, 40)).toBe(0);
+    expect(waitDots(9, 40)).toBe(0);
+    expect(waitDots(10, 40)).toBe(1);
+    expect(waitDots(19, 40)).toBe(1);
+    expect(waitDots(39, 40)).toBe(3);
+    expect(waitDots(40, 40)).toBe(0); // wraps
+    expect(waitDots(-5, 40)).toBe(waitDots(35, 40));
+    expect(waitDots(7, 0)).toBe(0);
+    for (let t = 0; t < 120; t++) expect(waitDots(t, 40)).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('coin thunk envelope (R44)', () => {
+  it('is a linear decay with hard silence outside the window', () => {
+    expect(thunkEnvelope(0, 300)).toBe(1);
+    expect(thunkEnvelope(150, 300)).toBeCloseTo(0.5);
+    expect(thunkEnvelope(300, 300)).toBe(0);
+    expect(thunkEnvelope(-10, 300)).toBe(0);
+    expect(thunkEnvelope(301, 300)).toBe(0);
+    expect(thunkEnvelope(10, 0)).toBe(0);
+  });
+});
+
+describe('hall wall clock (R45)', () => {
+  it('formats injected epoch time at a pure offset', () => {
+    expect(formatHallClock(Date.UTC(2026, 8, 18, 14, 5), 120)).toBe('16:05');
+    expect(formatHallClock(Date.UTC(2026, 8, 18, 23, 0), 120)).toBe('01:00'); // next day, 24h wrap
+    expect(formatHallClock(Date.UTC(2026, 0, 1, 0, 0), -330)).toBe('18:30'); // previous day
+    expect(formatHallClock(Date.UTC(2026, 8, 18, 0, 0), 0)).toBe('00:00');
+  });
+});
+
+describe('thank-you exit toast (R47)', () => {
+  it('shows for exactly its duration and never before start', () => {
+    expect(exitToastVisible(0, 0, 1200)).toBe(true);
+    expect(exitToastVisible(0, 1199, 1200)).toBe(true);
+    expect(exitToastVisible(0, 1200, 1200)).toBe(false);
+    expect(exitToastVisible(5, 0, 1200)).toBe(false);
+    expect(exitToastVisible(1000, 2100, 1200)).toBe(true);
   });
 });

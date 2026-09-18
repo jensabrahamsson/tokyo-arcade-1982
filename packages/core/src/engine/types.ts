@@ -19,6 +19,7 @@ export interface GameConfig {
 }
 
 export type SfxName =
+  | 'thunk'
   | 'pause'
   | 'eat'
   | 'die'

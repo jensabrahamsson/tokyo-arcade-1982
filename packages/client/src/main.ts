@@ -31,7 +31,8 @@ import {
   volumeGain, effectiveGain, cycleVolume, loadVolume, saveVolume, loadMuted, saveMuted,
   joinCountdown, marqueeOffset, marqueeLamp, visibleSpectators, rejectToast, toastVisible, TOAST_MS, walkBob, creditStrip,
   freePlayBannerVisible, cabinetFocus, isNewRecord, recordFlashVisible, blinkOn,
-  powerLed, ledState, scoreCrawlOffset, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  powerLed, ledState, scoreCrawlOffset,
+  waitDots, thunkEnvelope, formatHallClock, exitToastVisible, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -79,6 +80,7 @@ let namePad: NamePad = createNamePad();
 let sel = 0;
 let hallSteps = 0;
 let recordFlashAt = 0;
+let exitToastAt = 0;
 let recordCheckedFor = '';
 let pendingRecord: { tableId: string; game: GameId; mode: GameMode; myScore: number } | null = null;
 type GameInfo = { id: GameId; solo: boolean; versus: boolean };
@@ -184,6 +186,7 @@ function startGame(mode: GameMode): void {
     audio.unlock();
     net.send({ type: 'coin', game: GAME_IDS[sel]! });
     audio.play('coin');
+    audio.play('thunk'); // R44: the slot swallows it
     pendingMode = mode;
     coinInsertAt = performance.now();
     scene = 'coinInsert';
@@ -236,6 +239,9 @@ function isOoo(game: GameId): boolean {
 }
 
 function back(): void {
+  if (scene === 'table' && world.snap?.table.players.some((pl) => pl.id === world.myId)) {
+    exitToastAt = performance.now(); // R47: the cabinet says goodbye
+  }
   net.send({ type: 'back' });
   world.snap = null;
   enterHall();
@@ -565,6 +571,16 @@ function renderCabinet(
     if (left !== null) {
       px(ctx, `JOIN ${left}`, screenX + screenW - 2, screenY + screenH - 9, 7, blink(ms, 400) ? PAL.red : PAL.orange, 'right');
     }
+    if (selected && lamp === 'now-playing') {
+      const badge = art()['wait-badge.png'];
+      if (badge) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(badge, screenX + 2, screenY + 2, 12, 12);
+        ctx.imageSmoothingEnabled = true;
+      }
+      const dots = '.'.repeat(1 + waitDots(Math.floor(ms / 300), 4));
+      px(ctx, `${t('hall.wait')}${dots}`, screenX + 16, screenY + 5, 7, PAL.yellow);
+    }
     const crowd = visibleSpectators(cab?.spectators ?? 0);
     if (crowd !== null) {
       px(ctx, `${t('hall.watching')} ${crowd}`, screenX + 2, screenY + 2, 7, PAL.cyan);
@@ -610,6 +626,12 @@ function renderCabinet(
   // OOO wins visually (the marquee overlay already claims attention)
   const strip = creditStrip(world.hall?.credits ?? 0, world.hall?.freePlay ?? false);
   if (strip !== null && lamp !== 'out-of-order') {
+    const panel = art()['credit-panel.png'];
+    if (panel) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(panel, x + w - 40, y + slot.h - 11, 38, 10);
+      ctx.imageSmoothingEnabled = true;
+    }
     px(ctx, `${t('hall.credits')} ${strip}`, x + w - 2, y + slot.h - 8, 7, PAL.yellow, 'right');
   }
   // R37 attract INSERT COIN blink: idle cabinets only, OOO and live win first
@@ -634,6 +656,13 @@ function renderHall(ms: number): void {
   {
     const flavorKey = MARQUEE_KEYS[Math.floor(ms / 9000) % MARQUEE_KEYS.length]!;
     const flavor = translate(attractLang(ms, 3000), flavorKey);
+    const neon = art()['marquee-neon.png'];
+    if (neon) {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      for (let nx = 20; nx < CANVAS_W - 20; nx += 120) ctx.drawImage(neon, nx, 7, 120, 11);
+      ctx.restore();
+    }
     ctx.save();
     ctx.beginPath();
     ctx.rect(20, 8, CANVAS_W - 40, 10);
@@ -654,6 +683,9 @@ function renderHall(ms: number): void {
     px(ctx, fp, cx, CANVAS_H - 54, 9, blink(ms, 500) ? PAL.lime : PAL.cyan, 'center');
     void w;
   }
+  const wallClock = formatHallClock(Date.now(), -new Date().getTimezoneOffset());
+  px(ctx, t('hall.clock'), CANVAS_W - 6, 14, 6, PAL.dim, 'right');
+  px(ctx, wallClock, CANVAS_W - 6, 22, 10, PAL.cyan, 'right');
   const note = world.hall?.note ?? '';
   if (note) {
     ctx.font = '8px monospace';
@@ -799,13 +831,25 @@ function renderCoinInsert(ms: number): void {
   const cx = CANVAS_W / 2;
   const t0 = performance.now() - coinInsertAt;
   px(ctx, t('hall.insertCoin'), cx, 40, 10, PAL.yellow, 'center');
-  // cabinet slot
-  ctx.fillStyle = PAL.navy;
-  ctx.fillRect(cx - 26, 96, 52, 60);
+  // cabinet slot (R46 art chrome when present)
+  const slotArt = art()['coin-slot.png'];
+  if (slotArt) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(slotArt, cx - 26, 96, 52, 52);
+    ctx.imageSmoothingEnabled = true;
+  } else {
+    ctx.fillStyle = PAL.navy;
+    ctx.fillRect(cx - 26, 96, 52, 60);
+  }
   ctx.fillStyle = '#000';
   ctx.fillRect(cx - 3, 104, 6, 26);
-  // the coin dropping in
+  // the coin dropping in; R44 thunk envelope drives its glow
   const drop = Math.min(1, t0 / 420);
+  const thunk = thunkEnvelope(Math.max(0, t0 - 420), 300);
+  if (thunk > 0) {
+    ctx.fillStyle = `rgba(247,231,102,${thunk.toFixed(2)})`;
+    ctx.fillRect(cx - 14, 130, 28, 4);
+  }
   ctx.fillStyle = PAL.yellow;
   ctx.beginPath();
   ctx.arc(cx, 60 + drop * 48, 6, 0, Math.PI * 2);
@@ -919,6 +963,16 @@ function frame(ms: number): void {
     if (world.snap) renderGame(ms);
     else px(ctx, t('lobby.waiting'), CANVAS_W / 2, 116, 10, PAL.gray, 'center');
   } else if (scene === 'scores') renderScores(ms);
+  const now = performance.now();
+  if (
+    (scene === 'hall' || scene === 'title' || scene === 'map') &&
+    !recordFlashVisible(recordFlashAt, now) &&
+    exitToastVisible(exitToastAt, now, 1200)
+  ) {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(CANVAS_W / 2 - 70, 200, 140, 18);
+    px(ctx, t('hall.thanks'), CANVAS_W / 2, 205, 10, PAL.lime, 'center');
+  }
   applyPresentation();
 requestAnimationFrame(frame);
 }
