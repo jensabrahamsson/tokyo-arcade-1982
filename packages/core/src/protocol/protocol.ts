@@ -96,6 +96,8 @@ export interface TableView {
   joinDeadline?: number | null;
   /** operator-visible frozen flag while the seated player holds the pause (R26) */
   paused?: boolean;
+  /** server-counted spectators; badges only, seating rules untouched (R29) */
+  spectators?: number;
 }
 export interface WelcomeMsg {
   type: 'welcome';
@@ -143,6 +145,9 @@ export interface HallCabinet {
   scores: { name: string; score: number }[];
   /** absolute server tick when the join window closes; null = no window (R25) */
   joinDeadline: number | null;
+  /** server-counted occupied seats and onlookers (R28/R29) */
+  players: number;
+  spectators: number;
 }
 export interface HallTablesMsg {
   type: 'hallTables';
@@ -160,6 +165,10 @@ export interface StatsReplyMsg {
   coins: number;
   freePlay: boolean;
   uptimeSec: number;
+  /** calendar-day bucket (Europe/Stockholm) and its counters (R31) */
+  day: string;
+  playsToday: number;
+  coinsToday: number;
 }
 export type ServerMessage =
   | WelcomeMsg

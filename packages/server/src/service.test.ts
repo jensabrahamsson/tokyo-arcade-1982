@@ -16,8 +16,10 @@ describe('ServiceStore (R16)', () => {
 
   it('defaults to coin mode with zero counters', () => {
     const s = new ServiceStore(join(dir, 'service.json'));
-    // R24 added outOfOrder to the persisted service shape
-    expect(s.snapshot()).toEqual({ plays: 0, coins: 0, freePlay: false, outOfOrder: [] });
+    // R24 added outOfOrder, R31 the day bucket to the persisted service shape
+    expect(s.snapshot()).toEqual({
+      plays: 0, coins: 0, freePlay: false, outOfOrder: [], day: '', playsToday: 0, coinsToday: 0,
+    });
   });
 
   it('persists counters and mode across reloads', () => {
@@ -27,8 +29,12 @@ describe('ServiceStore (R16)', () => {
     s.addPlay();
     s.setFreePlay(true);
     const t = new ServiceStore(join(dir, 'service.json'));
-    // R24 added outOfOrder to the persisted service shape
-    expect(t.snapshot()).toEqual({ plays: 1, coins: 2, freePlay: true, outOfOrder: [] });
+    // R24 added outOfOrder, R31 the day counters to the persisted shape;
+    // day is the live Stockholm bucket, asserted by shape not value
+    const snap = t.snapshot();
+    expect({ ...snap, day: 'today' }).toEqual({
+      plays: 1, coins: 2, freePlay: true, outOfOrder: [], day: 'today', playsToday: 1, coinsToday: 2,
+    });
   });
 
   it('survives corrupt files without throwing', () => {

@@ -39,7 +39,10 @@ Env: `ARKAD_PORT` (default 8442), `ARKAD_DATA` (default `./data`).
 - **Operator service menu:** hold `Shift` + `S` — bookkeeping (plays, coins, uptime), free-play/coin toggle, CRT knobs (`Q`/`W`/`E`), accessibility palette (`A`), master volume detent + mute (`V`/`M`), cabinet OUT-OF-ORDER switch (`O`, persists + broadcasts); seats can pause with `P`
 
 The hall starts in coin mode: watch the coin drop into the slot before the
-cabinet wakes up, or flip it to FREE PLAY from the service menu. Attract
+cabinet wakes up, or flip it to FREE PLAY from the service menu. Live
+cabinets light a NOW PLAYING lamp, crowd badges count the onlookers,
+rejections surface as 1982 canvas toasts, and the operator log keeps
+today's plays and coins beside the lifetime totals. Attract
 signage alternates English and Japanese on its own timer, and a tournament
 banner tracks the live leader of the hall.
 
@@ -85,7 +88,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 270 tests across engine, games, server, client
+npm test          # vitest: 282 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```

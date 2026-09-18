@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { GAME_IDS, type GameId } from '@arkad/core';
+import { rollDay, stockholmDate } from './dayclock';
 
 export interface ServiceState {
   plays: number;
@@ -8,6 +9,10 @@ export interface ServiceState {
   freePlay: boolean;
   /** cabinets the operator took out of service (R24) */
   outOfOrder: GameId[];
+  /** current Europe/Stockholm bucket for the day counters (R31) */
+  day: string;
+  playsToday: number;
+  coinsToday: number;
 }
 
 /** Operator bookkeeping (R16/R17): counters + free-play mode, persisted under data/. */
@@ -19,7 +24,7 @@ export class ServiceStore {
   }
 
   private load(): ServiceState {
-    const clean: ServiceState = { plays: 0, coins: 0, freePlay: false, outOfOrder: [] };
+    const clean: ServiceState = { plays: 0, coins: 0, freePlay: false, outOfOrder: [], day: '', playsToday: 0, coinsToday: 0 };
     try {
       const parsed: unknown = JSON.parse(readFileSync(this.path, 'utf8'));
       if (typeof parsed !== 'object' || parsed === null) return clean;
@@ -34,6 +39,9 @@ export class ServiceStore {
         coins: count(o.coins),
         freePlay: typeof o.freePlay === 'boolean' ? o.freePlay : false,
         outOfOrder: ooo,
+        day: typeof o.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.day) ? o.day : '',
+        playsToday: count(o.playsToday),
+        coinsToday: count(o.coinsToday),
       };
     } catch {
       return clean;
@@ -53,13 +61,22 @@ export class ServiceStore {
     return { ...this.data };
   }
 
+  private roll(): void {
+    const bucket = rollDay(this.data.day, this.data.playsToday, this.data.coinsToday, stockholmDate(Date.now()));
+    this.data = { ...this.data, ...bucket };
+  }
+
   addCoin(): void {
+    this.roll();
     this.data.coins += 1;
+    this.data.coinsToday += 1;
     this.save();
   }
 
   addPlay(): void {
+    this.roll();
     this.data.plays += 1;
+    this.data.playsToday += 1;
     this.save();
   }
 

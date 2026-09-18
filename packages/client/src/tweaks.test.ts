@@ -4,7 +4,9 @@ import {
   ACCESS_MODES, nextAccess, accessFilterCss,
   attractLang, tournamentBanner, loadKnobs, saveKnobs, loadAccess, saveAccess,
   volumeGain, effectiveGain, cycleVolume, loadVolume, saveVolume, loadMuted, saveMuted,
-  DEFAULT_VOLUME, joinCountdown, marqueeOffset, type CrtKnobs, type VolumeDetent,
+  DEFAULT_VOLUME, joinCountdown, marqueeOffset, marqueeLamp, visibleSpectators,
+  rejectToast, toastVisible, TOAST_MS, walkBob,
+  type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
 const fakeStorage = (init: Record<string, string> = {}) => {
@@ -187,5 +189,66 @@ describe('neon marquee scroll (R27)', () => {
     expect(marqueeOffset(1000, 0, 5000)).toBe(0);
     expect(marqueeOffset(1000, 100, 0)).toBe(0);
     expect(marqueeOffset(-50, 100, 5000)).toBe(100);
+  });
+});
+
+describe('NOW PLAYING lamp + spectator badge (R28/R29)', () => {
+  it('lamp mode is idle for empty or demo cabinets, now for live seats', () => {
+    expect(marqueeLamp({ demo: true, players: 0 })).toBe('idle');
+    expect(marqueeLamp({ demo: false, players: 0 })).toBe('idle');
+    expect(marqueeLamp({ demo: false, players: 2 })).toBe('now-playing');
+    expect(marqueeLamp({ demo: true, players: 3 })).toBe('idle');
+  });
+
+  it('OUT OF ORDER wins over NOW PLAYING, always', () => {
+    expect(marqueeLamp({ demo: false, players: 2 }, true)).toBe('out-of-order');
+    expect(marqueeLamp({ demo: true, players: 0 }, true)).toBe('out-of-order');
+    expect(marqueeLamp({ demo: false, players: 0 }, true)).toBe('out-of-order');
+  });
+
+  it('spectator badge hides zero and shows the count otherwise', () => {
+    expect(visibleSpectators(0)).toBeNull();
+    expect(visibleSpectators(-1)).toBeNull();
+    expect(visibleSpectators(1)).toBe(1);
+    expect(visibleSpectators(42)).toBe(42);
+  });
+});
+
+describe('reject toasts (R30)', () => {
+  it('maps every known clear reason to its own line', () => {
+    expect(rejectToast('insert-coin')).toBe('toast.insertCoin');
+    expect(rejectToast('out-of-order')).toBe('toast.outOfOrder');
+    expect(rejectToast('solo-only')).toBe('toast.soloOnly');
+    expect(rejectToast('unknown-game')).toBe('toast.unknownGame');
+    expect(rejectToast('insert-coin')).not.toBe(rejectToast('out-of-order'));
+  });
+
+  it('unknown reasons get the safe generic line', () => {
+    expect(rejectToast('meteor-impact')).toBe('toast.generic');
+    expect(rejectToast('')).toBe('toast.generic');
+    expect(rejectToast('INSERT COIN')).toBe('toast.generic');
+  });
+
+  it('the toast clears after its window and stays before it', () => {
+    expect(toastVisible(1000, 1000)).toBe(true);
+    expect(toastVisible(1000, 1999)).toBe(true);
+    expect(toastVisible(1000, 2800)).toBe(false);
+    expect(toastVisible(1000, 5000)).toBe(false);
+    expect(TOAST_MS).toBeGreaterThanOrEqual(1500);
+  });
+});
+
+describe('hall walk bob (R32)', () => {
+  it('is deterministic, periodic and subtle', () => {
+    expect(walkBob(0)).toBe(0);
+    for (let i = 0; i < 64; i++) {
+      const v = walkBob(i);
+      expect(v).toBeLessThanOrEqual(0);
+      expect(v).toBeGreaterThanOrEqual(-3);
+      expect(walkBob(i)).toBe(v);
+      expect(walkBob(i + 4)).toBe(v);
+    }
+    expect(new Set([0, 1, 2, 3].map(walkBob)).size).toBeGreaterThan(1);
+    expect(walkBob(-1)).toBe(walkBob(3));
   });
 });
