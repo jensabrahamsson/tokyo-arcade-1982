@@ -28,6 +28,21 @@ export function createArcade(dataDir: string, send: (id: string, msg: unknown) =
   });
 }
 
+/** bind-level failures the hall cannot survive; everything else is survivable noise */
+export function isFatalNetError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | undefined)?.code;
+  return code === 'EADDRINUSE' || code === 'EACCES' || code === 'EADDRNOTAVAIL';
+}
+
+/** never let a closed stdout/stderr pipe take the hall down with it */
+export function safeLog(...args: unknown[]): void {
+  try {
+    console.log(...args);
+  } catch {
+    /* pipe closed */
+  }
+}
+
 export async function createGameServer(opts: { port: number; dataDir: string; publicDir?: string }): Promise<GameServerHandle> {
   const publicDir = resolve(opts.publicDir ?? join(__dirname, '..', 'public'));
   const sockets = new Map<string, WebSocket>();
@@ -67,8 +82,8 @@ export async function createGameServer(opts: { port: number; dataDir: string; pu
   });
 
   const wss = new WebSocketServer({ server: http, path: '/ws', maxPayload: 8 * 1024 });
-  wss.on('error', (err: Error) => console.error('[arkad] ws server error:', err.message));
-  http.on('error', (err: Error) => console.error('[arkad] http server error:', err.message));
+  wss.on('error', (err: Error) => safeLog('[arkad] ws server error:', err.message));
+  http.on('error', (err: Error) => safeLog('[arkad] http server error:', err.message));
   wss.on('connection', (ws: WebSocket) => {
     const id = `u${++seq}`;
     sockets.set(id, ws);
@@ -82,7 +97,8 @@ export async function createGameServer(opts: { port: number; dataDir: string; pu
       const msg = parseClientMessage(raw.toString());
       if (msg) arcade.handleMessage(id, msg);
     });
-    ws.on('close', () => {
+    ws.on('close', (code: number, reason: Buffer) => {
+      safeLog(`[arkad] ws ${id} closed: ${code} ${reason?.toString() ?? ''}`.trimEnd());
       sockets.delete(id);
       arcade.removeConnection(id);
     });
@@ -95,7 +111,7 @@ export async function createGameServer(opts: { port: number; dataDir: string; pu
     port,
     close: async () => {
       arcade.stop();
-      for (const ws of sockets.values()) ws.terminate();
+      for (const ws of sockets.values()) ws.close(1001, 'server shutdown');
       await new Promise<void>((r) => wss.close(() => r()));
       await new Promise<void>((r) => http.close(() => r()));
     },

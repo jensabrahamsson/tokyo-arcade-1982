@@ -952,7 +952,8 @@ function frame(ms: number): void {
   ctx.fillStyle = PAL.black;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   if (net.status !== 'open' && scene !== 'splash') {
-    px(ctx, t(net.status === 'connecting' ? 'net.connecting' : 'net.lost'), CANVAS_W / 2, 116, 10, PAL.gray, 'center');
+    const reason = net.status === 'lost' && net.closeInfo ? ` (${net.closeInfo})` : '';
+    px(ctx, `${t(net.status === 'connecting' ? 'net.connecting' : 'net.lost')}${reason}`, CANVAS_W / 2, 116, 10, PAL.gray, 'center');
   } else if (scene === 'splash') renderSplash(ms);
   else if (scene === 'title') renderTitle(ms);
   else if (scene === 'name') renderNamePad(ms);

@@ -3,7 +3,7 @@ import { WebSocket } from 'ws';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createGameServer, type GameServerHandle } from './http';
+import {createGameServer, type GameServerHandle, isFatalNetError} from './http';
 import type { ServerMessage } from '@arkad/core';
 
 interface Peer {
@@ -169,4 +169,15 @@ describe('game server (real websockets)', () => {
     expect(phase).toBe('gameOver');
     expect(ids).toContain(winner);
   }, 30000);
+});
+
+describe('fatal net error classification (stability)', () => {
+  it('bind failures are fatal, everything else is survivable', () => {
+    expect(isFatalNetError({ code: 'EADDRINUSE' })).toBe(true);
+    expect(isFatalNetError({ code: 'EACCES' })).toBe(true);
+    expect(isFatalNetError({ code: 'EADDRNOTAVAIL' })).toBe(true);
+    expect(isFatalNetError({ code: 'ECONNRESET' })).toBe(false);
+    expect(isFatalNetError({})).toBe(false);
+    expect(isFatalNetError(undefined)).toBe(false);
+  });
 });

@@ -1,5 +1,5 @@
 import { networkInterfaces } from 'node:os';
-import { createGameServer } from './http';
+import { createGameServer, isFatalNetError, safeLog } from './http';
 
 function lanAddresses(): string[] {
   const out: string[] = [];
@@ -14,23 +14,44 @@ function lanAddresses(): string[] {
 const PORT = Number(process.env.ARKAD_PORT ?? 8442);
 const DATA_DIR = process.env.ARKAD_DATA ?? './data';
 
+process.on('uncaughtException', (err) => {
+  if (isFatalNetError(err)) {
+    safeLog('[arkad] FATAL:', err);
+    process.exit(1);
+  }
+  safeLog('[arkad] uncaught exception (kept alive):', err);
+});
+process.on('unhandledRejection', (reason) => {
+  if (isFatalNetError(reason)) {
+    safeLog('[arkad] FATAL rejection:', reason);
+    process.exit(1);
+  }
+  safeLog('[arkad] unhandled rejection (kept alive):', reason);
+});
+
 async function main(): Promise<void> {
   const handle = await createGameServer({ port: PORT, dataDir: DATA_DIR });
-  console.log('');
-  console.log('  █████  ██    ██   ██  █████  ██████  ');
+  for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+    process.on(sig, () => {
+      safeLog(`[arkad] ${sig}: closing the hall`);
+      void handle.close().then(() => process.exit(0));
+    });
+  }
+  safeLog('');
+  safeLog('  █████  ██    ██   ██  █████  ██████  ');
   console.log('  ██  ██ ██    ██   ██ ██   ██ ██      1982');
   console.log('  █████  ██    ██ ███████ ██████  ██  ██  ');
-  console.log('  ██  ██  ██  ██     ██ ██   ██ ██   ██ TOKYO ARCADE HALL');
-  console.log('');
-  console.log(`  Listening on port ${handle.port}. Point your browser here:`);
+  safeLog('  ██  ██  ██  ██     ██ ██   ██ ██   ██ TOKYO ARCADE HALL');
+  safeLog('');
+  safeLog(`  Listening on port ${handle.port}. Point your browser here:`);
   for (const addr of lanAddresses()) {
     const ip = addr.split(' ')[0]!;
-    console.log(`    http://${ip}:${handle.port}`);
+    safeLog(`    http://${ip}:${handle.port}`);
   }
-  console.log('');
+  safeLog('');
 }
 
 main().catch((err) => {
-  console.error(err);
-  process.exit(1);
+  safeLog(err);
+  process.exit(isFatalNetError(err) ? 1 : 1);
 });
