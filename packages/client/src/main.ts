@@ -504,8 +504,9 @@ function renderGame(ms: number): void {
   if (snap.table.paused) {
     ctx.fillStyle = 'rgba(0,0,0,0.62)';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    px(ctx, 'PAUSE', cx, 104, 24, blink(ms, 450) ? PAL.yellow : PAL.orange, 'center');
-    px(ctx, t('pause.title'), cx, 130, 12, PAL.cyan, 'center');
+    // P1 fix: exactly one pause label — the big blinking line used to stack a
+    // second cyan i18n 'PAUSE' under the literal one (en pause.title === 'PAUSE')
+    px(ctx, t('pause.title'), cx, 110, 24, blink(ms, 450) ? PAL.yellow : PAL.orange, 'center');
   }
   if (snap.table.readyAt != null) {
     const msSinceFull = 3000 - ((snap.table.readyAt - (snap.tick ?? snap.table.readyAt)) * 1000) / 60;
