@@ -1,7 +1,7 @@
 import type { CoastState } from '@arkad/core';
 import { curveAt, OFF_ROAD_X, TRACK_LEN, MAX_SPEED } from '@arkad/core';
 import { PAL } from '../ui';
-import { art } from '../art';
+import { art, type ArtFile } from '../art';
 
 const W = 320;
 const H = 240;
@@ -29,32 +29,123 @@ function project(dist: number, camDist: number, playerX: number): { y: number; s
   return { y, scale, roadW, offX };
 }
 
+/** LO-borgen is THE landmark beat of Coast — the "wait, that's in the game"
+ * silhouette like Pole Position's Fuji: big, haloed by the low sun, proud
+ * flag on the keep, visible from every corner of the course. */
 function drawCastle(ctx: CanvasRenderingContext2D, shift: number, tMs: number): void {
   const bx = CX + shift;
-  const by = HORIZON + 2;
+  const by = HORIZON + 3;
+  // low-sun halo: the silhouette must pop against the sunset, always
+  const halo = ctx.createRadialGradient(bx, by - 30, 6, bx, by - 30, 56);
+  halo.addColorStop(0, 'rgba(255,206,84,0.45)');
+  halo.addColorStop(1, 'rgba(255,206,84,0)');
+  ctx.fillStyle = halo;
+  ctx.fillRect(bx - 70, by - 92, 140, 100);
   const img = art()['coast-lo-castle.png'];
   if (img) {
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, bx - 40, by - 42, 80, 42);
+    ctx.drawImage(img, bx - 56, by - 56, 112, 56);
+    ctx.imageSmoothingEnabled = true;
+  } else {
+    ctx.fillStyle = '#2c1e40';
+    ctx.fillRect(bx - 44, by - 29, 88, 29);
+    ctx.fillRect(bx - 52, by - 21, 16, 21);
+    ctx.fillRect(bx + 36, by - 21, 16, 21);
+    for (const [tx, w, h] of [[-36, 10, 18], [-10, 13, 26], [16, 10, 18]] as const) {
+      ctx.fillRect(bx + tx, by - 29 - h, w, h);
+      ctx.beginPath();
+      ctx.moveTo(bx + tx - 3, by - 29 - h);
+      ctx.lineTo(bx + tx + w / 2, by - 41 - h);
+      ctx.lineTo(bx + tx + w + 3, by - 29 - h);
+      ctx.fill();
+    }
+    if (Math.floor(tMs / 500) % 2 === 0) {
+      ctx.fillStyle = '#ffd75e';
+      ctx.fillRect(bx - 8, by - 18, 4, 4);
+      ctx.fillRect(bx + 5, by - 13, 4, 4);
+    }
+  }
+  // the flag: mast above the tallest keep, pink banner snapping in the sea wind
+  ctx.fillStyle = '#1c1c28';
+  ctx.fillRect(bx - 4, by - 78, 1, 15);
+  ctx.fillStyle = PAL.magenta;
+  ctx.fillRect(bx - 3, by - 78 + (Math.floor(tMs / 220) % 2), 7, 4);
+}
+
+/** R54: drive-past billboards along the coast road — stylized 8-bit Swedish
+ * nostalgia tableaux (homage scenery, not campaign material). PNGs from
+ * Imagine drop into static/art; the procedural fallback keeps the beat
+ * even before they land. LO-borgen stays the primary landmark. */
+const ROADSIDE: readonly { d: number; side: -1 | 1; art: ArtFile; accent: string; glyph: 'tree' | 'dinghy' | 'lodge' | 'debate' | 'palm' }[] = [
+  { d: 180, side: -1, art: 'coast-centerpartiet.png', accent: '#2ee66b', glyph: 'tree' },
+  { d: 620, side: 1, art: 'coast-harpsund.png', accent: '#f7e766', glyph: 'dinghy' },
+  { d: 1040, side: -1, art: 'coast-bommersvik.png', accent: '#ff004d', glyph: 'lodge' },
+  { d: 1460, side: 1, art: 'coast-valdebatt76.png', accent: '#2de2e6', glyph: 'debate' },
+  { d: 1840, side: -1, art: 'coast-castro-visit.png', accent: '#ffa300', glyph: 'palm' },
+];
+
+function drawBillboard(ctx: CanvasRenderingContext2D, b: (typeof ROADSIDE)[number], p: { y: number; scale: number; roadW: number; offX: number }, tMs: number): void {
+  const bw = Math.max(12, p.scale * 900);
+  const bh = Math.round(bw * 0.62);
+  const bx = p.offX + b.side * (p.roadW * 1.35 + bw * 0.7);
+  if (bx < -bw || bx > W + bw) return;
+  const groundY = p.y;
+  const postW = Math.max(1, Math.round(bw * 0.06));
+  const postH = Math.max(2, Math.round(bh * 0.45));
+  ctx.fillStyle = '#241a12';
+  ctx.fillRect(bx - bw * 0.3, groundY - postH, postW, postH);
+  ctx.fillRect(bx + bw * 0.3 - postW, groundY - postH, postW, postH);
+  const boardTop = groundY - postH - bh;
+  const img = art()[b.art];
+  if (img) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, bx - bw / 2, boardTop, bw, bh);
     ctx.imageSmoothingEnabled = true;
     return;
   }
-  ctx.fillStyle = '#3a2a4e';
-  ctx.fillRect(bx - 34, by - 22, 68, 22);
-  ctx.fillRect(bx - 40, by - 16, 12, 16);
-  ctx.fillRect(bx + 28, by - 16, 12, 16);
-  for (const [tx, w, h] of [[-28, 8, 14], [-8, 10, 20], [12, 8, 14]] as const) {
-    ctx.fillRect(bx + tx, by - 22 - h, w, h);
-    ctx.beginPath();
-    ctx.moveTo(bx + tx - 2, by - 22 - h);
-    ctx.lineTo(bx + tx + w / 2, by - 30 - h);
-    ctx.lineTo(bx + tx + w + 2, by - 22 - h);
-    ctx.fill();
-  }
-  if (Math.floor(tMs / 500) % 2 === 0) {
-    ctx.fillStyle = '#ffd75e';
-    ctx.fillRect(bx - 6, by - 14, 3, 3);
-    ctx.fillRect(bx + 4, by - 10, 3, 3);
+  ctx.fillStyle = '#10131f';
+  ctx.fillRect(bx - bw / 2, boardTop, bw, bh);
+  ctx.strokeStyle = PAL.gray;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bx - bw / 2 + 0.5, boardTop + 0.5, bw - 1, bh - 1);
+  const u = bw / 24; // unit grid so glyphs read at every distance
+  ctx.fillStyle = b.accent;
+  switch (b.glyph) {
+    case 'tree':
+      ctx.fillRect(bx - u, boardTop + bh - 7 * u, 2 * u, 4 * u);
+      ctx.fillRect(bx - 4 * u, boardTop + 3 * u, 8 * u, 6 * u);
+      ctx.fillRect(bx - 2.5 * u, boardTop + 1.5 * u, 5 * u, 2 * u);
+      break;
+    case 'dinghy':
+      ctx.fillStyle = 'rgba(45,226,230,0.4)';
+      ctx.fillRect(bx - 9 * u, boardTop + bh - 4 * u, 18 * u, 1);
+      ctx.fillStyle = b.accent;
+      ctx.fillRect(bx - 5 * u, boardTop + bh - 8 * u, 10 * u, 3 * u);
+      ctx.fillRect(bx - u * 0.5, boardTop + 3 * u, u, 5 * u);
+      break;
+    case 'lodge':
+      ctx.fillRect(bx - 9 * u, boardTop + bh - 8 * u, 18 * u, 4 * u);
+      ctx.fillRect(bx - 10 * u, boardTop + bh - 10 * u, 20 * u, 2 * u);
+      ctx.fillStyle = PAL.white;
+      ctx.fillRect(bx - 6 * u, boardTop + bh - 7 * u, u, 2 * u);
+      ctx.fillRect(bx + 5 * u, boardTop + bh - 7 * u, u, 2 * u);
+      break;
+    case 'debate':
+      ctx.fillRect(bx - 7 * u, boardTop + 3 * u, 14 * u, 8 * u);
+      ctx.fillStyle = '#05060c';
+      ctx.fillRect(bx - 5 * u, boardTop + 5 * u, 4 * u, 4 * u);
+      ctx.fillRect(bx + u, boardTop + 5 * u, 4 * u, 4 * u);
+      ctx.fillStyle = PAL.gray;
+      ctx.fillRect(bx - u * 0.5, boardTop + 0.5 * u, u, 2.5 * u);
+      break;
+    case 'palm':
+      ctx.fillStyle = '#7a4a20';
+      ctx.fillRect(bx - u * 0.5, boardTop + 6 * u, u, 6 * u);
+      ctx.fillStyle = b.accent;
+      ctx.fillRect(bx - 5 * u, boardTop + 4 * u, 10 * u, 2 * u);
+      ctx.fillRect(bx - 2 * u, boardTop + 2 * u, 4 * u, 2 * u);
+      if (Math.floor(tMs / 900) % 2 === 0) ctx.fillRect(bx + 6 * u, boardTop + 2 * u, u, u);
+      break;
   }
 }
 
@@ -70,7 +161,8 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
   ctx.fill();
 
   const camCurve = curveAt(s.dist);
-  drawCastle(ctx, -camCurve * 140 - s.playerX * 26, tMs);
+  // a landmark this far away barely shifts with the car — it anchors the sky
+  drawCastle(ctx, -camCurve * 110 - s.playerX * 16, tMs);
 
   ctx.fillStyle = blend(GRASS_A);
   ctx.fillRect(0, HORIZON, W, H - HORIZON);
@@ -95,6 +187,11 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
       ctx.fillStyle = '#e8e4c8';
       ctx.fillRect(p1.offX - p1.scale * 14, y, Math.max(1, p1.scale * 28), y2 - y);
     }
+  }
+
+  for (const b of ROADSIDE) {
+    if (b.d < cam + 1 || b.d > cam + 140) continue;
+    drawBillboard(ctx, b, project(b.d, cam, s.playerX), tMs);
   }
 
   for (const o of s.obstacles) {

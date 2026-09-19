@@ -18,6 +18,7 @@ const MIME: Record<string, string> = {
   '.css': 'text/css',
   '.json': 'application/json',
   '.png': 'image/png',
+  '.mp3': 'audio/mpeg',
 };
 
 export function createArcade(dataDir: string, send: (id: string, msg: unknown) => void): Arcade {

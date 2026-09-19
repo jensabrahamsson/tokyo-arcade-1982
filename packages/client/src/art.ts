@@ -9,6 +9,13 @@ export const ART_FILES = [
   'coin-slot.png',
   'credit-panel.png',
   'wait-badge.png',
+  // R54: Coast roadside landmarks (Swedish nostalgia billboards); missing
+  // files fall back to procedural drawing, same contract as R38.4
+  'coast-centerpartiet.png',
+  'coast-harpsund.png',
+  'coast-bommersvik.png',
+  'coast-valdebatt76.png',
+  'coast-castro-visit.png',
 ] as const;
 
 export type ArtFile = (typeof ART_FILES)[number];

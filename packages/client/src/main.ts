@@ -15,6 +15,7 @@ import { Net } from './net';
 import { art, loadArtBrowser } from './art';
 import { Keys } from './input';
 import { Chiptune } from './audio/chiptune';
+import { Samples } from './audio/samples';
 import { CANVAS_W, CANVAS_H, PAL, PLAYER_COLORS, px, blink, FONT } from './ui';
 import { renderSnake } from './renderers/snake';
 import { renderPuck } from './renderers/puck';
@@ -35,7 +36,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -64,6 +65,11 @@ loadArtBrowser(); // R38: async pixel-art atlas; renderers fall back until it la
 const net = new Net();
 const keys = new Keys();
 const audio = new Chiptune();
+const music = new Samples();
+// the hall's own soundtrack (Lyria 3.5 sample, see AGENTS art/audio pipeline)
+const ATTRACT_TRACK = 'audio/Late_Night_Cabinet.mp3';
+const COAST_READY_STINGER = 'audio/coast_yosen_start_ja.mp3';
+let coastAnnouncedFor = '';
 
 let lang: Lang = (localStorage.getItem('arkad-lang') as Lang) === 'ja' ? 'ja' : 'en';
 type Scene = 'splash' | 'title' | 'name' | 'hall' | 'map' | 'table' | 'scores' | 'credits' | 'service' | 'note' | 'coinInsert';
@@ -123,11 +129,19 @@ net.onMessage((msg: ServerMessage) => {
     case 'roster':
       world.roster = msg as RosterMsg;
       break;
-    case 'snapshot':
-      world.snap = msg as SnapshotMsg;
+    case 'snapshot': {
+      const snap = msg as SnapshotMsg;
+      world.snap = snap;
       lastSnapAt = performance.now();
-      audio.playEvents(msg.events ?? []);
+      audio.playEvents(snap.events ?? []);
+      // Pole Position style 「予選スタート！」 — once per Coast table at READY
+      const seated = snap.table.players.some((p) => p.id === world.myId);
+      if (readyStingerDue(coastAnnouncedFor, snap.table.id, snap.table.game, snap.table.phase, seated)) {
+        coastAnnouncedFor = snap.table.id;
+        void music.play(COAST_READY_STINGER, 0.9);
+      }
       break;
+    }
     case 'scoreList': {
       const list = msg as ScoreListMsg;
       world.scores = list;
@@ -166,6 +180,14 @@ net.onOpen(() => {
   }
 });
 net.connect();
+
+// one gesture is enough to open the audio doors (autoplay policy);
+// everything else stays fail-closed silent
+window.addEventListener('keydown', () => {
+  audio.unlock();
+  music.unlock();
+}, { once: true });
+window.addEventListener('pointerdown', () => music.unlock(), { once: true });
 
 function toggleLang(): void {
   lang = lang === 'en' ? 'ja' : 'en';
@@ -248,6 +270,10 @@ function applyPresentation(): void {
   const liveSeat = (world.hall?.cabinets ?? []).some((c) => !c.demo && c.players > 0);
   audio.setAttract(scene === 'table' ? 1 : attractGain(liveSeat));
   audio.setMaster(effectiveGain(volume, muted));
+  // attract music: the hall has a soundtrack, a cabinet does not need one
+  music.setMaster(effectiveGain(volume, muted));
+  if (attractMusicActive(scene)) void music.startLoop(ATTRACT_TRACK);
+  else music.stopLoop();
   canvas.style.filter = crtFilterCss(knobs, access);
   const scan = document.querySelector('.scanlines') as HTMLElement | null;
   if (scan) scan.style.opacity = String(scanlineOpacity(knobs, access));
@@ -588,35 +614,132 @@ function colorBar(y: number, h: number, ms: number): void {
   });
 }
 
+/** UX shell: the one wordmark — white body, a single deep-magenta offset
+ * shadow, amber year below. Intentional, static, no rainbow churn. */
+function drawWordmark(y: number, size: number): void {
+  const cx = CANVAS_W / 2;
+  const name = t('app.title');
+  ctx.font = `${size}px ${FONT}`;
+  const w = ctx.measureText(name).width;
+  const x = cx - w / 2;
+  px(ctx, name, x + 2, y + 2, size, '#5e1740');
+  px(ctx, name, x, y, size, PAL.white);
+  px(ctx, `— ${t('app.year')} —`, cx, y + size + 4, Math.max(8, Math.round(size / 3)), PAL.orange, 'center');
+}
+
 function renderSplash(ms: number): void {
   const cx = CANVAS_W / 2;
-  px(ctx, 'TOKYO ARCADE SYSTEM', cx, 44, 12, PAL.cyan, 'center');
-  px(ctx, 'MODEL 82', cx, 62, 8, PAL.gray, 'center');
-  const title = 'ARKAD';
-  const colors = [PAL.red, PAL.orange, PAL.yellow, PAL.lime, PAL.cyan];
-  ctx.font = '40px monospace';
-  const w = ctx.measureText(title).width;
-  let x = cx - w / 2;
-  for (let i = 0; i < title.length; i++) {
-    ctx.fillStyle = colors[(i + Math.floor(ms / 240)) % colors.length]!;
-    ctx.fillText(title[i]!, x, 108);
-    x += ctx.measureText(title[i]!).width;
+  // warm night: the hall after closing time, before the doors open
+  const sky = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+  sky.addColorStop(0, '#0d0710');
+  sky.addColorStop(0.62, '#1b0e17');
+  sky.addColorStop(1, '#2a1512');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  // a string of paper lanterns over the entrance — the human 1982 touch
+  for (let i = 0; i < 7; i++) {
+    const lx = 24 + i * 46;
+    const sway = Math.sin(ms / 900 + i * 1.3) * 1.6;
+    ctx.strokeStyle = '#3a2530';
+    ctx.beginPath();
+    ctx.moveTo(lx, 0);
+    ctx.lineTo(lx + sway, 22);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,163,0,0.14)';
+    ctx.fillRect(lx + sway - 7, 16, 16, 16);
+    ctx.fillStyle = i % 2 === 0 ? PAL.orange : PAL.red;
+    ctx.fillRect(lx + sway - 4, 20, 9, 11);
+    ctx.fillStyle = PAL.black;
+    ctx.fillRect(lx + sway - 4, 24, 9, 1);
   }
-  const logo = art()['splash-logo.png'];
-  if (logo) {
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(logo, cx - 48, 56, 96, 96);
-    ctx.imageSmoothingEnabled = true;
-  }
-  colorBar(130, 4, ms);
-  px(ctx, 'BIOS 1982.6 ... OK', cx, 152, 8, PAL.lime, 'center');
-  px(ctx, `CARTRIDGES ${cartridgeBadge(GAME_IDS.length)} ... OK`, cx, 164, 8, PAL.lime, 'center');
-  if (blink(ms, 500)) px(ctx, 'PRESS ANY KEY', cx, 190, 10, PAL.yellow, 'center');
+  drawWordmark(60, 26);
+  px(ctx, t('splash.welcome'), cx, 124, 9, PAL.yellow, 'center');
+  // boot lines: kept, because they are charming — just quiet and warm now
+  px(ctx, 'BIOS 1982.6 ...... OK', cx, 148, 8, PAL.lime, 'center');
+  px(ctx, `CARTRIDGES ${cartridgeBadge(GAME_IDS.length)} ..... OK`, cx, 160, 8, PAL.lime, 'center');
+  // the doorway: a warm strip of floor light with the house name
+  ctx.fillStyle = 'rgba(255,163,0,0.10)';
+  ctx.fillRect(cx - 78, 176, 156, 60);
+  if (blink(ms, 620)) px(ctx, t('splash.enter'), cx, 190, 10, PAL.yellow, 'center');
+  px(ctx, t('hall.name'), cx, 224, 7, PAL.gray, 'center');
 }
 
 function cabinetScreenData(game: GameId): { data: unknown; demo: boolean } | null {
   const cab = world.hall?.cabinets.find((c) => c.game === game);
   return cab && cab.data !== null ? { data: cab.data, demo: cab.demo } : null;
+}
+
+/** UX shell: the dark idle screen gets a small procedural thumbnail of the
+ * game itself, in that cabinet's accent color — every cabinet reads as a
+ * game, not as an empty cyan debug frame */
+function cabThumb(game: GameId, sx: number, sy: number, sw: number, sh: number, ms: number): void {
+  ctx.fillStyle = '#05060c';
+  ctx.fillRect(sx, sy, sw, sh);
+  const accent = cabAccent(game);
+  const cx = sx + sw / 2;
+  const cy = sy + sh / 2;
+  switch (game) {
+    case 'snake': {
+      ctx.fillStyle = accent;
+      for (let s = 0; s < 5; s++) ctx.fillRect(sx + 8 + s * 5, sy + 8 + s * 5, 4, 4);
+      if (blink(ms, 640)) ctx.fillRect(sx + sw - 14, sy + sh - 14, 3, 3);
+      break;
+    }
+    case 'puck': {
+      ctx.fillStyle = 'rgba(247,231,102,0.4)';
+      for (let gy = 0; gy < 5; gy++) for (let gx = 0; gx < 8; gx++) ctx.fillRect(sx + 6 + gx * 8, sy + 8 + gy * 9, 2, 2);
+      ctx.fillStyle = accent;
+      ctx.fillRect(cx - 4, cy - 4, 7, 7);
+      break;
+    }
+    case 'block': {
+      ctx.fillStyle = accent;
+      for (let r = 0; r < 3; r++) {
+        for (let b = 0; b < 5; b++) ctx.fillRect(sx + 6 + b * 12 + (r % 2) * 6, sy + 8 + r * 7, 10, 5);
+      }
+      ctx.fillStyle = PAL.white;
+      ctx.fillRect(cx - 5, sy + sh - 10, 10, 2);
+      break;
+    }
+    case 'river': {
+      ctx.fillStyle = 'rgba(45,226,230,0.25)';
+      for (let r = 0; r < 4; r++) ctx.fillRect(sx, sy + 8 + r * 10, sw, 1);
+      ctx.fillStyle = accent;
+      ctx.fillRect(cx - 3, cy - 3, 6, 6);
+      break;
+    }
+    case 'galaxy': {
+      ctx.fillStyle = PAL.white;
+      ctx.fillRect(sx + 10, sy + 8, 1, 1); ctx.fillRect(sx + 34, sy + 14, 1, 1);
+      ctx.fillRect(sx + 52, sy + 6, 1, 1); ctx.fillRect(sx + 22, sy + 26, 1, 1);
+      ctx.fillRect(sx + 46, sy + 30, 1, 1);
+      ctx.fillStyle = accent;
+      ctx.fillRect(cx - 1, cy + 6, 3, 6);
+      ctx.fillRect(cx - 5, cy + 10, 11, 3);
+      break;
+    }
+    case 'myriad': {
+      ctx.fillStyle = accent;
+      for (let d = 0; d < 9; d++) {
+        const dx = (d * 17 + 5) % (sw - 10);
+        const dy = (d * 23 + 7) % (sh - 12);
+        ctx.fillRect(sx + dx, sy + 6 + dy, 2, 2);
+      }
+      ctx.fillStyle = PAL.white;
+      ctx.fillRect(cx - 2, cy - 2, 4, 4);
+      break;
+    }
+    case 'coast': {
+      ctx.fillStyle = 'rgba(45,226,230,0.22)';
+      for (let w = 0; w < 3; w++) ctx.fillRect(sx + 4 + w * 20, sy + sh - 12, 12, 1);
+      ctx.fillStyle = accent;
+      ctx.fillRect(cx - 8, sy + 8, 16, 12);
+      ctx.fillRect(cx - 3, sy + 4, 6, 4);
+      ctx.fillRect(cx - 9, sy + 6, 3, 3);
+      ctx.fillRect(cx + 6, sy + 6, 3, 3);
+      break;
+    }
+  }
 }
 
 function renderCabinet(
@@ -646,11 +769,14 @@ function renderCabinet(
 
   // marquee with light chase
   const marqueeColors = [PAL.red, PAL.magenta, PAL.cyan, PAL.lime, PAL.yellow, PAL.orange];
+  const lit = Math.floor(ms / 300 + i) % 2 === 0;
+  // UX shell: the marquee band lights up in the cabinet's color and carries
+  // the game's real name in the hall's language — black on color, always legible
   ctx.fillStyle = '#000';
   ctx.fillRect(x + 3, y + 2, w - 6, 12);
-  const lit = Math.floor(ms / 300 + i) % 2 === 0;
-  ctx.fillStyle = lit ? marqueeColors[i % marqueeColors.length]! : PAL.gray;
-  px(ctx, slot.game.toUpperCase().slice(0, 13), x + w / 2, y + 4, 8, lit ? PAL.black : PAL.black, 'center');
+  ctx.fillStyle = lit ? marqueeColors[i % marqueeColors.length]! : '#3a3a46';
+  ctx.fillRect(x + 3, y + 2, w - 6, 12);
+  px(ctx, t(`game.${slot.game}` as never), x + w / 2, y + 4, 7, PAL.black, 'center');
   const cab = world.hall?.cabinets.find((c) => c.game === slot.game);
   const lamp = marqueeLamp({ demo: cab?.demo ?? true, players: cab?.players ?? 0 }, isOoo(slot.game));
   if (lamp === 'out-of-order') {
@@ -718,9 +844,9 @@ function renderCabinet(
       });
       ctx.restore();
     }
-  } else if (blink(ms, 260)) {
-    ctx.fillStyle = PAL.navy;
-    for (let sy = 0; sy < screenH; sy += 4) ctx.fillRect(screenX + ((ms / 13 + sy * 7) % screenW), screenY + sy, 3, 1);
+  } else {
+    // UX shell: an idle cabinet shows what game lives inside it, not static
+    cabThumb(slot.game, screenX, screenY, screenW, screenH, ms);
   }
   // R40 power LED: OOO > playing > idle, red pulses
   const led = powerLed(ledState({ live: lamp === 'now-playing', ooo: isOoo(slot.game) }));
@@ -849,8 +975,10 @@ function renderHall(ms: number): void {
       ctx.restore();
     }
   }
-  ctx.fillStyle = 'rgba(224, 58, 138, 0.16)';
+  // UX shell: the Tron grid is now carpet piping, not neon laser lines
+  ctx.fillStyle = 'rgba(224, 58, 138, 0.05)';
   for (let gy = floorY + 6; gy < CANVAS_H - 16; gy += 10) ctx.fillRect(0, gy, CANVAS_W, 1);
+  ctx.fillStyle = 'rgba(255, 163, 0, 0.05)';
   for (let gx = (Math.floor(ms / 130) % 16) * 20 - 20; gx < CANVAS_W; gx += 20) ctx.fillRect(gx, floorY, 1, CANVAS_H - floorY - 16);
 
   // you-are-here token under the chosen cabinet
@@ -863,7 +991,9 @@ function renderHall(ms: number): void {
   ctx.fillRect(tx - 4, ty + 3, 9, 2);
   px(ctx, myName, tx, ty - 9, 7, PAL.yellow, 'center');
 
-  px(ctx, `Z: ${t('menu.solo')}  X: ${t('menu.versus')}  H: ${t('menu.highScores')}`, cx, CANVAS_H - 14, 8, PAL.lime, 'center');
+  // UX shell: two roomy legend lines; the player counter moved to the header
+  // so nothing crowds the you-are-here token anymore
+  px(ctx, `Z: ${t('menu.solo')}  X: ${t('menu.versus')}  H: ${t('menu.highScores')}`, cx, CANVAS_H - 14, 7, PAL.lime, 'center');
   px(ctx, `M: ${t('menu.map')}  C: ${t('menu.credits')}  L: ${t('menu.language')}`, cx, CANVAS_H - 4, 7, PAL.gray, 'center');
   // R53 fix: the window counts from the first hall entry, not from boot —
   // splash + title + name pad routinely ate all 10 s before the hall showed
@@ -871,7 +1001,7 @@ function renderHall(ms: number): void {
     px(ctx, 'F: FULLSCREEN', 6, 2, 8, blink(ms, 700) ? PAL.cyan : PAL.gray);
   }
   const online = world.roster?.players.length ?? 0;
-  px(ctx, `${t('lobby.players')}: ${online}`, 6, CANVAS_H - 4, 7, PAL.gray);
+  px(ctx, `${t('lobby.players')}: ${online}`, 6, 2, 7, PAL.gray);
   drawError();
 }
 
@@ -908,25 +1038,14 @@ function renderMap(ms: number): void {
 
 function renderCredits(ms: number): void {
   const cx = CANVAS_W / 2;
-  const title = t('menu.credits');
-  const colors = [PAL.red, PAL.orange, PAL.yellow, PAL.lime, PAL.cyan];
-  px(ctx, title, cx, 26, 16, PAL.white, 'center');
-  for (let i = 0; i < title.length; i++) {
-    ctx.font = `16px ${'monospace'}`;
-    ctx.fillStyle = colors[(i + Math.floor(ms / 300)) % colors.length]!;
-    const w = ctx.measureText(title).width;
-    let x = cx - w / 2;
-    for (let j = 0; j < i; j++) x += ctx.measureText(title[j]!).width;
-    ctx.fillText(title[i]!, x, 26);
-  }
-  px(ctx, 'ARKAD', cx, 58, 12, PAL.cyan, 'center');
+  px(ctx, t('menu.credits'), cx, 28, 16, PAL.white, 'center');
+  px(ctx, `${t('app.title')} ${t('app.year')}`, cx, 52, 10, PAL.orange, 'center');
   px(ctx, 'CREATED BY JENS ABRAHAMSSON', cx, 80, 9, PAL.white, 'center');
   px(ctx, 'LICENSE GPL-3.0-ONLY', cx, 94, 9, PAL.gray, 'center');
   px(ctx, 'TYPESCRIPT · NODE · WS', cx, 116, 8, PAL.lime, 'center');
   px(ctx, 'CANVAS2D · WEB AUDIO · VITEST', cx, 128, 8, PAL.lime, 'center');
   px(ctx, `${GAME_IDS.length} CABINETS · TOKYO 1982`, cx, 150, 8, PAL.gray, 'center');
   px(ctx, 'NO AUDIO FILES WERE HARMED', cx, 162, 8, PAL.gray, 'center');
-  colorBar(176, 3, ms);
   if (blink(ms)) px(ctx, `ESC: ${t('menu.back')}`, cx, 196, 9, PAL.yellow, 'center');
 }
 
@@ -995,28 +1114,31 @@ function renderCoinInsert(ms: number): void {
 
 function renderTitle(ms: number): void {
   const cx = CANVAS_W / 2;
-  const title = t('app.title');
-  const colors = [PAL.red, PAL.orange, PAL.yellow, PAL.lime, PAL.cyan];
-  px(ctx, title, cx, 48, 36, PAL.white, 'center');
-  colors.forEach((c, i) => {
-    ctx.font = `36px ${'monospace'}`;
-    ctx.fillStyle = c;
-    const w = ctx.measureText(title).width;
-    const startX = cx - w / 2;
-    let x = startX;
-    for (let j = 0; j < i; j++) x += ctx.measureText(title[j]!).width;
-    ctx.fillText(title[i]!, x, 48);
-  });
-  px(ctx, t('hall.name'), cx, 92, 8, PAL.gray, 'center');
+  // night behind the door, same room the splash opened
+  const sky = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+  sky.addColorStop(0, '#0d0710');
+  sky.addColorStop(1, '#1c1018');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  drawWordmark(20, 24);
+  px(ctx, t('hall.name'), cx, 66, 8, PAL.gray, 'center');
 
+  // tonight's cabinets rotate through the spotlight, one accent each
   const idx = Math.floor(ms / 2200) % GAME_IDS.length;
   const g = GAME_IDS[idx]!;
   const flavorLang = attractLang(ms, 3000);
-  px(ctx, translate(flavorLang, `game.${g}` as never), cx, 130, 8, PAL.gray, 'center');
-  px(ctx, t(`game.${g}.tag` as never), cx, 144, 8, PAL.cyan, 'center');
+  ctx.fillStyle = 'rgba(255,163,0,0.06)';
+  ctx.fillRect(cx - 92, 96, 184, 52);
+  ctx.strokeStyle = '#3a2530';
+  ctx.strokeRect(cx - 92.5, 96.5, 185, 51);
+  ctx.fillStyle = cabAccent(g); // the game's own color announces the next cabinet
+  ctx.fillRect(cx - 92, 96, 3, 52);
+  ctx.fillRect(cx + 89, 96, 3, 52);
+  px(ctx, translate(flavorLang, `game.${g}` as never), cx, 108, 12, PAL.white, 'center');
+  px(ctx, t(`game.${g}.tag` as never), cx, 132, 8, PAL.cyan, 'center');
 
-  if (blink(ms)) px(ctx, t('hall.insertCoin'), cx, 176, 12, PAL.yellow, 'center');
-  px(ctx, t('hall.pressStart'), cx, 196, 8, PAL.white, 'center');
+  if (blink(ms)) px(ctx, t('hall.insertCoin'), cx, 168, 12, PAL.yellow, 'center');
+  px(ctx, t('hall.pressStart'), cx, 190, 8, PAL.gray, 'center');
   px(ctx, `L: ${t('menu.language')}  C: ${t('menu.credits')}`, cx, 228, 8, PAL.gray, 'center');
   drawError();
 }
@@ -1072,16 +1194,40 @@ function renderScores(ms: number): void {
 }
 
 /** P0 fix (HARDTEST): the no-snapshot table screen was a dark dead-end; it now
- * shows the rejection toast and names the key that unsticks it (Z/Space retry) */
+ * shows the rejection toast and names the key that unsticks it (Z/Space retry).
+ * UX shell: a warm hosted-table panel with seats instead of an empty void */
 function renderTableWaiting(ms: number): void {
   const cx = CANVAS_W / 2;
-  px(ctx, t('lobby.waiting'), cx, 96, 10, PAL.gray, 'center');
+  const sky = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+  sky.addColorStop(0, '#100a12');
+  sky.addColorStop(1, '#1e1116');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  ctx.fillStyle = '#241422';
+  ctx.fillRect(36, 56, 248, 128);
+  ctx.strokeStyle = PAL.orange;
+  ctx.strokeRect(36.5, 56.5, 247, 127);
+  px(ctx, t('app.title'), cx, 64, 8, PAL.gray, 'center');
+  px(ctx, `${t('lobby.waiting')}${'.'.repeat(1 + waitDots(Math.floor(ms / 400), 3))}`, cx, 80, 10, PAL.yellow, 'center');
+  // two seats: yours is taken, the next one is being waited for
+  ctx.fillStyle = PAL.lime;
+  ctx.fillRect(cx - 40, 100, 14, 14);
+  px(ctx, t('misc.you'), cx - 33, 116, 7, PAL.lime, 'center');
+  if (blink(ms, 900)) {
+    ctx.strokeStyle = PAL.orange;
+    ctx.strokeRect(cx + 26.5, 100.5, 13, 13);
+    px(ctx, '?', cx + 33, 100, 10, PAL.orange, 'center');
+  } else {
+    ctx.fillStyle = '#3a2530';
+    ctx.fillRect(cx + 26, 100, 14, 14);
+  }
+  px(ctx, t('splash.welcome'), cx, 132, 8, PAL.gray, 'center');
   const hint = waitingRetryHint(coinModeFor(world.hall), world.hall?.credits ?? 0);
   const line = hint === 'coin-then-start'
     ? `${t('hall.insertCoin')} + Z: ${t('menu.solo')}`
     : `Z: ${t('menu.solo')}`;
-  px(ctx, line, cx, 128, 9, blink(ms, 700) ? PAL.yellow : PAL.orange, 'center');
-  px(ctx, `ESC: ${t('menu.back')}`, cx, 142, 8, PAL.gray, 'center');
+  px(ctx, line, cx, 150, 9, blink(ms, 700) ? PAL.yellow : PAL.orange, 'center');
+  px(ctx, `ESC: ${t('menu.back')}`, cx, 166, 8, PAL.gray, 'center');
   drawError();
 }
 

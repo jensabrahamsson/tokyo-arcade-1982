@@ -4,11 +4,14 @@ import { ART_FILES, artPath, loadArt, artGet } from './art';
 const fakeImg = (src: string) => ({ src, ok: true }) as unknown as HTMLImageElement;
 
 describe('art manifest (R38)', () => {
-  it('lists the first-batch files with stable names', () => {
+  it('lists the manifest with stable names (first batch + R54 coast landmarks)', () => {
     expect([...ART_FILES].sort()).toEqual(
       [
         'cabinet-bezel.png', 'coast-lo-castle.png', 'hall-floor.png', 'splash-logo.png',
         'marquee-neon.png', 'coin-slot.png', 'credit-panel.png', 'wait-badge.png',
+        // R54 additions: Coast roadside landmark billboards (Imagine PNG drop zone)
+        'coast-centerpartiet.png', 'coast-harpsund.png', 'coast-bommersvik.png',
+        'coast-valdebatt76.png', 'coast-castro-visit.png',
       ].sort(),
     );
   });

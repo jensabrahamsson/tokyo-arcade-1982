@@ -576,3 +576,38 @@ defines done. Each item is verified by a test, a live check, or both.
   counts from the first hall entry, never from boot (fix: splash +
   title ate the whole window before the hall was ever seen); the
   Fullscreen API itself is manually verified. Presentation only.
+
+## R54 — UX shell & branding (product-owner review, post-R53)
+
+Player-facing brand is **Tokyo Arcade 1982**: splash, hall chrome,
+attract, waiting, credits and the HTML shell all carry it; internal
+paths/protocol keep `arkad`. EN/JA tables updated in lockstep.
+
+- R54.1 Splash is a warm 1982 entry: lantern string, one intentional
+  wordmark (white body, single deep-magenta shadow, amber year line),
+  quiet warm boot lines and a real invitation ("PRESS SPACE TO COME
+  IN"); the rainbow-glitch logo and colour bar are gone.
+- R54.2 Hall cabinets carry game identity: marquee shows the translated
+  title (`game.<id>`) on a lit band, idle screens draw a procedural
+  thumbnail in the cabinet's accent (`cabAccent`, unit-tested) instead
+  of static; floor grid calmed; legend moved clear of the player token.
+- R54.3 Waiting-for-players is a hosted-table panel (your seat taken,
+  one open seat blinking, retry hint, ESC) — no more empty void.
+- R54.4 Attract soundtrack: `static/audio/Late_Night_Cabinet.mp3`
+  (Lyria 3.5 instrumental; may carry an AI watermark; repo stays
+  GPL-3.0-only) loops on splash/hall/attract chrome via Web Audio,
+  stops inside a cabinet, honours operator volume/mute (R23), fails
+  closed when missing. Chiptune (R23) remains the games' own voice.
+- R54.5 Coast READY stinger: Pole Position-style
+  `static/audio/coast_yosen_start_ja.mp3` (「予選スタート！」) plays
+  once per Coast table when it enters READY; mute-safe, fail-closed.
+  Pure `readyStingerDue()` / `attractMusicActive()` helpers unit-tested.
+- R54.6 LO Castle (LO-borgen) is Coast's primary landmark: larger,
+  sun-haloed, flag on the keep, far-distance parallax; PNG plus
+  procedural fallback.
+- R54.7 Drive-past roadside billboards along the coast road — stylized
+  8-bit Swedish nostalgia tableaux (Center tree, Harpsund dinghy,
+  Bommersvik lodge, Valdebatt '76, Palme in Havana) at fixed track
+  distances; `static/art/coast-*.png` PNG drop zone wired in the R38
+  manifest, procedural fallback until art lands. Homage scenery,
+  not propaganda.
