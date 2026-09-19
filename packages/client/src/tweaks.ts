@@ -336,8 +336,14 @@ export function shouldRequestFullscreen(scene: 'splash' | 'title' | 'hall' | 'ta
   return scene === 'hall' || scene === 'table';
 }
 
-export function fullscreenHintVisible(msSinceBoot: number, windowMs = 10_000): boolean {
-  return msSinceBoot < windowMs;
+/** fixed hint window, elapsed since the anchor (first hall entry, not boot) (R53 fix) */
+export function fullscreenHintVisible(msSinceHallEnter: number, windowMs = 10_000): boolean {
+  return msSinceHallEnter >= 0 && msSinceHallEnter < windowMs;
+}
+
+/** first-visit flag for the hint anchor: null until the hall is seen, never reset after (R53 fix) */
+export function firstHallVisitAt(hallEnteredAt: number | null, nowMs: number): number {
+  return hallEnteredAt ?? nowMs;
 }
 
 /** boot splash cartridge count follows the registry (regression: was hardcoded 6/6) */
