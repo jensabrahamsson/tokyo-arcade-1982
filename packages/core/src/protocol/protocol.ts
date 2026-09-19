@@ -206,6 +206,26 @@ const isMode = (m: unknown): m is GameMode => m === 'solo' || m === 'versus';
 const isGameId = (g: unknown): g is GameId => GAME_IDS.includes(g as GameId);
 const isLang = (l: unknown): l is Lang => l === 'en' || l === 'ja';
 
+/**
+ * P2-5: the exact alphabet the in-canvas namepad keyboard can produce
+ * (client/namepad.ts VALID — kept as a local copy because core must never
+ * import from the client). Upper-cased first, so names read like 1982
+ * high-score boards and control bytes, markup or emoji never reach the
+ * roster, the boards or scores.json.
+ */
+const sanitizeName = (raw: string): string =>
+  raw.toUpperCase().replace(/[^A-Z0-9 .'!?-]/g, '').slice(0, 12);
+
+/**
+ * Edge validator: every client frame passes through here.
+ *
+ * Unknown *fields* are intentionally ignored on every frame type except
+ * `pause`, which must arrive as the bare `{"type":"pause"}` (P2-5,
+ * documented fail-open): forward-compatible frames are harmless, and only
+ * the pause toggle is held to a strict shape because it gates table state.
+ * Field *values* are never trusted — enums, finiteness, directions and
+ * lengths are all validated or clamped below.
+ */
 export function parseClientMessage(raw: string): ClientMessage | null {
   let o: Record<string, unknown>;
   try {
@@ -218,10 +238,10 @@ export function parseClientMessage(raw: string): ClientMessage | null {
   switch (o.type) {
     case 'join':
       return typeof o.name === 'string' && isLang(o.lang)
-        ? { type: 'join', name: String(o.name).slice(0, 12), lang: o.lang }
+        ? { type: 'join', name: sanitizeName(o.name), lang: o.lang }
         : null;
     case 'setName':
-      return typeof o.name === 'string' ? { type: 'setName', name: o.name.slice(0, 12) } : null;
+      return typeof o.name === 'string' ? { type: 'setName', name: sanitizeName(o.name) } : null;
     case 'start':
       return isGameId(o.game) && isMode(o.mode) ? { type: 'start', game: o.game, mode: o.mode } : null;
     case 'input': {

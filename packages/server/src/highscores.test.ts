@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HighScoreStore, MAX_ENTRIES } from './highscores';
@@ -65,5 +65,22 @@ describe('HighScoreStore', () => {
     const store = new HighScoreStore(path);
     store.add('block', 'solo', 'ZERO', 0);
     expect(store.top('block', 'solo')).toEqual([]);
+  });
+
+  it('rejects non-finite scores (P2-5)', () => {
+    const store = new HighScoreStore(path);
+    store.add('block', 'solo', 'INF', Infinity);
+    store.add('block', 'solo', 'NAN', NaN);
+    store.add('block', 'solo', 'NEG', -1);
+    expect(store.top('block', 'solo')).toEqual([]);
+    store.add('block', 'solo', 'OK', 10);
+    expect(store.top('block', 'solo').map((e) => e.name)).toEqual(['OK']);
+  });
+
+  it('drops non-finite scores from a hand-edited board file (P2-5)', () => {
+    // JSON parses 1e999 as Infinity — the load filter is the edge that catches it
+    writeFileSync(path, '{"snake:solo":[{"name":"A","score":1e999},{"name":"B","score":50}]}');
+    const store = new HighScoreStore(path);
+    expect(store.top('snake', 'solo').map((e) => e.name)).toEqual(['B']);
   });
 });
