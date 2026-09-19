@@ -12,6 +12,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -501,6 +502,28 @@ describe('fullscreen hint anchoring (R53 fix)', () => {
     const hallEnteredAt = firstHallVisitAt(null, 8_400);
     expect(fullscreenHintVisible(13_400 - hallEnteredAt, 10_000)).toBe(true); // 5 s into the hall
     expect(fullscreenHintVisible(18_400 - hallEnteredAt, 10_000)).toBe(false); // 10 s in: gone
+  });
+});
+
+describe('hall join race (P0 hardtest: Space stuck on WAITING)', () => {
+  it('welcome resubscribes hall watch when we are already in the hall', () => {
+    expect(hallWatchOnWelcome('hall')).toBe(true);
+    expect(hallWatchOnWelcome('map')).toBe(true);
+    expect(hallWatchOnWelcome('title')).toBe(false);
+    expect(hallWatchOnWelcome('table')).toBe(false);
+    expect(hallWatchOnWelcome('splash')).toBe(false);
+  });
+
+  it('an unknown hall state plays safe: insert coin first', () => {
+    expect(coinModeFor(null)).toBe(true); // the dead-end case: never skip the coin on faith
+    expect(coinModeFor({ freePlay: false })).toBe(true);
+    expect(coinModeFor({ freePlay: true })).toBe(false);
+  });
+
+  it('the waiting screen says exactly what will unstick it', () => {
+    expect(waitingRetryHint(true, 0)).toBe('coin-then-start');
+    expect(waitingRetryHint(true, 1)).toBe('start');
+    expect(waitingRetryHint(false, 0)).toBe('start');
   });
 });
 

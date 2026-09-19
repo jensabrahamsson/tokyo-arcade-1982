@@ -34,7 +34,8 @@ import {
   powerLed, ledState, scoreCrawlOffset,
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
-  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -108,11 +109,16 @@ let lastSentBtn = false;
 
 net.onMessage((msg: ServerMessage) => {
   switch (msg.type) {
-    case 'welcome':
+    case 'welcome': {
       world.myId = (msg as WelcomeMsg).playerId;
       world.games = (msg as WelcomeMsg).games;
       joined = true;
+      // P0 fix: enterHall ran before this welcome arrived (join race), so the
+      // first hall entry never subscribed; the cabinet data never landed and a
+      // coin-mode start was rejected — WAITING FOR PLAYERS dead-end
+      if (hallWatchOnWelcome(scene)) net.send({ type: 'hall', watch: true });
       break;
+    }
     case 'roster':
       world.roster = msg as RosterMsg;
       break;
@@ -187,7 +193,7 @@ function confirmName(): void {
 }
 
 function startGame(mode: GameMode): void {
-  const coinMode = world.hall ? !world.hall.freePlay : false;
+  const coinMode = coinModeFor(world.hall); // unknown hall: insert coin first, never dead-end
   if (coinMode) {
     // R18: the coin goes in first, the game takes the cabinet over after
     audio.unlock();
@@ -415,6 +421,8 @@ function update(ms: number): void {
     }
     if (keys.take('KeyB', 'Escape')) back();
     if (keys.take('KeyF')) toggleFullscreen(); // R53 fix: F must work mid-game too
+    // P0 fix: a rejected start must not dead-end — Z/Space retries the 1P game here
+    if (!world.snap && keys.take('Space', 'KeyZ', 'Enter')) startGame('solo');
     if (world.snap?.table.phase === 'gameOver') {
       const mine = world.snap.table.players.find((pl) => pl.id === world.myId);
       if (mine && recordCheckedFor !== world.snap.table.id) {
@@ -1002,6 +1010,20 @@ function renderScores(ms: number): void {
   px(ctx, `ESC: ${t('menu.back')}`, cx, 226, 8, PAL.gray, 'center');
 }
 
+/** P0 fix (HARDTEST): the no-snapshot table screen was a dark dead-end; it now
+ * shows the rejection toast and names the key that unsticks it (Z/Space retry) */
+function renderTableWaiting(ms: number): void {
+  const cx = CANVAS_W / 2;
+  px(ctx, t('lobby.waiting'), cx, 96, 10, PAL.gray, 'center');
+  const hint = waitingRetryHint(coinModeFor(world.hall), world.hall?.credits ?? 0);
+  const line = hint === 'coin-then-start'
+    ? `${t('hall.insertCoin')} + Z: ${t('menu.solo')}`
+    : `Z: ${t('menu.solo')}`;
+  px(ctx, line, cx, 128, 9, blink(ms, 700) ? PAL.yellow : PAL.orange, 'center');
+  px(ctx, `ESC: ${t('menu.back')}`, cx, 142, 8, PAL.gray, 'center');
+  drawError();
+}
+
 function drawError(): void {
   if (!world.error || !toastVisible(world.errorAt, performance.now())) return;
   const msg = t(rejectToast(world.error) as never);
@@ -1032,7 +1054,7 @@ function frame(ms: number): void {
   else if (scene === 'credits') renderCredits(ms);
   else if (scene === 'table') {
     if (world.snap) renderGame(ms);
-    else px(ctx, t('lobby.waiting'), CANVAS_W / 2, 116, 10, PAL.gray, 'center');
+    else renderTableWaiting(ms); // P0 fix: the screen names its own way out
   } else if (scene === 'scores') renderScores(ms);
   const now = performance.now();
   if (
