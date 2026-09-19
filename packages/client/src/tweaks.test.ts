@@ -14,6 +14,7 @@ import {
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
   hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect,
   escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue,
+  escapeClearsFullscreenOnly,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -611,5 +612,15 @@ describe('boot cartridge badge (regression)', () => {
     expect(cartridgeBadge(GAME_IDS.length)).toBe(`${GAME_IDS.length}/${GAME_IDS.length}`);
     expect(cartridgeBadge(GAME_IDS.length)).not.toBe('6/6');
     expect(cartridgeBadge(4)).toBe('4/4');
+  });
+});
+
+describe('escape vs fullscreen (P2-9)', () => {
+  it('while fullscreen the first Escape only drops fullscreen', () => {
+    expect(escapeClearsFullscreenOnly(true)).toBe(true);
+  });
+
+  it('windowed Escape goes straight home', () => {
+    expect(escapeClearsFullscreenOnly(false)).toBe(false);
   });
 });

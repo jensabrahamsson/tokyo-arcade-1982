@@ -390,6 +390,13 @@ export function hallWatchStale(lastHallTablesAt: number, now: number, staleMs = 
   return now - lastHallTablesAt >= staleMs;
 }
 
+/** P2-9: one Escape rule — while the browser is fullscreen the first Escape
+ * only drops fullscreen and never the app's back action; the press that
+ * arrives while windowed (or the second one after FS dropped) goes home */
+export function escapeClearsFullscreenOnly(isFullscreen: boolean): boolean {
+  return isFullscreen;
+}
+
 /** P3 fix: plate rect behind a small badge label so the CRT scanline/glow
  * overlay cannot stripe out the glyphs; honor alignment, clamp to the canvas */
 export function badgePlateRect(

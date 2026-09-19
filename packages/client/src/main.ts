@@ -36,7 +36,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -269,6 +269,20 @@ function toggleFullscreen(): void {
   }
 }
 
+/** P2-9: the first Escape while fullscreen only leaves fullscreen; windowed
+ * (or the press right after FS dropped) falls through to the app's back.
+ * Returns true when the press was spent on fullscreen. */
+function exitFullscreenFirst(): boolean {
+  if (!escapeClearsFullscreenOnly(!!document.fullscreenElement)) return false;
+  try {
+    const doc = document as Document & { exitFullscreen?: () => Promise<void> };
+    void doc.exitFullscreen?.().catch(() => undefined);
+  } catch {
+    /* graceful no-op */
+  }
+  return true;
+}
+
 function applyPresentation(): void {
   const liveSeat = (world.hall?.cabinets ?? []).some((c) => !c.demo && c.players > 0);
   audio.setAttract(scene === 'table' ? 1 : attractGain(liveSeat));
@@ -351,7 +365,8 @@ function update(ms: number): void {
   } else if (scene === 'coinInsert') {
     // P4 fix: Escape during the coin thunk aborts into the hall — the coin
     // stays on the account, the player never gets dragged into the cabinet
-    if (keys.take('Escape', 'KeyB')) escapeHome();
+    // (P2-9: while fullscreen, the first Escape is spent leaving fullscreen)
+    if (keys.take('KeyB') || (keys.take('Escape') && !exitFullscreenFirst())) escapeHome();
     else if (performance.now() - coinInsertAt > 750 || keys.take('Space', 'Enter')) beginGame(pendingMode);
   } else if (scene === 'service') {
     if (performance.now() - statsAskedAt > 2000) {
@@ -464,7 +479,7 @@ function update(ms: number): void {
     if (keys.take('KeyL')) toggleLang();
   } else if (scene === 'map') {
     if (keys.take('KeyM')) scene = 'hall';
-    if (keys.take('Escape', 'KeyB')) escapeHome();
+    if (keys.take('KeyB') || (keys.take('Escape') && !exitFullscreenFirst())) escapeHome();
   } else if (scene === 'credits') {
     if (keys.take('KeyA')) {
       access = nextAccess(access);
@@ -480,7 +495,9 @@ function update(ms: number): void {
       lastSentBtn = button;
       net.send({ type: 'input', dir, button, seq: ++inputSeq });
     }
-    if (keys.take('KeyB', 'Escape')) escapeHome(); // P4: table attract/waiting/pause -> hall, never a dead end
+    // P4: table attract/waiting/pause -> hall, never a dead end; P2-9: the
+    // first Escape in fullscreen just leaves fullscreen
+    if (keys.take('KeyB') || (keys.take('Escape') && !exitFullscreenFirst())) escapeHome();
     if (keys.take('KeyF')) toggleFullscreen(); // R53 fix: F must work mid-game too
     // P0 fix: a rejected start must not dead-end — Z/Space retries the 1P game here
     if (!world.snap && keys.take('Space', 'KeyZ', 'Enter')) startGame('solo');
