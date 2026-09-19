@@ -56,6 +56,15 @@ const DEMO_PLAYER = 'demo';
 export const COIN_RATE_LIMIT = 4;
 export const COIN_WINDOW_TICKS = 60;
 
+/**
+ * P2-2: a dropped LAN socket is not a dropped coin. Inserted credits wait
+ * this many ticks (60 s at 60 Hz) for a reconnect that joins with the same
+ * name+lang, then are lost with it. In-memory only and bounded — the wallet
+ * is never persisted to disk.
+ */
+export const CREDIT_RECONNECT_GRACE = 3600;
+export const MAX_PARKED_WALLETS = 32;
+
 export interface CoinRateWindow {
   sinceTick: number;
   count: number;
@@ -99,6 +108,8 @@ export class Arcade {
   private interval: NodeJS.Timeout | null = null;
   private hallWatchers = new Set<string>();
   private credits = new Map<string, number>();
+  /** P2-2: wallets parked at disconnect, keyed `name|lang`, in memory only */
+  private parked = new Map<string, { credits: number; expiresTick: number }>();
   private coinRate = new Map<string, CoinRateWindow>();
   /** last tick a human sat at each cabinet, for attract energy tiers (R39) */
   private lastHuman = new Map<GameId, number>();
@@ -152,10 +163,15 @@ export class Arcade {
   }
 
   removeConnection(connId: string): void {
+    const conn = this.conns.get(connId);
     this.conns.delete(connId);
     this.hallWatchers.delete(connId);
+    const credits = this.credits.get(connId) ?? 0;
     this.credits.delete(connId);
     this.coinRate.delete(connId);
+    // P2-2: park the wallet (never an anonymous '???') so the same player
+    // reconnecting by name+lang within the grace window picks it right up
+    if (conn && credits > 0 && conn.name !== '???') this.parkCredits(conn.name, conn.lang, credits);
     for (const table of this.tables.values()) {
       table.seats = table.seats.filter((s) => s.connId !== connId);
       this.clearReadyIfUnderstaffed(table);
@@ -171,12 +187,22 @@ export class Arcade {
     const conn = this.conns.get(connId);
     if (!conn) return;
     switch (msg.type) {
-      case 'join':
+      case 'join': {
         conn.name = msg.name.trim() || '???';
         conn.lang = msg.lang;
+        // P2-2: a reconnecting player claims the wallet parked for this name+lang
+        const key = `${conn.name.toLowerCase()}|${conn.lang}`;
+        const parked = this.parked.get(key);
+        if (parked) {
+          this.parked.delete(key);
+          if (parked.expiresTick > this.tickCount) {
+            this.credits.set(connId, (this.credits.get(connId) ?? 0) + parked.credits);
+          }
+        }
         this.send(connId, { type: 'welcome', playerId: connId, serverName: 'TOKYO ARCADE', games: GAME_LIST });
         this.broadcastRoster();
         break;
+      }
       case 'setName':
         conn.name = msg.name.trim() || conn.name;
         this.broadcastRoster();
@@ -205,6 +231,13 @@ export class Arcade {
       case 'coin': {
         // one credit into this cabinet (R18.2)
         if (msg.game && this.opts.service.snapshot().outOfOrder.includes(msg.game)) {
+          this.send(connId, { type: 'error', code: 'out-of-order' });
+          break;
+        }
+        // P2-6: an untargeted coin can land in any cabinet, so the moment
+        // one cabinet is flagged the anonymous slot closes too — insert a
+        // coin while the hall is fully healthy, or aim at a game that works
+        if (!msg.game && this.opts.service.snapshot().outOfOrder.length > 0) {
           this.send(connId, { type: 'error', code: 'out-of-order' });
           break;
         }
@@ -403,6 +436,21 @@ export class Arcade {
     if (seated < cap) table.readyTick = -1;
   }
 
+  /** P2-2: park a disconnected player's credits under name+lang — expired
+   * entries are swept on every write and the map is hard-capped, so a
+   * flapping client can never grow it unboundedly. */
+  private parkCredits(name: string, lang: Lang, credits: number): void {
+    const now = this.tickCount;
+    for (const [k, v] of this.parked) if (v.expiresTick <= now) this.parked.delete(k);
+    while (this.parked.size >= MAX_PARKED_WALLETS) this.parked.delete(this.parked.keys().next().value as string);
+    const key = `${name.toLowerCase()}|${lang}`;
+    const prev = this.parked.get(key);
+    this.parked.set(key, {
+      credits: (prev?.credits ?? 0) + credits,
+      expiresTick: now + CREDIT_RECONNECT_GRACE,
+    });
+  }
+
   private closeTable(table: Table): void {
     if (!this.tables.delete(table.id)) return;
     this.broadcastRoster();
@@ -462,7 +510,8 @@ export class Arcade {
           const events = table.pendingEvents;
           table.pendingEvents = [];
           for (const seat of table.seats) {
-            this.send(seat.connId, { type: 'snapshot', table: view, data: session.state, events, tick: this.tickCount });
+            // P2-1: a frozen frame must not zero the HUD — credits ride like on live snapshots
+            this.send(seat.connId, { type: 'snapshot', table: view, data: session.state, events, tick: this.tickCount, credits: this.credits.get(seat.connId) ?? 0 });
           }
         }
         continue;
