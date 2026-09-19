@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Arcade, type Conn } from './arcade';
+import { Arcade, CREDIT_RECONNECT_GRACE, type Conn } from './arcade';
 import { HighScoreStore } from './highscores';
 import { ServiceStore } from './service';
 import type { ServerMessage, RosterMsg, SnapshotMsg } from '@arkad/core';
@@ -557,6 +557,71 @@ describe('Arcade', () => {
     net.take('c1');
     arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
     expect(errs()).toHaveLength(0);
+  });
+
+  it('pause snapshots keep reporting credits like live ones (P2-1)', () => {
+    arcade.handleMessage('c1', { type: 'freePlay', on: false });
+    arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
+    arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'solo' });
+    for (let i = 0; i < 5; i++) arcade.tick();
+    arcade.handleMessage('c1', { type: 'pause' });
+    net.take('c1');
+    for (let i = 0; i < 4; i++) arcade.tick();
+    const snap = net.last<SnapshotMsg & { table: { paused?: boolean } }>('c1', 'snapshot');
+    expect(snap?.table.paused).toBe(true);
+    // two coins in, one spent at the seat: the frozen frame shows the wallet
+    expect(snap?.credits).toBe(1);
+  });
+
+  it('credits survive a socket drop and rejoin with the reconnect (P2-2)', () => {
+    arcade.handleMessage('c1', { type: 'freePlay', on: false });
+    arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
+    arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
+    arcade.removeConnection('c1'); // the LAN blinks; the wallet is parked, not burned
+    arcade.addConnection({ id: 'c9', name: '???', lang: 'en' });
+    arcade.handleMessage('c9', { type: 'join', name: 'AKIRA', lang: 'en' });
+    arcade.handleMessage('c9', { type: 'hall', watch: true });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    expect(hallMsgs('c9').at(-1)?.credits).toBe(2);
+  });
+
+  it('parked credits do not follow the name to a stranger (P2-2)', () => {
+    arcade.handleMessage('c1', { type: 'freePlay', on: false });
+    arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
+    arcade.removeConnection('c1');
+    arcade.addConnection({ id: 'c9', name: '???', lang: 'en' });
+    arcade.handleMessage('c9', { type: 'join', name: 'ZED', lang: 'en' });
+    arcade.handleMessage('c9', { type: 'hall', watch: true });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    expect(hallMsgs('c9').at(-1)?.credits).toBe(0);
+  });
+
+  it('parked credits expire with the reconnect grace (P2-2)', () => {
+    arcade.handleMessage('c1', { type: 'freePlay', on: false });
+    arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
+    arcade.removeConnection('c1');
+    for (let i = 0; i < CREDIT_RECONNECT_GRACE + 1; i++) arcade.tick();
+    arcade.addConnection({ id: 'c9', name: '???', lang: 'en' });
+    arcade.handleMessage('c9', { type: 'join', name: 'AKIRA', lang: 'en' });
+    arcade.handleMessage('c9', { type: 'hall', watch: true });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    expect(hallMsgs('c9').at(-1)?.credits).toBe(0);
+  });
+
+  it('an untargeted coin is rejected while any cabinet is out of order (P2-6)', () => {
+    arcade.handleMessage('c1', { type: 'freePlay', on: false });
+    arcade.handleMessage('c1', { type: 'ooo', game: 'snake', out: true });
+    net.take('c5');
+    arcade.handleMessage('c5', { type: 'coin' });
+    expect(net.last<{ code: string }>('c5', 'error')?.code).toBe('out-of-order');
+    arcade.handleMessage('c5', { type: 'hall', watch: true });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    expect(hallMsgs('c5').at(-1)?.credits).toBe(0);
+    // a coin aimed at a healthy cabinet still earns its credit
+    arcade.handleMessage('c5', { type: 'coin', game: 'coast' });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    expect(hallMsgs('c5').at(-1)?.credits).toBe(1);
   });
 });
 
