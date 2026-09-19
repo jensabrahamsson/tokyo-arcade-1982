@@ -346,5 +346,22 @@ export function firstHallVisitAt(hallEnteredAt: number | null, nowMs: number): n
   return hallEnteredAt ?? nowMs;
 }
 
+/** P0 fix: confirmName -> enterHall races the join welcome, so the very first
+ * hall entry never sends hall:watch; resubscribe when the welcome finally lands */
+export function hallWatchOnWelcome(scene: string): boolean {
+  return scene === 'hall' || scene === 'map';
+}
+
+/** P0 fix: unknown hall state plays safe — a spare coin is harmless in free
+ * play, but skipping it in coin mode dead-ends the start (insert-coin reject) */
+export function coinModeFor(hall: { freePlay: boolean } | null): boolean {
+  return hall ? !hall.freePlay : true;
+}
+
+/** P0 fix: the no-snapshot table screen must name its own way out */
+export function waitingRetryHint(coinMode: boolean, credits: number): 'coin-then-start' | 'start' {
+  return coinMode && credits < 1 ? 'coin-then-start' : 'start';
+}
+
 /** boot splash cartridge count follows the registry (regression: was hardcoded 6/6) */
 export const cartridgeBadge = (count: number): string => `${count}/${count}`;
