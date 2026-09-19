@@ -12,7 +12,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -524,6 +524,33 @@ describe('hall join race (P0 hardtest: Space stuck on WAITING)', () => {
     expect(waitingRetryHint(true, 0)).toBe('coin-then-start');
     expect(waitingRetryHint(true, 1)).toBe('start');
     expect(waitingRetryHint(false, 0)).toBe('start');
+  });
+});
+
+describe('CRT badge plate (P3 readability)', () => {
+  it('plates right-aligned badge text and clamps at the right edge', () => {
+    const r = badgePlateRect('right', 318, 162, 40, 9, 2, 320, 240);
+    expect(r.x).toBe(276);
+    expect(r.y).toBe(160);
+    expect(r.x + r.w).toBeLessThanOrEqual(320);
+    expect(r.w).toBe(44);
+    expect(r.h).toBe(13);
+  });
+
+  it('center-aligns around x and clamps top/left edges', () => {
+    const c = badgePlateRect('center', 160, 2, 60, 10, 2, 320, 240);
+    expect(c.x).toBe(128);
+    expect(c.w).toBe(64);
+    expect(c.y).toBe(0);
+    const o = badgePlateRect('left', -2, -2, 10, 8, 2, 320, 240);
+    expect(o.x).toBe(0);
+    expect(o.y).toBe(0);
+    expect(o.w).toBe(10);
+  });
+
+  it('clamps the bottom edge into the canvas', () => {
+    const b = badgePlateRect('left', 8, 236, 40, 10, 2, 320, 240);
+    expect(b.y + b.h).toBe(240);
   });
 });
 

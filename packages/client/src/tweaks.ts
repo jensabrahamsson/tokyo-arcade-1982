@@ -363,5 +363,25 @@ export function waitingRetryHint(coinMode: boolean, credits: number): 'coin-then
   return coinMode && credits < 1 ? 'coin-then-start' : 'start';
 }
 
+/** P3 fix: plate rect behind a small badge label so the CRT scanline/glow
+ * overlay cannot stripe out the glyphs; honor alignment, clamp to the canvas */
+export function badgePlateRect(
+  align: 'left' | 'center' | 'right',
+  x: number,
+  y: number,
+  textW: number,
+  textH: number,
+  pad: number,
+  canvasW: number,
+  canvasH: number,
+): { x: number; y: number; w: number; h: number } {
+  const raw = align === 'right' ? x - textW : align === 'center' ? x - textW / 2 : x;
+  const x0 = Math.max(0, Math.floor(raw - pad));
+  const y0 = Math.max(0, Math.floor(y - pad));
+  const x1 = Math.min(canvasW, Math.ceil(raw + textW + pad));
+  const y1 = Math.min(canvasH, Math.ceil(y + textH + pad));
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
 /** boot splash cartridge count follows the registry (regression: was hardcoded 6/6) */
 export const cartridgeBadge = (count: number): string => `${count}/${count}`;
