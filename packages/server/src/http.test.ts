@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { WebSocket } from 'ws';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {createGameServer, type GameServerHandle, isFatalNetError} from './http';
@@ -193,6 +193,51 @@ describe('game server (real websockets)', () => {
       if (Date.now() - started > 10000) throw new Error('attract demo never reopened the snake cabinet');
     }
   }, 30000);
+});
+
+describe('static files (P2-4)', () => {
+  let dir: string;
+  let handle: GameServerHandle;
+
+  afterEach(async () => {
+    if (handle) await handle.close();
+    if (dir) rmSync(dir, { recursive: true, force: true });
+  });
+
+  async function serve(): Promise<string> {
+    dir = mkdtempSync(join(tmpdir(), 'arkad-http-'));
+    mkdirSync(join(dir, 'public'), { recursive: true });
+    writeFileSync(join(dir, 'public', 'index.html'), '<html>hall</html>');
+    writeFileSync(join(dir, 'public', 'ok.txt'), 'fine');
+    writeFileSync(join(dir, 'secret.txt'), 'DO NOT SERVE ME');
+    handle = await createGameServer({ port: 0, dataDir: join(dir, 'data'), publicDir: join(dir, 'public') });
+    return `http://127.0.0.1:${handle.port}`;
+  }
+
+  it('serves files from under publicDir', async () => {
+    const base = await serve();
+    const res = await fetch(`${base}/`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('hall');
+    const txt = await fetch(`${base}/ok.txt`);
+    expect(txt.status).toBe(200);
+  }, 15000);
+
+  it('rejects encoded path traversal instead of escaping publicDir', async () => {
+    const base = await serve();
+    for (const probe of ['/%2e%2e/secret.txt', '/%2e%2e/%2e%2e/secret.txt', '/..%2fsecret.txt', '/%2e%2e/data/scores.json']) {
+      const res = await fetch(base + probe);
+      expect(res.status, probe).not.toBe(200);
+      const body = await res.text();
+      expect(body, probe).not.toContain('DO NOT SERVE ME');
+    }
+  }, 15000);
+
+  it('answers 404 for missing files without revealing anything', async () => {
+    const base = await serve();
+    const res = await fetch(`${base}/nope/missing.png`);
+    expect(res.status).toBe(404);
+  }, 15000);
 });
 
 describe('fatal net error classification (stability)', () => {

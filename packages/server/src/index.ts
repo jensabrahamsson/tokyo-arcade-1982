@@ -39,8 +39,8 @@ async function main(): Promise<void> {
   }
   safeLog('');
   safeLog('  █████  ██    ██   ██  █████  ██████  ');
-  console.log('  ██  ██ ██    ██   ██ ██   ██ ██      1982');
-  console.log('  █████  ██    ██ ███████ ██████  ██  ██  ');
+  safeLog('  ██  ██ ██    ██   ██ ██   ██ ██      1982');
+  safeLog('  █████  ██    ██ ███████ ██████  ██  ██  ');
   safeLog('  ██  ██  ██  ██     ██ ██   ██ ██   ██ TOKYO ARCADE HALL');
   safeLog('');
   safeLog(`  Listening on port ${handle.port}. Point your browser here:`);
