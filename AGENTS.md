@@ -48,6 +48,18 @@ palette, small files (16-32 KB each). Current roster: `hall-floor`,
 never draws art — it writes the manifest/loader/wiring only. Core must never touch
 Image/DOM/fetch; missing files fall back to procedural drawing.
 
+## Audio pipeline (R54)
+
+`packages/client/static/audio/*.mp3` holds the two approved Lyria 3.5
+samples: `Late_Night_Cabinet.mp3` (attract/splash loop, stops inside a
+cabinet) and `coast_yosen_start_ja.mp3` (Coast READY stinger, once per
+table). They are the only non-chiptune audio allowed; AI watermarks may
+exist; the repo stays GPL-3.0-only. Player-facing brand is
+**Tokyo Arcade 1982** (`arkad` is internal only). Playback lives in
+`audio/samples.ts`: Web Audio, operator volume/mute (R23) applied,
+fail-closed silent when a file is missing. Core stays pure — it emits
+no audio for these.
+
 ## Working agreements
 
 - Small, verifiable steps. Run the suite after every handful of edits,

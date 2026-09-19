@@ -1,5 +1,7 @@
 /** Presentation-only operator knobs (R19/R21). Pure; persisted in localStorage. */
 
+import type { GameId } from '@arkad/core';
+
 export interface CrtKnobs {
   brightness: 0 | 1 | 2;
   contrast: 0 | 1 | 2;
@@ -105,7 +107,7 @@ export function tournamentBanner(
     }
   }
   const text = best
-    ? `ARKAD OPEN: ${best.name.slice(0, 12)} ${best.score}`
+    ? `TOKYO ARCADE OPEN: ${best.name.slice(0, 12)} ${best.score}`
     : 'TOKYO ARCADE OPEN HALL';
   return { text, colorIdx: Math.floor(ms / 1600) % BANNER_COLORS };
 }
@@ -410,3 +412,34 @@ export function badgePlateRect(
 
 /** boot splash cartridge count follows the registry (regression: was hardcoded 6/6) */
 export const cartridgeBadge = (count: number): string => `${count}/${count}`;
+
+/** attract music rule: the Late Night Cabinet loop lives outside the cabinets
+ * (splash/hall/attract chrome) and must never compete with game sound inside
+ * a table */
+export function attractMusicActive(scene: string): boolean {
+  return scene !== 'table';
+}
+
+/** Pole Position style 「予選スタート！」: once per Coast table at
+ * prepare-to-start — the READY window (versus) or the first seated snapshot
+ * (solo tables deal straight into playing), never while spectating */
+export function readyStingerDue(announcedFor: string, tableId: string, game: string, phase: string, seated: boolean): boolean {
+  if (game !== 'coast' || announcedFor === tableId) return false;
+  return phase === 'ready' || seated;
+}
+
+/** UX shell: one warm accent per cabinet so hall cabinets read as games,
+ * not as seven identical debug frames; distinct, palette-true colors */
+const CAB_ACCENTS: Record<GameId, string> = {
+  snake: '#2ee66b',
+  puck: '#f7e766',
+  block: '#ff004d',
+  river: '#38b764',
+  galaxy: '#2de2e6',
+  myriad: '#e03a8a',
+  coast: '#ffa300',
+};
+
+export function cabAccent(game: GameId): string {
+  return CAB_ACCENTS[game]!;
+}

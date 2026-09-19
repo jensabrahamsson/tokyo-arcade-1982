@@ -1,7 +1,10 @@
 import { EN } from './en';
 
 export const JA: Record<keyof typeof EN, string> = {
-  'app.title': 'arkad',
+  'app.title': 'トウキョウ・アーケード',
+  'app.year': '1982ネン',
+  'splash.welcome': 'ヨウコソ - ドウゾ オハイリ クダサイ',
+  'splash.enter': 'スペースキー デ ごニュウジョウ',
   'hall.name': 'トウキョウ・ゲームセンター 1982ネン',
   'hall.insertCoin': 'コインを トウニュウ してネ',
   'hall.pressStart': 'スペースキーで スタート',

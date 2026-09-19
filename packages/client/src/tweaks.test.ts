@@ -13,7 +13,7 @@ import {
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
   hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect,
-  escapeBackTarget, hallWatchStale,
+  escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -549,6 +549,33 @@ describe('escape back to the multi-cab hall (P4 hardtest: stuck in single-cab at
     expect(hallWatchStale(1000, 3300)).toBe(false); // 2.3 s: still fresh
     expect(hallWatchStale(1000, 3500)).toBe(true); // 2.5 s: resubscribe
     expect(hallWatchStale(1000, 60_000)).toBe(true); // long silence: resubscribe
+  });
+});
+
+describe('audio wiring (attract loop + Coast READY stinger)', () => {
+  it('attract music plays everywhere outside a cabinet; never inside one', () => {
+    expect(attractMusicActive('splash')).toBe(true);
+    expect(attractMusicActive('title')).toBe(true);
+    expect(attractMusicActive('hall')).toBe(true);
+    expect(attractMusicActive('table')).toBe(false);
+  });
+
+  it('the 予選スタート stinger fires once per Coast table at prepare-to-start', () => {
+    // versus tables get a READY phase; solo tables go straight to playing —
+    // the beat is "the table I sit at is starting", once per table id
+    expect(readyStingerDue('', 't1', 'coast', 'ready', false)).toBe(true);
+    expect(readyStingerDue('', 't2', 'coast', 'playing', true)).toBe(true);
+    expect(readyStingerDue('t2', 't2', 'coast', 'playing', true)).toBe(false); // already announced
+    expect(readyStingerDue('', 't3', 'coast', 'playing', false)).toBe(false); // spectating another table's start
+    expect(readyStingerDue('', 't4', 'snake', 'playing', true)).toBe(false);
+  });
+});
+
+describe('cabinet identity (UX shell: hall cabinets must read as games, not debug frames)', () => {
+  it('every cabinet has a distinct warm accent color', () => {
+    const accents = GAME_IDS.map((g) => cabAccent(g));
+    for (const a of accents) expect(a).toMatch(/^#[0-9a-f]{6}$/);
+    expect(new Set(accents).size).toBe(GAME_IDS.length);
   });
 });
 

@@ -1,5 +1,8 @@
 export const EN = {
-  'app.title': 'ARKAD',
+  'app.title': 'TOKYO ARCADE',
+  'app.year': '1982',
+  'splash.welcome': 'WELCOME - COME ON IN',
+  'splash.enter': 'PRESS SPACE TO COME IN',
   'hall.name': 'TOKYO ARCADE 1982',
   'hall.insertCoin': 'INSERT COIN',
   'hall.pressStart': 'PRESS SPACE',
