@@ -143,3 +143,29 @@ describe('operator note / sticker frame (R42)', () => {
     expect(parseClientMessage(JSON.stringify({ type: 'note', text: { a: 1 } }))).toBeNull();
   });
 });
+
+describe('name charset (P2-5)', () => {
+  it('upper-cases and strips join names to the namepad alphabet', () => {
+    const msg = parseClientMessage(JSON.stringify({ type: 'join', name: 'akira <b>1982', lang: 'en' }));
+    expect(msg).toEqual({ type: 'join', name: 'AKIRA B1982', lang: 'en' });
+  });
+
+  it('strips emoji and control bytes, keeps dots, spaces and punctuation', () => {
+    const msg = parseClientMessage(JSON.stringify({ type: 'join', name: 'ak! 🕹️ 82-.?x', lang: 'ja' })) as
+      | { name?: string }
+      | null;
+    expect(msg?.name).toBe('AK!  82-.?X');
+  });
+
+  it('setName is sanitized the same way and capped to 12 chars', () => {
+    const msg = parseClientMessage(JSON.stringify({ type: 'setName', name: 'x'.repeat(60) })) as { name?: string } | null;
+    expect(msg?.name).toHaveLength(12);
+    const junk = parseClientMessage(JSON.stringify({ type: 'setName', name: '<script> alert' })) as { name?: string } | null;
+    expect(junk?.name).toBe('SCRIPT ALERT');
+  });
+
+  it('a name of only junk chars arrives empty and the hall falls back to ???', () => {
+    const msg = parseClientMessage(JSON.stringify({ type: 'join', name: '<>%&', lang: 'en' })) as { name?: string } | null;
+    expect(msg?.name).toBe('');
+  });
+});

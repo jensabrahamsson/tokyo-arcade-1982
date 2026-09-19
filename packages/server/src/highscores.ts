@@ -29,7 +29,9 @@ export class HighScoreStore {
           (e): e is ScoreEntry =>
             typeof e === 'object' && e !== null &&
             typeof (e as ScoreEntry).name === 'string' &&
-            typeof (e as ScoreEntry).score === 'number',
+            // P2-5: a hand-edited board must never carry non-finite scores
+            typeof (e as ScoreEntry).score === 'number' &&
+            Number.isFinite((e as ScoreEntry).score),
         );
       }
       return out;
@@ -48,7 +50,8 @@ export class HighScoreStore {
   }
 
   add(game: GameId, mode: GameMode, name: string, score: number): void {
-    if (!(score > 0)) return;
+    // P2-5: reject zero, negatives and anything non-finite (Infinity/NaN)
+    if (!Number.isFinite(score) || score <= 0) return;
     const k = key(game, mode);
     const list = this.data[k] ?? [];
     list.push({ name: name.trim().slice(0, 12) || '???', score, date: new Date().toISOString().slice(0, 10) });
