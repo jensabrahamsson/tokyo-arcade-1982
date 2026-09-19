@@ -363,6 +363,31 @@ export function waitingRetryHint(coinMode: boolean, credits: number): 'coin-then
   return coinMode && credits < 1 ? 'coin-then-start' : 'start';
 }
 
+/** P4 fix (hardtest ticks 10:26–10:32: single-cab attract became the "home"
+ * screen with no way back): the documented Escape/back map. Every state that
+ * can trap the player inside one cabinet (attract, table waiting, pause,
+ * coin insert) and every post-join screen returns to the multi-cabinet hall;
+ * pre-join states fall back to title. */
+export type EscapeScene = 'table' | 'coinInsert' | 'title' | 'name' | 'map';
+
+export function escapeBackTarget(scene: EscapeScene, joined: boolean): 'hall' | 'title' {
+  if (!joined) return 'title';
+  switch (scene) {
+    case 'table':
+    case 'coinInsert':
+    case 'title':
+    case 'name':
+    case 'map':
+      return 'hall';
+  }
+}
+
+/** P4 fix: hall-watch self-heal — the hall must never sit dark forever on a
+ * silently dropped subscription; stale after 2.5 s without hallTables */
+export function hallWatchStale(lastHallTablesAt: number, now: number, staleMs = 2500): boolean {
+  return now - lastHallTablesAt >= staleMs;
+}
+
 /** P3 fix: plate rect behind a small badge label so the CRT scanline/glow
  * overlay cannot stripe out the glyphs; honor alignment, clamp to the canvas */
 export function badgePlateRect(
