@@ -34,7 +34,7 @@ import {
   powerLed, ledState, scoreCrawlOffset,
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
-  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, cartridgeBadge, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -68,6 +68,7 @@ let lang: Lang = (localStorage.getItem('arkad-lang') as Lang) === 'ja' ? 'ja' : 
 type Scene = 'splash' | 'title' | 'name' | 'hall' | 'map' | 'table' | 'scores' | 'credits' | 'service' | 'note' | 'coinInsert';
 let scene: Scene = 'splash';
 const bootAt = performance.now();
+let hallEnteredAt: number | null = null; // R53 fix: hint anchors to the first hall entry
 let creditsFrom: Scene = 'title';
 let serviceFrom: Scene = 'title';
 let knobs: CrtKnobs = loadKnobs(localStorage, DEFAULT_KNOBS);
@@ -166,6 +167,7 @@ function toggleLang(): void {
 
 function enterHall(): void {
   scene = 'hall';
+  hallEnteredAt = firstHallVisitAt(hallEnteredAt, performance.now()); // first visit only (R53 fix)
   requestHallFullscreen(); // R53: playtest wants the hall to fill the screen
   if (joined) net.send({ type: 'hall', watch: true });
 }
@@ -412,6 +414,7 @@ function update(ms: number): void {
       net.send({ type: 'input', dir, button, seq: ++inputSeq });
     }
     if (keys.take('KeyB', 'Escape')) back();
+    if (keys.take('KeyF')) toggleFullscreen(); // R53 fix: F must work mid-game too
     if (world.snap?.table.phase === 'gameOver') {
       const mine = world.snap.table.players.find((pl) => pl.id === world.myId);
       if (mine && recordCheckedFor !== world.snap.table.id) {
@@ -793,7 +796,11 @@ function renderHall(ms: number): void {
 
   px(ctx, `Z: ${t('menu.solo')}  X: ${t('menu.versus')}  H: ${t('menu.highScores')}`, cx, CANVAS_H - 14, 8, PAL.lime, 'center');
   px(ctx, `M: ${t('menu.map')}  C: ${t('menu.credits')}  L: ${t('menu.language')}`, cx, CANVAS_H - 4, 7, PAL.gray, 'center');
-  if (fullscreenHintVisible(ms)) px(ctx, 'F: FULLSCREEN', 6, 2, 8, blink(ms, 700) ? PAL.cyan : PAL.gray);
+  // R53 fix: the window counts from the first hall entry, not from boot —
+  // splash + title + name pad routinely ate all 10 s before the hall showed
+  if (hallEnteredAt !== null && fullscreenHintVisible(performance.now() - hallEnteredAt)) {
+    px(ctx, 'F: FULLSCREEN', 6, 2, 8, blink(ms, 700) ? PAL.cyan : PAL.gray);
+  }
   const online = world.roster?.players.length ?? 0;
   px(ctx, `${t('lobby.players')}: ${online}`, 6, CANVAS_H - 4, 7, PAL.gray);
   drawError();

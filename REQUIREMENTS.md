@@ -572,5 +572,7 @@ defines done. Each item is verified by a test, a live check, or both.
   browser exit always works — no locked kiosk.
 - R53.2 A first-run canvas hint ("F: FULLSCREEN") shows for a fixed
   window. Pure helpers `shouldRequestFullscreen(scene)` and
-  `fullscreenHintVisible(msSinceBoot, windowMs)`; the Fullscreen API
-  itself is manually verified. Presentation only.
+  `fullscreenHintVisible(msSinceHallEnter, windowMs)` — the window
+  counts from the first hall entry, never from boot (fix: splash +
+  title ate the whole window before the hall was ever seen); the
+  Fullscreen API itself is manually verified. Presentation only.

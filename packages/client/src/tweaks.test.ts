@@ -11,7 +11,7 @@ import {
   powerLed, ledState, scoreCrawlOffset,
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
-  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, cartridgeBadge,
+  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -478,10 +478,29 @@ describe('fullscreen ux helpers (R53)', () => {
     expect(shouldRequestFullscreen('service')).toBe(false);
   });
 
-  it('the hint shows for a fixed window after boot', () => {
+  // description corrected (assertions unchanged): the window is anchored to
+  // the first hall entry, not to boot — see the R53 fix regression below
+  it('the hint shows for a fixed window after hall entry', () => {
     expect(fullscreenHintVisible(0, 10_000)).toBe(true);
     expect(fullscreenHintVisible(9999, 10_000)).toBe(true);
     expect(fullscreenHintVisible(10_000, 10_000)).toBe(false);
+  });
+});
+
+describe('fullscreen hint anchoring (R53 fix)', () => {
+  it('the first hall visit anchors the window; re-entering never resets it', () => {
+    expect(firstHallVisitAt(null, 8_400)).toBe(8_400);
+    expect(firstHallVisitAt(8_400, 61_000)).toBe(8_400);
+    expect(firstHallVisitAt(0, 5_000)).toBe(0);
+  });
+
+  it('regression: boot/splash drift must not eat the hint window', () => {
+    // boot-anchored timing hid the hint: splash (3.4 s) + title + name pad
+    // routinely pass 10 s of wall clock before the hall is ever seen
+    expect(fullscreenHintVisible(13_400, 10_000)).toBe(false); // old boot anchor: gone
+    const hallEnteredAt = firstHallVisitAt(null, 8_400);
+    expect(fullscreenHintVisible(13_400 - hallEnteredAt, 10_000)).toBe(true); // 5 s into the hall
+    expect(fullscreenHintVisible(18_400 - hallEnteredAt, 10_000)).toBe(false); // 10 s in: gone
   });
 });
 
