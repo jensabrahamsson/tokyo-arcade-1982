@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { createReadStream, existsSync, statSync } from 'node:fs';
-import { dirname, extname, join, normalize, resolve } from 'node:path';
+import { dirname, extname, join, resolve, sep } from 'node:path';
 import { parseClientMessage, serialize } from '@arkad/core';
 import { Arcade, type Conn } from './arcade';
 import { HighScoreStore } from './highscores';
@@ -67,19 +67,31 @@ export async function createGameServer(opts: { port: number; dataDir: string; pu
       res.writeHead(400).end();
       return;
     }
-    const path = normalize(decoded);
-    if (path.includes('..')) {
+    // P2-4: whitelist, not a '..' blacklist — resolve against publicDir and
+    // insist the final path stays inside it, whatever the request or the
+    // platform separator tried to pull upward
+    const rel = decoded.replace(/^[/\\]+/, '') || 'index.html';
+    const file = resolve(publicDir, rel);
+    if (file !== publicDir && !file.startsWith(publicDir + sep)) {
       res.writeHead(400).end();
       return;
     }
-    const rel = path === '/' || path === '\\' ? '/index.html' : path;
-    const file = join(publicDir, rel);
     if (!existsSync(file) || !statSync(file).isFile()) {
       res.writeHead(404).end('not found');
       return;
     }
     res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' });
-    createReadStream(file).pipe(res);
+    // P2-4: a read error (file yanked between stat and read, EPERM, EIO)
+    // must kill the response, not the process — streams throw on 'error'
+    createReadStream(file)
+      .on('error', () => {
+        try {
+          res.destroy();
+        } catch {
+          /* already gone */
+        }
+      })
+      .pipe(res);
   });
 
   const wss = new WebSocketServer({ server: http, path: '/ws', maxPayload: 8 * 1024 });
