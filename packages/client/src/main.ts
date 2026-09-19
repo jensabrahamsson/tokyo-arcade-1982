@@ -35,7 +35,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -102,6 +102,7 @@ let world = {
 };
 let joined = false;
 let myName = 'AAA';
+let lastHallTablesAt = 0;
 let lastSnapAt = 0;
 let inputSeq = 0;
 let lastSentDir: ReturnType<Keys['heldDir']> = null;
@@ -141,6 +142,7 @@ net.onMessage((msg: ServerMessage) => {
     }
     case 'hallTables':
       world.hall = msg as HallTablesMsg;
+      lastHallTablesAt = performance.now();
       break;
     case 'statsReply':
       stats = msg as StatsReplyMsg;
@@ -175,7 +177,10 @@ function enterHall(): void {
   scene = 'hall';
   hallEnteredAt = firstHallVisitAt(hallEnteredAt, performance.now()); // first visit only (R53 fix)
   requestHallFullscreen(); // R53: playtest wants the hall to fill the screen
-  if (joined) net.send({ type: 'hall', watch: true });
+  if (joined) {
+    net.send({ type: 'hall', watch: true });
+    lastHallTablesAt = performance.now(); // P4: arm the staleness watchdog
+  }
 }
 
 function openNamePad(): void {
@@ -282,6 +287,22 @@ function back(): void {
   enterHall();
 }
 
+/** P4 fix: one Escape rule for the whole app (escapeBackTarget): post-join
+ * states always land in the multi-cabinet hall, pre-join states at title —
+ * a single-cabinet attract must never be a stuck "home" screen */
+function escapeHome(): void {
+  if (scene !== 'table' && scene !== 'coinInsert' && scene !== 'title' && scene !== 'name' && scene !== 'map') return;
+  const target = escapeBackTarget(scene, joined);
+  if (target === 'hall') {
+    if (scene === 'table') back(); // must release the seat ('back' on the wire)
+    else enterHall();
+    return;
+  }
+  net.send({ type: 'back' });
+  world.snap = null;
+  scene = 'title';
+}
+
 function openScores(): void {
   const game = GAME_IDS[sel]!;
   net.send({ type: 'scores', game, mode: 'solo' });
@@ -299,7 +320,10 @@ function update(ms: number): void {
       keys.clear();
     }
   } else if (scene === 'coinInsert') {
-    if (performance.now() - coinInsertAt > 750 || keys.take('Space', 'Enter')) beginGame(pendingMode);
+    // P4 fix: Escape during the coin thunk aborts into the hall — the coin
+    // stays on the account, the player never gets dragged into the cabinet
+    if (keys.take('Escape', 'KeyB')) escapeHome();
+    else if (performance.now() - coinInsertAt > 750 || keys.take('Space', 'Enter')) beginGame(pendingMode);
   } else if (scene === 'service') {
     if (performance.now() - statsAskedAt > 2000) {
       net.send({ type: 'stats' });
@@ -349,6 +373,7 @@ function update(ms: number): void {
       if (joined) enterHall();
       else openNamePad();
     }
+    if (keys.take('Escape') && escapeBackTarget('title', joined) === 'hall') enterHall();
     if (keys.take('KeyC')) {
       creditsFrom = 'title';
       scene = 'credits';
@@ -362,7 +387,7 @@ function update(ms: number): void {
     if (keys.take('ArrowDown', 'KeyS')) namePad = moveCursor(namePad, { dr: 1, dc: 0 });
     if (keys.take('KeyZ', 'Space', 'Enter', 'NumpadEnter')) namePad = pressKey(namePad, keyAt(namePad, namePad.cursor));
     if (keys.take('Backspace')) namePad = pressKey(namePad, '<');
-    if (keys.take('Escape')) scene = 'title';
+    if (keys.take('Escape')) escapeHome(); // P4: welcome may have arrived while typing — hall is home
     if (namePad.done) confirmName();
   } else if (scene === 'note') {
     if (keys.take('ArrowLeft', 'KeyA')) namePad = moveCursor(namePad, { dr: 0, dc: -1 });
@@ -380,6 +405,12 @@ function update(ms: number): void {
       audio.play('coin');
     }
   } else if (scene === 'hall') {
+    // P4 fix (hardtest: hallTablesSeen=false, hall dark forever): a silently
+    // dropped hall subscription self-heals — 2.5 s of silence and we re-watch
+    if (joined && hallWatchStale(lastHallTablesAt, performance.now())) {
+      net.send({ type: 'hall', watch: true });
+      lastHallTablesAt = performance.now();
+    }
     if (keys.take('KeyF')) toggleFullscreen();
     for (const k of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS']) {
       if (keys.take(k)) {
@@ -403,7 +434,8 @@ function update(ms: number): void {
     if (keys.isHeld('ShiftLeft', 'ShiftRight') && keys.take('KeyS')) openService('hall');
     if (keys.take('KeyL')) toggleLang();
   } else if (scene === 'map') {
-    if (keys.take('KeyM', 'Escape', 'KeyB')) scene = 'hall';
+    if (keys.take('KeyM')) scene = 'hall';
+    if (keys.take('Escape', 'KeyB')) escapeHome();
   } else if (scene === 'credits') {
     if (keys.take('KeyA')) {
       access = nextAccess(access);
@@ -419,7 +451,7 @@ function update(ms: number): void {
       lastSentBtn = button;
       net.send({ type: 'input', dir, button, seq: ++inputSeq });
     }
-    if (keys.take('KeyB', 'Escape')) back();
+    if (keys.take('KeyB', 'Escape')) escapeHome(); // P4: table attract/waiting/pause -> hall, never a dead end
     if (keys.take('KeyF')) toggleFullscreen(); // R53 fix: F must work mid-game too
     // P0 fix: a rejected start must not dead-end — Z/Space retries the 1P game here
     if (!world.snap && keys.take('Space', 'KeyZ', 'Enter')) startGame('solo');

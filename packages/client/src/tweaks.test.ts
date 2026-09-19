@@ -13,6 +13,7 @@ import {
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
   hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect,
+  escapeBackTarget, hallWatchStale,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -524,6 +525,30 @@ describe('hall join race (P0 hardtest: Space stuck on WAITING)', () => {
     expect(waitingRetryHint(true, 0)).toBe('coin-then-start');
     expect(waitingRetryHint(true, 1)).toBe('start');
     expect(waitingRetryHint(false, 0)).toBe('start');
+  });
+});
+
+describe('escape back to the multi-cab hall (P4 hardtest: stuck in single-cab attract)', () => {
+  it('Escape from table/pause/coinInsert/title lands in hall once joined', () => {
+    expect(escapeBackTarget('table', true)).toBe('hall');
+    expect(escapeBackTarget('coinInsert', true)).toBe('hall');
+    expect(escapeBackTarget('title', true)).toBe('hall');
+    expect(escapeBackTarget('name', true)).toBe('hall');
+    expect(escapeBackTarget('map', true)).toBe('hall');
+  });
+
+  it('pre-join states fall back to title, never a dead single-cab attract', () => {
+    expect(escapeBackTarget('table', false)).toBe('title');
+    expect(escapeBackTarget('coinInsert', false)).toBe('title');
+    expect(escapeBackTarget('name', false)).toBe('title');
+    expect(escapeBackTarget('title', false)).toBe('title');
+  });
+
+  it('hall watch goes stale after 2.5 s of hallTables silence and re-arms on receipt', () => {
+    expect(hallWatchStale(1000, 1000)).toBe(false); // just received
+    expect(hallWatchStale(1000, 3300)).toBe(false); // 2.3 s: still fresh
+    expect(hallWatchStale(1000, 3500)).toBe(true); // 2.5 s: resubscribe
+    expect(hallWatchStale(1000, 60_000)).toBe(true); // long silence: resubscribe
   });
 });
 
