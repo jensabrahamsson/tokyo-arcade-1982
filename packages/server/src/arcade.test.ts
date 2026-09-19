@@ -486,6 +486,78 @@ describe('Arcade', () => {
   it('ignores messages from unknown connections', () => {
     expect(() => arcade.handleMessage('nobody', { type: 'back' })).not.toThrow();
   });
+
+  it('a solo table closing reopens the attract demo for that cabinet (P0-1)', () => {
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'solo' });
+    for (let i = 0; i < 10; i++) arcade.tick();
+    arcade.handleMessage('c1', { type: 'back' });
+    arcade.handleMessage('c1', { type: 'hall', watch: true });
+    net.take('c1');
+    for (let i = 0; i < 36; i++) arcade.tick();
+    const halls = hallMsgs('c1');
+    expect(halls.length).toBeGreaterThan(0);
+    const rows = halls.at(-1)!.cabinets.filter((c) => c.game === 'snake');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.demo).toBe(true);
+    expect(rows[0]!.data).not.toBeNull();
+    // and it MOVES: the demo state changed across the watched window
+    const first = JSON.stringify(halls[0]!.cabinets.find((c) => c.game === 'snake')!.data);
+    const last = JSON.stringify(halls.at(-1)!.cabinets.find((c) => c.game === 'snake')!.data);
+    expect(first).not.toBe(last);
+  });
+
+  it('gameOver -> attract closes the table and the demo takes the cabinet back (P0-1)', () => {
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'versus' });
+    arcade.handleMessage('c2', { type: 'start', game: 'snake', mode: 'versus' });
+    arcade.handleMessage('c2', { type: 'input', dir: { dx: 0, dy: 1 }, button: false });
+    for (let i = 0; i < 3000; i++) arcade.tick(); // gameOver -> attract -> closed
+    arcade.handleMessage('c1', { type: 'hall', watch: true });
+    net.take('c1');
+    for (let i = 0; i < 30; i++) arcade.tick();
+    const snake = hallMsgs('c1').at(-1)!.cabinets.filter((c) => c.game === 'snake');
+    expect(snake).toHaveLength(1);
+    expect(snake[0]!.demo).toBe(true);
+    expect(snake[0]!.data).not.toBeNull();
+  });
+
+  it('a player disconnect never kills the attract demos (P0-1)', () => {
+    arcade.handleMessage('c2', { type: 'start', game: 'puck', mode: 'solo' });
+    for (let i = 0; i < 10; i++) arcade.tick();
+    arcade.removeConnection('c2');
+    arcade.handleMessage('c1', { type: 'hall', watch: true });
+    net.take('c1');
+    for (let i = 0; i < 30; i++) arcade.tick();
+    const latest = hallMsgs('c1').at(-1)!;
+    expect(latest.cabinets.map((c) => c.game).sort()).toEqual(
+      ['block', 'coast', 'galaxy', 'myriad', 'puck', 'river', 'snake'].sort(),
+    );
+    expect(latest.cabinets.every((c) => c.demo)).toBe(true);
+    expect(latest.cabinets.every((c) => c.data !== null)).toBe(true);
+  });
+
+  it('the hall shows one row per cabinet and a live game wins over its demo (P1-1)', () => {
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'versus' });
+    arcade.handleMessage('c2', { type: 'start', game: 'snake', mode: 'versus' });
+    for (let i = 0; i < 4; i++) arcade.tick();
+    arcade.handleMessage('c3', { type: 'hall', watch: true });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    const rows = hallMsgs('c3').at(-1)!.cabinets.filter((c) => c.game === 'snake');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.demo).toBe(false);
+    expect(rows[0]!.players).toBe(2);
+  });
+
+  it('coin spam is rate-limited per connection (P1-5)', () => {
+    const errs = () => net.take('c1').filter((m) => m.type === 'error') as { code: string }[];
+    for (let i = 0; i < 4; i++) arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
+    expect(errs()).toHaveLength(0);
+    arcade.handleMessage('c1', { type: 'coin', game: 'snake' }); // 5th within the second
+    expect(errs().some((e) => e.code === 'slow-down')).toBe(true);
+    for (let i = 0; i < 60; i++) arcade.tick(); // the one-second window rolls on
+    net.take('c1');
+    arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
+    expect(errs()).toHaveLength(0);
+  });
 });
 
 describe('Arcade smoke (all cabinets)', () => {
@@ -495,7 +567,7 @@ describe('Arcade smoke (all cabinets)', () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  for (const game of ['snake', 'puck', 'block', 'galaxy', 'river', 'myriad'] as const) {
+  for (const game of ['snake', 'puck', 'block', 'galaxy', 'river', 'myriad', 'coast'] as const) {
     it(`${game}: runs 600 ticks without throwing and broadcasts snapshots`, () => {
       const net = new FakeNet();
       const arcade = new Arcade({

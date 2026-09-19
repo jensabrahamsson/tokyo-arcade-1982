@@ -17,6 +17,26 @@ export const OFF_MAX_SPEED = 45;
 export const START_TIME = 3600;
 export const CHECKPOINT_BONUS = 1500;
 
+/** R54.7: drive-past billboard copy along the coast road — stylized Swedish
+ * 1982 nostalgia tableaux (arcade-homage scenery, not campaign material).
+ * Pure presentation data; the renderer draws PNG-or-procedural boards. */
+export interface CoastBillboard {
+  /** distance along the track */
+  readonly d: number;
+  /** -1 = left of the road, 1 = right */
+  readonly side: -1 | 1;
+  /** short board copy, upper case, max 24 chars */
+  readonly text: string;
+}
+
+export const COAST_BILLBOARDS: readonly CoastBillboard[] = [
+  { d: 180, side: -1, text: 'CENTRUM TRADPLAN' },
+  { d: 620, side: 1, text: 'HARPSUND - EKAN' },
+  { d: 1040, side: -1, text: 'BOMMERSVIK 1982' },
+  { d: 1460, side: 1, text: 'VALDEBATT 76' },
+  { d: 1840, side: -1, text: 'PALME I HABANNA' },
+];
+
 /** road curve per segment, -1 hard left .. +1 hard right; ends straight at the castle */
 export const CURVE: readonly number[] = [
   0, 0, 0.2, 0.6, 0.6, 0.3, 0, -0.4, -0.7, -0.4, 0, 0.15, 0.5, 0.5, 0.1, 0,

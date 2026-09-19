@@ -38,6 +38,10 @@ Env: `ARKAD_PORT` (default 8442), `ARKAD_DATA` (default `./data`).
 - **Solo:** `Z` · **VS. duel:** `X` · **High scores:** `H` · **Hall map:** `M` · **Credits:** `C` · **Language EN/JP:** `L` · **Back:** `Esc` / `B`
 - **Operator service menu:** hold `Shift` + `S` — bookkeeping (plays, coins, uptime), free-play/coin toggle, CRT knobs (`Q`/`W`/`E`), accessibility palette (`A`), master volume detent + mute (`V`/`M`), cabinet OUT-OF-ORDER switch (`O`, persists + broadcasts); seats can pause with `P`
 
+Operator commands (`Shift+S`, the `O` switch, the free-play toggle) are
+trusted-LAN conveniences — there is no keycard on the service door, so do
+not expose the hall to the internet.
+
 The hall starts in coin mode: watch the coin drop into the slot before the
 cabinet wakes up, or flip it to FREE PLAY from the service menu. Live
 cabinets light a NOW PLAYING lamp, crowd badges count the onlookers,
@@ -94,7 +98,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 343 tests across engine, games, server, client
+npm test          # vitest: 352 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```
