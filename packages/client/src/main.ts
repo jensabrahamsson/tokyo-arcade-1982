@@ -15,7 +15,7 @@ import { Net } from './net';
 import { art, loadArtBrowser } from './art';
 import { Keys } from './input';
 import { Chiptune } from './audio/chiptune';
-import { CANVAS_W, CANVAS_H, PAL, PLAYER_COLORS, px, blink } from './ui';
+import { CANVAS_W, CANVAS_H, PAL, PLAYER_COLORS, px, blink, FONT } from './ui';
 import { renderSnake } from './renderers/snake';
 import { renderPuck } from './renderers/puck';
 import { renderBlock } from './renderers/block';
@@ -35,7 +35,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -467,6 +467,34 @@ function drawHud(view: SnapshotMsg['table'], snap: SnapshotMsg): void {
   }
 }
 
+/** P3 fix: badge label with a 1 px black outline (and optional dark plate +
+ * rim) so the CRT scanline/glow overlay can not stripe out small credits and
+ * free-play text; the CRT itself stays on top, untouched */
+function badgeLabel(
+  text: string,
+  x: number,
+  y: number,
+  size: number,
+  color: string,
+  align: CanvasTextAlign = 'left',
+  plate = true,
+): void {
+  ctx.font = `${size}px ${FONT}`;
+  const w = Math.ceil(ctx.measureText(text).width);
+  if (plate) {
+    const r = badgePlateRect(
+      align === 'right' || align === 'end' ? 'right' : align === 'center' ? 'center' : 'left',
+      x, y, w, size + 2, 2, CANVAS_W, CANVAS_H,
+    );
+    ctx.fillStyle = '#000';
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.strokeStyle = color;
+    ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+  }
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) px(ctx, text, x + dx, y + dy, size, PAL.black, align);
+  px(ctx, text, x, y, size, color, align);
+}
+
 function renderGame(ms: number): void {
   const snap = world.snap!;
   const game = snap.table.game;
@@ -494,7 +522,7 @@ function renderGame(ms: number): void {
   const crowd = visibleSpectators(snap.table.spectators ?? 0);
   if (crowd !== null) px(ctx, `${t('hall.watching')} ${crowd}`, CANVAS_W - 6, 230, 8, PAL.cyan, 'right');
   const myStrip = creditStrip(snap.credits ?? 0, world.hall?.freePlay ?? false);
-  if (myStrip !== null) px(ctx, `${t('hall.credits')} ${myStrip}`, 8, 222, 8, PAL.yellow);
+  if (myStrip !== null) badgeLabel(`${t('hall.credits')} ${myStrip}`, 8, 222, 8, PAL.yellow);
   if (recordFlashVisible(recordFlashAt, performance.now())) {
     const f = Math.floor(performance.now() / 180) % 2 === 0;
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -685,7 +713,7 @@ function renderCabinet(
       ctx.drawImage(panel, x + w - 40, y + slot.h - 11, 38, 10);
       ctx.imageSmoothingEnabled = true;
     }
-    px(ctx, `${t('hall.credits')} ${strip}`, x + w - 2, y + slot.h - 8, 7, PAL.yellow, 'right');
+    badgeLabel(`${t('hall.credits')} ${strip}`, x + w - 2, y + slot.h - 8, 7, PAL.yellow, 'right', false);
   }
   if (lamp === 'idle') {
     if (idleSince[slot.game] === undefined) idleSince[slot.game] = ms;
