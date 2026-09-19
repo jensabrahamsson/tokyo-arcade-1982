@@ -83,7 +83,7 @@ defines done. Each item is verified by a test, a live check, or both.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (310 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (352 tests, incl. real-WebSocket E2E for 2- and
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
@@ -604,7 +604,9 @@ paths/protocol keep `arkad`. EN/JA tables updated in lockstep.
   Pure `readyStingerDue()` / `attractMusicActive()` helpers unit-tested.
 - R54.6 LO Castle (LO-borgen) is Coast's primary landmark: larger,
   sun-haloed, flag on the keep, far-distance parallax; PNG plus
-  procedural fallback.
+  procedural fallback. `static/art/coast-lo-castle.png` is still the
+  16×16 placeholder — the P1-6 loader ignores sub-64 px stubs, so the
+  procedural castle draws until the real art lands in an Imagine drop.
 - R54.7 Drive-past roadside billboards along the coast road — stylized
   8-bit Swedish nostalgia tableaux (Center tree, Harpsund dinghy,
   Bommersvik lodge, Valdebatt '76, Palme in Havana) at fixed track

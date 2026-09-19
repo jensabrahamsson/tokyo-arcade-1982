@@ -1,5 +1,5 @@
 import type { CoastState } from '@arkad/core';
-import { curveAt, OFF_ROAD_X, TRACK_LEN, MAX_SPEED } from '@arkad/core';
+import { COAST_BILLBOARDS, curveAt, OFF_ROAD_X, TRACK_LEN, MAX_SPEED, t as translate, type Lang } from '@arkad/core';
 import { PAL } from '../ui';
 import { art, type ArtFile } from '../art';
 
@@ -73,18 +73,26 @@ function drawCastle(ctx: CanvasRenderingContext2D, shift: number, tMs: number): 
 }
 
 /** R54: drive-past billboards along the coast road — stylized 8-bit Swedish
- * nostalgia tableaux (homage scenery, not campaign material). PNGs from
- * Imagine drop into static/art; the procedural fallback keeps the beat
- * even before they land. LO-borgen stays the primary landmark. */
-const ROADSIDE: readonly { d: number; side: -1 | 1; art: ArtFile; accent: string; glyph: 'tree' | 'dinghy' | 'lodge' | 'debate' | 'palm' }[] = [
-  { d: 180, side: -1, art: 'coast-centerpartiet.png', accent: '#2ee66b', glyph: 'tree' },
-  { d: 620, side: 1, art: 'coast-harpsund.png', accent: '#f7e766', glyph: 'dinghy' },
-  { d: 1040, side: -1, art: 'coast-bommersvik.png', accent: '#ff004d', glyph: 'lodge' },
-  { d: 1460, side: 1, art: 'coast-valdebatt76.png', accent: '#2de2e6', glyph: 'debate' },
-  { d: 1840, side: -1, art: 'coast-castro-visit.png', accent: '#ffa300', glyph: 'palm' },
+ * nostalgia tableaux (homage scenery, not campaign material). Distances and
+ * copy live in the core (COAST_BILLBOARDS); this table adds the visual skin.
+ * PNGs from Imagine drop into static/art; the procedural fallback keeps the
+ * beat even before they land. LO-borgen stays the primary landmark. */
+const ROADSIDE_SKIN: readonly { art: ArtFile; accent: string; glyph: 'tree' | 'dinghy' | 'lodge' | 'debate' | 'palm' }[] = [
+  { art: 'coast-centerpartiet.png', accent: '#2ee66b', glyph: 'tree' },
+  { art: 'coast-harpsund.png', accent: '#f7e766', glyph: 'dinghy' },
+  { art: 'coast-bommersvik.png', accent: '#ff004d', glyph: 'lodge' },
+  { art: 'coast-valdebatt76.png', accent: '#2de2e6', glyph: 'debate' },
+  { art: 'coast-castro-visit.png', accent: '#ffa300', glyph: 'palm' },
 ];
 
-function drawBillboard(ctx: CanvasRenderingContext2D, b: (typeof ROADSIDE)[number], p: { y: number; scale: number; roadW: number; offX: number }, tMs: number): void {
+interface BoardDraw { d: number; side: -1 | 1; text: string; art: ArtFile; accent: string; glyph: 'tree' | 'dinghy' | 'lodge' | 'debate' | 'palm' }
+
+const ROADSIDE: readonly BoardDraw[] = COAST_BILLBOARDS.map((b, i) => ({
+  ...b,
+  ...ROADSIDE_SKIN[i % ROADSIDE_SKIN.length]!,
+}));
+
+function drawBillboard(ctx: CanvasRenderingContext2D, b: BoardDraw, p: { y: number; scale: number; roadW: number; offX: number }, tMs: number): void {
   const bw = Math.max(12, p.scale * 900);
   const bh = Math.round(bw * 0.62);
   const bx = p.offX + b.side * (p.roadW * 1.35 + bw * 0.7);
@@ -108,6 +116,14 @@ function drawBillboard(ctx: CanvasRenderingContext2D, b: (typeof ROADSIDE)[numbe
   ctx.strokeStyle = PAL.gray;
   ctx.lineWidth = 1;
   ctx.strokeRect(bx - bw / 2 + 0.5, boardTop + 0.5, bw - 1, bh - 1);
+  if (bw >= 44) {
+    // the board carries its 1982 copy once it is big enough to read
+    ctx.font = `${Math.max(5, Math.min(8, Math.round(bw / 12)))}px monospace`;
+    ctx.fillStyle = b.accent;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(b.text, Math.round(bx), Math.round(boardTop + bh - 12));
+  }
   const u = bw / 24; // unit grid so glyphs read at every distance
   ctx.fillStyle = b.accent;
   switch (b.glyph) {
@@ -149,7 +165,7 @@ function drawBillboard(ctx: CanvasRenderingContext2D, b: (typeof ROADSIDE)[numbe
   }
 }
 
-export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 0): void {
+export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 0, lang: Lang = 'en'): void {
   const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
   sky.addColorStop(0, blend(SKY_TOP));
   sky.addColorStop(1, blend(SKY_BOT));
@@ -220,11 +236,11 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
   const secs = Math.ceil(s.timeLeft / 60);
   ctx.fillStyle = PAL.white;
   ctx.font = '8px monospace';
-  ctx.fillText(`TIME ${secs}`, 6, 12);
-  ctx.fillText(`${Math.round((s.speed / MAX_SPEED) * 220)} MPH`, W - 54, 12);
-  ctx.fillText(`GATE ${Math.min(Math.floor(s.dist), TRACK_LEN)}/${TRACK_LEN}`, 6, 22);
+  ctx.fillText(`${translate(lang, 'coast.time')} ${secs}`, 6, 12);
+  ctx.fillText(`${Math.round((s.speed / MAX_SPEED) * 220)} ${translate(lang, 'coast.mph')}`, W - 54, 12);
+  ctx.fillText(`${translate(lang, 'coast.gate')} ${Math.min(Math.floor(s.dist), TRACK_LEN)}/${TRACK_LEN}`, 6, 22);
   if (Math.abs(s.playerX) > OFF_ROAD_X && s.phase === 'playing') {
     ctx.fillStyle = '#ffd75e';
-    ctx.fillText('OFF ROAD!', CX - 26, H - 60);
+    ctx.fillText(translate(lang, 'coast.offRoad'), CX - 26, H - 60);
   }
 }

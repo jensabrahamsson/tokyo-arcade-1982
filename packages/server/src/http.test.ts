@@ -169,6 +169,30 @@ describe('game server (real websockets)', () => {
     expect(phase).toBe('gameOver');
     expect(ids).toContain(winner);
   }, 30000);
+
+  it('after a solo game ends the cabinet runs the attract demo again (P0-1, real sockets)', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'arkad-ws-'));
+    handle = await createGameServer({ port: 0, dataDir: dir });
+    const url = `ws://127.0.0.1:${handle.port}/ws`;
+
+    const a = await peer(url);
+    peers.push(a);
+    a.ws.send(JSON.stringify({ type: 'join', name: 'AKIRA', lang: 'en' }));
+    await a.waitFor('welcome');
+    a.ws.send(JSON.stringify({ type: 'hall', watch: true }));
+    a.ws.send(JSON.stringify({ type: 'coin', game: 'snake' }));
+    a.ws.send(JSON.stringify({ type: 'start', game: 'snake', mode: 'solo' }));
+    await waitPhase(a, 'playing');
+
+    a.ws.send(JSON.stringify({ type: 'back' }));
+    const started = Date.now();
+    for (;;) {
+      const hall = await a.waitFor<{ type: 'hallTables'; cabinets: { game: string; demo: boolean; data: unknown }[] }>('hallTables', 15000);
+      const snake = hall.cabinets.filter((c) => c.game === 'snake');
+      if (snake.length === 1 && snake[0]!.demo === true && snake[0]!.data !== null) break;
+      if (Date.now() - started > 10000) throw new Error('attract demo never reopened the snake cabinet');
+    }
+  }, 30000);
 });
 
 describe('fatal net error classification (stability)', () => {

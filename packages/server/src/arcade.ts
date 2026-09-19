@@ -51,6 +51,29 @@ interface Table {
 const SNAPSHOT_EVERY = 2;
 const HALL_EVERY = 6;
 const DEMO_PLAYER = 'demo';
+
+/** P1-5: coin slot debounce — a human can not out-coin a curl */
+export const COIN_RATE_LIMIT = 4;
+export const COIN_WINDOW_TICKS = 60;
+
+export interface CoinRateWindow {
+  sinceTick: number;
+  count: number;
+}
+
+/** pure coin-rate state machine: rolls the one-second window, allows N per window */
+export function coinRateAllows(
+  win: CoinRateWindow | null,
+  nowTick: number,
+  limit = COIN_RATE_LIMIT,
+  windowTicks = COIN_WINDOW_TICKS,
+): { win: CoinRateWindow; allow: boolean } {
+  if (!win || nowTick - win.sinceTick >= windowTicks) {
+    return { win: { sinceTick: nowTick, count: 1 }, allow: true };
+  }
+  const count = win.count + 1;
+  return { win: { sinceTick: win.sinceTick, count }, allow: count <= limit };
+}
 /** ticks a half-filled versus table waits for extra players before dealing (2 s at 60 Hz) */
 export const START_GRACE = 120;
 /** ticks a full versus table waits with READY 3-2-1 before dealing (R50) */
@@ -76,6 +99,7 @@ export class Arcade {
   private interval: NodeJS.Timeout | null = null;
   private hallWatchers = new Set<string>();
   private credits = new Map<string, number>();
+  private coinRate = new Map<string, CoinRateWindow>();
   /** last tick a human sat at each cabinet, for attract energy tiers (R39) */
   private lastHuman = new Map<GameId, number>();
   private readonly bootMs = Date.now();
@@ -86,25 +110,29 @@ export class Arcade {
 
   /** every idle cabinet plays itself, 1982 style (R8) */
   private openDemoTables(): void {
-    for (const game of GAME_IDS) {
-      const table: Table = {
-        id: `demo-${game}`,
-        game,
-        mode: 'solo',
-        demo: true,
-        session: null,
-        seats: [],
-        seed: (Math.random() * 2 ** 31) >>> 0,
-        openTick: 0,
-        graceTick: -1,
-        paused: false,
-        readyTick: -1,
-        lastSnap: -999,
-        pendingEvents: [],
-      };
-      table.session = this.demoSession(table);
-      this.tables.set(table.id, table);
-    }
+    for (const game of GAME_IDS) this.openDemoTable(game);
+  }
+
+  private openDemoTable(game: GameId): void {
+    const id = `demo-${game}`;
+    if (this.tables.has(id)) return;
+    const table: Table = {
+      id,
+      game,
+      mode: 'solo',
+      demo: true,
+      session: null,
+      seats: [],
+      seed: (Math.random() * 2 ** 31) >>> 0,
+      openTick: 0,
+      graceTick: -1,
+      paused: false,
+      readyTick: -1,
+      lastSnap: -999,
+      pendingEvents: [],
+    };
+    table.session = this.demoSession(table);
+    this.tables.set(id, table);
   }
 
   private demoSession(table: Table): Session {
@@ -127,12 +155,14 @@ export class Arcade {
     this.conns.delete(connId);
     this.hallWatchers.delete(connId);
     this.credits.delete(connId);
+    this.coinRate.delete(connId);
     for (const table of this.tables.values()) {
       table.seats = table.seats.filter((s) => s.connId !== connId);
       this.clearReadyIfUnderstaffed(table);
       // a disconnected player must never leave others holding a frozen table (R26.3)
       if (table.paused) table.paused = false;
-      if (!table.seats.some((s) => !s.spectator)) this.closeTable(table);
+      // demos are seatless by design (P0-1): never tear one down for having no seats
+      if (!table.demo && !table.seats.some((s) => !s.spectator)) this.closeTable(table);
     }
     this.broadcastRoster();
   }
@@ -144,7 +174,7 @@ export class Arcade {
       case 'join':
         conn.name = msg.name.trim() || '???';
         conn.lang = msg.lang;
-        this.send(connId, { type: 'welcome', playerId: connId, serverName: 'ARKAD', games: GAME_LIST });
+        this.send(connId, { type: 'welcome', playerId: connId, serverName: 'TOKYO ARCADE', games: GAME_LIST });
         this.broadcastRoster();
         break;
       case 'setName':
@@ -176,6 +206,13 @@ export class Arcade {
         // one credit into this cabinet (R18.2)
         if (msg.game && this.opts.service.snapshot().outOfOrder.includes(msg.game)) {
           this.send(connId, { type: 'error', code: 'out-of-order' });
+          break;
+        }
+        // P1-5: debounce the slot — 4 coins per second per connection
+        const rate = coinRateAllows(this.coinRate.get(connId) ?? null, this.tickCount);
+        this.coinRate.set(connId, rate.win);
+        if (!rate.allow) {
+          this.send(connId, { type: 'error', code: 'slow-down' });
           break;
         }
         this.credits.set(connId, (this.credits.get(connId) ?? 0) + 1);
@@ -228,7 +265,7 @@ export class Arcade {
         if (table) {
           table.seats = table.seats.filter((s) => s.connId !== connId);
           this.clearReadyIfUnderstaffed(table);
-          if (!table.seats.some((s) => !s.spectator)) this.closeTable(table);
+          if (!table.demo && !table.seats.some((s) => !s.spectator)) this.closeTable(table);
           this.broadcastRoster();
         }
         break;
@@ -355,7 +392,7 @@ export class Arcade {
   private leave(table: Table, connId: string): void {
     table.seats = table.seats.filter((s) => s.connId !== connId);
     this.clearReadyIfUnderstaffed(table);
-    if (!table.seats.some((s) => !s.spectator)) this.closeTable(table);
+    if (!table.demo && !table.seats.some((s) => !s.spectator)) this.closeTable(table);
   }
 
   /** an emptied seat cancels the ready window before it deals (R50.2) */
@@ -367,7 +404,13 @@ export class Arcade {
   }
 
   private closeTable(table: Table): void {
-    if (this.tables.delete(table.id)) this.broadcastRoster();
+    if (!this.tables.delete(table.id)) return;
+    this.broadcastRoster();
+    // P0-1 (R8): the cabinet an empty table just vacated goes straight back
+    // to attract — the hall must never sit dark until the next coin
+    if (!table.demo && ![...this.tables.values()].some((t) => t.game === table.game)) {
+      this.openDemoTable(table.game);
+    }
   }
 
   start(intervalMs = 1000 / 60): void {
@@ -468,7 +511,20 @@ export class Arcade {
   }
 
   private broadcastHall(): void {
-    const cabinets = [...this.tables.values()].map((t) => ({
+    // P1-1: one row per cabinet in the hall; a live table always wins over
+    // the attract demo of the same game (the client renders find(game)).
+    // Among live tables of one game (solo + versus), the more crowded wins.
+    const byGame = new Map<GameId, Table>();
+    for (const t of this.tables.values()) {
+      const prev = byGame.get(t.game);
+      if (!prev || (prev.demo && !t.demo)) {
+        byGame.set(t.game, t);
+      } else if (!prev.demo && !t.demo) {
+        const crowd = (x: Table) => x.seats.filter((s) => !s.spectator).length;
+        if (crowd(t) > crowd(prev)) byGame.set(t.game, t);
+      }
+    }
+    const cabinets = [...byGame.values()].map((t) => ({
       game: t.game,
       mode: t.mode,
       demo: t.demo,

@@ -52,7 +52,7 @@ const renderers: Partial<Record<GameId, (ctx: CanvasRenderingContext2D, data: ne
   galaxy: (ctx, data, ms) => renderGalaxy(ctx, data, ms),
   river: (ctx, data, ms) => renderRiver(ctx, data, ms),
   myriad: (ctx, data, ms) => renderMyriad(ctx, data, ms),
-  coast: (ctx, data, ms) => renderCoast(ctx, data, ms),
+  coast: (ctx, data, ms) => renderCoast(ctx, data, ms, lang),
 };
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
@@ -86,6 +86,7 @@ let muted = loadMuted(localStorage, false);
 let statsAskedAt = 0;
 let coinInsertAt = 0;
 let pendingMode: GameMode = 'solo';
+let lastStart: { game: GameId; mode: GameMode } | null = null; // P1-4: reconnect replays what we were playing
 let namePad: NamePad = createNamePad();
 let sel = 0;
 let hallSteps = 0;
@@ -175,8 +176,9 @@ net.onOpen(() => {
   if (scene === 'hall' || scene === 'map') net.send({ type: 'hall', watch: true });
   if (scene === 'table') {
     world.snap = null;
-    const game = GAME_IDS[sel]!;
-    net.send({ type: 'start', game, mode: 'versus' });
+    // P1-4: replay the game+mode we were actually playing, not always versus
+    const st = lastStart ?? { game: GAME_IDS[sel]!, mode: 'versus' as GameMode };
+    net.send({ type: 'start', game: st.game, mode: st.mode });
   }
 });
 net.connect();
@@ -237,6 +239,7 @@ function startGame(mode: GameMode): void {
 
 function beginGame(mode: GameMode): void {
   const game = GAME_IDS[sel]!;
+  lastStart = { game, mode }; // P1-4: remember for the reconnect re-seat
   net.send({ type: 'hall', watch: false });
   net.send({ type: 'start', game, mode });
   world.snap = null;
@@ -598,6 +601,10 @@ function renderGame(ms: number): void {
     const msSinceFull = 3000 - ((snap.table.readyAt - (snap.tick ?? snap.table.readyAt)) * 1000) / 60;
     const secs = readyCountdown(msSinceFull);
     if (secs !== null) px(ctx, `READY ${secs}`, CANVAS_W / 2, 104, 20, blink(ms, 400) ? PAL.yellow : PAL.orange, 'center');
+  }
+  // R54.5: Pole Position qualifying call — the text twin of the 予選スタート sample
+  if (game === 'coast' && (phase === 'ready' || snap.table.readyAt != null)) {
+    px(ctx, t('coast.qualifying'), cx, 78, 12, blink(ms, 420) ? PAL.white : PAL.magenta, 'center');
   }
   const left = joinCountdown(snap.table.joinDeadline ?? null, snap.tick ?? 0);
   if (left !== null) {

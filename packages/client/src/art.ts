@@ -33,7 +33,10 @@ export async function loadArt(
     ART_FILES.map(async (name) => {
       try {
         const img = await load(artPath(name));
-        if (img) atlas[name] = img;
+        // P1-6: 16x16 stubs dropped into the folder are placeholders, not art;
+        // real drops carry ≥64 px on at least one axis, else procedural drawing
+        // (which was designed to stand alone) keeps its precedence
+        if (img && Math.max(img.naturalWidth, img.naturalHeight) >= 64) atlas[name] = img;
       } catch {
         /* procedural fallback stays in charge */
       }

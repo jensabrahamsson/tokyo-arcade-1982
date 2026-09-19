@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { coastSpec, createCoast, curveAt, TRACK_LEN, CHECKPOINTS, type CoastState } from './coast';
+import { coastSpec, createCoast, curveAt, TRACK_LEN, CHECKPOINTS, COAST_BILLBOARDS, type CoastState } from './coast';
 import { NO_INPUT, type GameConfig, type PlayerInput } from '../../engine/types';
 
 const cfg: GameConfig = { mode: 'solo', playerIds: ['p1'], seed: 7 };
@@ -12,6 +12,24 @@ const run = (s: CoastState, input: PlayerInput, n: number): CoastState => {
   for (let i = 0; i < n && cur.phase === 'playing'; i++) cur = coastSpec.step(cur, { p1: input });
   return cur;
 };
+
+describe('coast roadside billboards (R54.7 data)', () => {
+  it('carries a fixed, ordered set of drive-past boards with copy', () => {
+    expect(COAST_BILLBOARDS.length).toBeGreaterThanOrEqual(5);
+    let d = -1;
+    for (const b of COAST_BILLBOARDS) {
+      expect(b.d).toBeGreaterThan(d); // strictly ordered along the track
+      d = b.d;
+      expect(b.d).toBeGreaterThan(0);
+      expect(b.d).toBeLessThan(TRACK_LEN);
+      expect(Math.abs(b.side)).toBe(1);
+      expect(b.text.length).toBeGreaterThan(3);
+      expect(b.text.length).toBeLessThanOrEqual(24);
+    }
+    // the LO-borgen beat stays the last landmark, never a billboard at the gate
+    expect(COAST_BILLBOARDS[COAST_BILLBOARDS.length - 1]!.d).toBeLessThan(TRACK_LEN - 100);
+  });
+});
 
 describe('coast create', () => {
   it('starts ready with time on the clock and a seeded obstacle field', () => {
