@@ -86,6 +86,19 @@ describe('i18n', () => {
     expect(JA['coast.mph']).not.toContain('マイル');
   });
 
+  it('Coast HUD TIME / OFF ROAD / speed units are consistent EN+JA (metric)', () => {
+    expect(EN['coast.time']).toBe('TIME');
+    expect(JA['coast.time']).toBe('タイム');
+    expect(EN['coast.offRoad']).toBe('OFF ROAD!');
+    expect(JA['coast.offRoad']).toBe('オフロード！');
+    // Tokyo Arcade 1982 is a Japanese-market cabinet: both languages show km/h,
+    // never mixed MPH/マイル. JA already locked metric in P2-F.
+    expect(EN['coast.mph']).toMatch(/KM\/H/i);
+    expect(EN['coast.mph']).not.toMatch(/MPH/i);
+    expect(JA['coast.mph']).toMatch(/キロ|km\/h/i);
+    expect(JA['coast.mph']).not.toContain('マイル');
+  });
+
   it('coin-mode chrome has an i18n string in both languages (P2-E)', () => {
     expect(EN['hall.coinMode']).toBe('COIN 1C');
     expect(JA['hall.coinMode']).toMatch(/[\u3040-\u30ff\u4e00-\u9fff]/);

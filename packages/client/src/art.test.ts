@@ -61,6 +61,32 @@ describe('art manifest (R38)', () => {
     expect(existsSync(join(artDir, 'pilots'))).toBe(false);
   });
 
+  it('Coast show-cabinet PNGs are real pixel art, size-gated, 16–32KB class', () => {
+    const artDir = join(__dirname, '..', 'static', 'art');
+    const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const coastArt = ART_FILES.filter((f) => f.startsWith('coast-'));
+    expect(coastArt).toEqual(expect.arrayContaining([
+      'coast-lo-castle.png', 'coast-centerpartiet.png', 'coast-harpsund.png',
+      'coast-bommersvik.png', 'coast-valdebatt76.png', 'coast-castro-visit.png',
+    ]));
+    expect(coastArt.length).toBe(6);
+    for (const name of coastArt) {
+      const p = join(artDir, name);
+      expect(existsSync(p), name).toBe(true);
+      const buf = readFileSync(p);
+      expect(buf.subarray(0, 8).equals(pngMagic), name).toBe(true);
+      const width = buf.readUInt32BE(16);
+      const height = buf.readUInt32BE(20);
+      expect(Math.max(width, height), name).toBeGreaterThanOrEqual(64);
+      // 16–32 KB class: small arcade sprites, not 1.7 MB JPEG pilots
+      expect(buf.length, name).toBeGreaterThanOrEqual(12 * 1024);
+      expect(buf.length, name).toBeLessThanOrEqual(36 * 1024);
+      // no Imagine/Grok watermark stashed in PNG text chunks
+      const text = buf.toString('latin1');
+      expect(text).not.toMatch(/GROK|IMAGINE WATERMARK|OPENAI/i);
+    }
+  });
+
   it('every PNG in the drop zone is actually PNG bytes, not JPEG (P2-C)', () => {
     const artDir = join(__dirname, '..', 'static', 'art');
     const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
