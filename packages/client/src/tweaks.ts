@@ -1,6 +1,6 @@
 /** Presentation-only operator knobs (R19/R21). Pure; persisted in localStorage. */
 
-import type { GameId } from '@arkad/core';
+import type { GameId, GameMode } from '@arkad/core';
 
 export interface CrtKnobs {
   brightness: 0 | 1 | 2;
@@ -403,13 +403,15 @@ export function escapeClearsFullscreenOnly(isFullscreen: boolean): boolean {
  * documented exception to the all-synthesized rule (attract loop + Coast
  * READY call, operator volume/mute applied, fail-closed silent when a file
  * is missing, never touched by core). Pixel art is original work, checked
- * for watermarks before it lands in static/art/.
+ * for watermarks *when* it lands in static/art/. Until then the drop
+ * zone is 16×16 stubs and the credits wall must not claim originals.
  */
 export const provenanceLines = (): string[] => [
   'SFX SYNTHESIZED LIVE - CHIPTUNE ONLY',
   'ATTRACT TRACK: LATE NIGHT CABINET (LYRIA 3.5)',
   'READY CALL: COAST YOSEN START JA (LYRIA 3.5)',
-  'PIXEL ART: ORIGINALS, CHECKED FOR WATERMARKS',
+  'PIXEL ART: PROCEDURAL UNTIL ART LANDS',
+  'WATERMARK CHECK WHEN REAL PNGS LAND',
 ];
 
 /**
@@ -470,6 +472,27 @@ export function readyStingerDue(announcedFor: string, tableId: string, game: str
   return phase === 'ready' || seated;
 }
 
+/** P1-A: 「予選スタート！」 overlay — N seconds after the first seated Coast
+ *  snapshot, independent of phase. Solo begin() jumps to playing, so a
+ *  phase==='ready' || readyAt gate never fires on the only playable path. */
+export const COAST_QUALIFYING_MS = 3000;
+
+export function coastQualifyingOverlay(opts: {
+  game: string;
+  tableId: string;
+  seated: boolean;
+  announcedFor: string;
+  announcedAtMs: number;
+  nowMs: number;
+  windowMs?: number;
+}): boolean {
+  if (opts.game !== 'coast' || !opts.seated) return false;
+  if (opts.announcedFor !== opts.tableId) return false;
+  const windowMs = opts.windowMs ?? COAST_QUALIFYING_MS;
+  const elapsed = opts.nowMs - opts.announcedAtMs;
+  return elapsed >= 0 && elapsed < windowMs;
+}
+
 /** UX shell: one warm accent per cabinet so hall cabinets read as games,
  * not as seven identical debug frames; distinct, palette-true colors */
 const CAB_ACCENTS: Record<GameId, string> = {
@@ -484,4 +507,37 @@ const CAB_ACCENTS: Record<GameId, string> = {
 
 export function cabAccent(game: GameId): string {
   return CAB_ACCENTS[game]!;
+}
+
+/** P2-G: one header chrome row — left stack vs right stack, never the same cell */
+export const HALL_CHROME = {
+  leftY: 2,
+  leftY2: 12,
+  rightY: 2,
+  rightY2: 12,
+} as const;
+
+/** P2-E: FREE PLAY / COIN 1C from the i18n tables, not a hardcoded English pair */
+export function hallCoinBadge(freePlay: boolean, freePlayLabel: string, coinLabel: string): string {
+  return freePlay ? freePlayLabel : coinLabel;
+}
+
+/** JOIN n / READY n — the word comes from i18n, the count is the live number */
+export function countedChrome(word: string, n: number): string {
+  return `${word} ${n}`;
+}
+
+export type StartChoice = { game: GameId; mode: GameMode };
+
+/** P1-4/P1-B: onOpen re-seats the table we were at. No versus fallback —
+ *  a dropped solo Coast must not come back as a duel. */
+export function reconnectStart(lastStart: StartChoice | null): StartChoice | null {
+  return lastStart;
+}
+
+/** P2-H: windowed Escape from a seated table sends `back` (reopens attract).
+ *  Fullscreen spends the first Escape leaving FS. */
+export function escapeSendsBack(scene: EscapeScene, joined: boolean, fullscreen: boolean): boolean {
+  if (escapeClearsFullscreenOnly(fullscreen)) return false;
+  return escapeBackTarget(scene, joined) === 'hall';
 }

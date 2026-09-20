@@ -36,7 +36,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, reconnectStart, coastQualifyingOverlay, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -70,6 +70,7 @@ const music = new Samples();
 const ATTRACT_TRACK = 'audio/Late_Night_Cabinet.mp3';
 const COAST_READY_STINGER = 'audio/coast_yosen_start_ja.mp3';
 let coastAnnouncedFor = '';
+let coastAnnouncedAt = 0;
 
 let lang: Lang = (localStorage.getItem('arkad-lang') as Lang) === 'ja' ? 'ja' : 'en';
 type Scene = 'splash' | 'title' | 'name' | 'hall' | 'map' | 'table' | 'scores' | 'credits' | 'service' | 'note' | 'coinInsert';
@@ -139,6 +140,7 @@ net.onMessage((msg: ServerMessage) => {
       const seated = snap.table.players.some((p) => p.id === world.myId);
       if (readyStingerDue(coastAnnouncedFor, snap.table.id, snap.table.game, snap.table.phase, seated)) {
         coastAnnouncedFor = snap.table.id;
+        coastAnnouncedAt = performance.now();
         void music.play(COAST_READY_STINGER, 0.9);
       }
       break;
@@ -177,8 +179,8 @@ net.onOpen(() => {
   if (scene === 'table') {
     world.snap = null;
     // P1-4: replay the game+mode we were actually playing, not always versus
-    const st = lastStart ?? { game: GAME_IDS[sel]!, mode: 'versus' as GameMode };
-    net.send({ type: 'start', game: st.game, mode: st.mode });
+    const st = reconnectStart(lastStart);
+    if (st) net.send({ type: 'start', game: st.game, mode: st.mode });
   }
 });
 net.connect();
@@ -626,10 +628,18 @@ function renderGame(ms: number): void {
   if (snap.table.readyAt != null) {
     const msSinceFull = 3000 - ((snap.table.readyAt - (snap.tick ?? snap.table.readyAt)) * 1000) / 60;
     const secs = readyCountdown(msSinceFull);
-    if (secs !== null) px(ctx, `READY ${secs}`, CANVAS_W / 2, 104, 20, blink(ms, 400) ? PAL.yellow : PAL.orange, 'center');
+    if (secs !== null) px(ctx, countedChrome(t('phase.ready'), secs), CANVAS_W / 2, 104, 20, blink(ms, 400) ? PAL.yellow : PAL.orange, 'center');
   }
-  // R54.5: Pole Position qualifying call — the text twin of the 予選スタート sample
-  if (game === 'coast' && (phase === 'ready' || snap.table.readyAt != null)) {
+  // R54.5 / P1-A: Pole Position qualifying call — N seconds after the first
+  // seated Coast snapshot, even when solo begin() has already jumped to playing
+  if (coastQualifyingOverlay({
+    game,
+    tableId: snap.table.id,
+    seated: iAmSeated,
+    announcedFor: coastAnnouncedFor,
+    announcedAtMs: coastAnnouncedAt,
+    nowMs: ms,
+  })) {
     px(ctx, t('coast.qualifying'), cx, 78, 12, blink(ms, 420) ? PAL.white : PAL.magenta, 'center');
   }
   const left = joinCountdown(snap.table.joinDeadline ?? null, snap.tick ?? 0);
@@ -852,7 +862,7 @@ function renderCabinet(
     }
     const left = joinCountdown(cab?.joinDeadline ?? null, world.hall?.tick ?? 0);
     if (left !== null) {
-      px(ctx, `JOIN ${left}`, screenX + screenW - 2, screenY + screenH - 9, 7, blink(ms, 400) ? PAL.red : PAL.orange, 'right');
+      px(ctx, countedChrome(t('hud.joinWindow'), left), screenX + screenW - 2, screenY + screenH - 9, 7, blink(ms, 400) ? PAL.red : PAL.orange, 'right');
     }
     if (selected && lamp === 'now-playing') {
       const badge = art()['wait-badge.png'];
@@ -970,7 +980,7 @@ function renderHall(ms: number): void {
   }
   // R17.3 coin badge, delivered on the hall channel
   const freePlay = world.hall?.freePlay ?? false;
-  px(ctx, freePlay ? 'FREE PLAY' : 'COIN 1C', CANVAS_W - 6, 2, 8, freePlay && blink(ms, 500) ? PAL.lime : PAL.orange, 'right');
+  px(ctx, hallCoinBadge(freePlay, t('hall.freePlay'), t('hall.coinMode')), CANVAS_W - 6, HALL_CHROME.rightY, 8, freePlay && blink(ms, 500) ? PAL.lime : PAL.orange, 'right');
   // R21.1 tournament banner with 1982 color chase
   if (freePlayBannerVisible(world.hall?.freePlay ?? false)) {
     const fp = t('hall.freePlay');
@@ -981,8 +991,7 @@ function renderHall(ms: number): void {
     void w;
   }
   const wallClock = formatHallClock(Date.now(), -new Date().getTimezoneOffset());
-  px(ctx, t('hall.clock'), CANVAS_W - 6, 14, 6, PAL.dim, 'right');
-  px(ctx, wallClock, CANVAS_W - 6, 22, 10, PAL.cyan, 'right');
+  px(ctx, wallClock, CANVAS_W - 6, HALL_CHROME.rightY2, 10, PAL.cyan, 'right');
   const note = world.hall?.note ?? '';
   if (note) {
     ctx.font = '8px monospace';
@@ -1042,10 +1051,10 @@ function renderHall(ms: number): void {
   // R53 fix: the window counts from the first hall entry, not from boot —
   // splash + title + name pad routinely ate all 10 s before the hall showed
   if (hallEnteredAt !== null && fullscreenHintVisible(performance.now() - hallEnteredAt)) {
-    px(ctx, 'F: FULLSCREEN', 6, 2, 8, blink(ms, 700) ? PAL.cyan : PAL.gray);
+    px(ctx, 'F: FULLSCREEN', 6, HALL_CHROME.leftY2, 8, blink(ms, 700) ? PAL.cyan : PAL.gray);
   }
   const online = world.roster?.players.length ?? 0;
-  px(ctx, `${t('lobby.players')}: ${online}`, 6, 2, 7, PAL.gray);
+  px(ctx, `${t('lobby.players')}: ${online}`, 6, HALL_CHROME.leftY, 7, PAL.gray);
   drawError();
 }
 
@@ -1089,8 +1098,8 @@ function renderCredits(ms: number): void {
   px(ctx, 'TYPESCRIPT · NODE · WS', cx, 116, 8, PAL.lime, 'center');
   px(ctx, 'CANVAS2D · WEB AUDIO · VITEST', cx, 128, 8, PAL.lime, 'center');
   px(ctx, `${GAME_IDS.length} CABINETS · TOKYO 1982`, cx, 150, 8, PAL.gray, 'center');
-  // P2-8/P2-10: honest provenance — the two Lyria 3.5 samples are the only
-  // audio files; every art PNG is an original that passed the watermark check
+  // P2-B: honest provenance — Lyria samples named; pixel art is procedural
+  // until real PNGs land (the wall must not claim watermark-checked originals)
   let py = 163;
   for (const line of provenanceLines()) {
     px(ctx, line, cx, py, 7, PAL.gray, 'center');
@@ -1111,7 +1120,7 @@ function renderService(ms: number): void {
   px(ctx, `PLAYS ${stats?.plays ?? 0}   COINS ${stats?.coins ?? 0}`, 40, 52, 9, PAL.white);
   px(ctx, `UPTIME ${up}`, 40, 66, 9, PAL.white);
   px(ctx, `TODAY ${stats?.day ?? '----/--/--'}  PLAYS ${stats?.playsToday ?? 0}  COINS ${stats?.coinsToday ?? 0}`, 40, 93, 8, PAL.lime);
-  px(ctx, `MODE: ${stats?.freePlay ?? false ? 'FREE PLAY' : 'COIN 1C'}`, 40, 80, 9, (stats?.freePlay ?? false) ? PAL.lime : PAL.orange);
+  px(ctx, `MODE: ${hallCoinBadge(stats?.freePlay ?? false, t('hall.freePlay'), t('hall.coinMode'))}`, 40, 80, 9, (stats?.freePlay ?? false) ? PAL.lime : PAL.orange);
   px(ctx, `BRIGHT ${knobMark(knobs.brightness)}  CONTRAST ${knobMark(knobs.contrast)}  SCAN ${knobMark(knobs.scanlines)}`, 40, 102, 9, PAL.cyan);
   px(ctx, `ACCESS: ${access.toUpperCase()}`, 40, 116, 9, access === 'normal' ? PAL.gray : PAL.yellow);
   const volLabel = muted ? 'MUTE' : `VOL ${'▮'.repeat(volume)}${'░'.repeat(3 - volume)} ${volumeGain(volume).toFixed(2)}`;

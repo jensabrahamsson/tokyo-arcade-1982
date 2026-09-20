@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { ART_FILES, artPath, loadArt, artGet } from './art';
 
 const fakeImg = (src: string, w = 128, h = 128) =>
@@ -52,5 +54,30 @@ describe('art manifest (R38)', () => {
     });
     expect(atlas['hall-floor.png']).toBeUndefined();
     expect(atlas['splash-logo.png']).toBeTruthy();
+  });
+
+  it('does not keep JPEG pilots on the static serve path (P2-C)', () => {
+    const artDir = join(__dirname, '..', 'static', 'art');
+    expect(existsSync(join(artDir, 'pilots'))).toBe(false);
+  });
+
+  it('every PNG in the drop zone is actually PNG bytes, not JPEG (P2-C)', () => {
+    const artDir = join(__dirname, '..', 'static', 'art');
+    const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const walk = (dir: string): string[] => {
+      const out: string[] = [];
+      for (const name of readdirSync(dir)) {
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) out.push(...walk(p));
+        else if (name.endsWith('.png')) out.push(p);
+      }
+      return out;
+    };
+    const pngs = walk(artDir);
+    expect(pngs.length).toBeGreaterThan(0);
+    for (const p of pngs) {
+      const head = readFileSync(p).subarray(0, 8);
+      expect(head.equals(pngMagic), p).toBe(true);
+    }
   });
 });

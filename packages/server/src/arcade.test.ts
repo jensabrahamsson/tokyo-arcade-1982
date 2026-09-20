@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Arcade, CREDIT_RECONNECT_GRACE, type Conn } from './arcade';
+import { Arcade, CREDIT_RECONNECT_GRACE, liveTablePausesDemo, type Conn } from './arcade';
 import { HighScoreStore } from './highscores';
 import { ServiceStore } from './service';
 import type { ServerMessage, RosterMsg, SnapshotMsg } from '@arkad/core';
@@ -665,6 +665,94 @@ describe('Arcade', () => {
     const cab = hallMsgs('c1').at(-1)?.cabinets.find((c) => c.game === 'snake');
     expect(cab?.demo).toBe(true);
     expect(cab?.data).not.toBeNull();
+  });
+
+  it('liveTablePausesDemo is true only when a live table of that game exists (P2-D)', () => {
+    expect(liveTablePausesDemo('snake', [{ game: 'snake', demo: true }])).toBe(false);
+    expect(liveTablePausesDemo('snake', [
+      { game: 'snake', demo: true },
+      { game: 'snake', demo: false },
+    ])).toBe(true);
+    expect(liveTablePausesDemo('snake', [
+      { game: 'snake', demo: true },
+      { game: 'coast', demo: false },
+    ])).toBe(false);
+  });
+
+  it('a live versus table pauses that game attract demo tick (P2-D)', () => {
+    arcade.handleMessage('c3', { type: 'hall', watch: true });
+    for (let i = 0; i < 24; i++) arcade.tick();
+    const beforeHall = hallMsgs('c3').at(-1)!;
+    const snake0 = beforeHall.cabinets.find((c) => c.game === 'snake')!.data as {
+      snakes: { demo: { body: { x: number; y: number }[] } };
+    };
+    const coast0 = JSON.stringify(beforeHall.cabinets.find((c) => c.game === 'coast')!.data);
+
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'versus' });
+    arcade.handleMessage('c2', { type: 'start', game: 'snake', mode: 'versus' });
+    for (let i = 0; i < 90; i++) arcade.tick();
+    const mid = hallMsgs('c3').at(-1)!;
+    const coastMid = JSON.stringify(mid.cabinets.find((c) => c.game === 'coast')!.data);
+    expect(coastMid).not.toBe(coast0); // other cabinets keep humming
+
+    arcade.handleMessage('c1', { type: 'back' });
+    arcade.handleMessage('c2', { type: 'back' });
+    net.take('c3');
+    let head1: { x: number; y: number } | null = null;
+    for (let i = 0; i < 12; i++) {
+      arcade.tick();
+      const row = hallMsgs('c3').at(-1)?.cabinets.find((c) => c.game === 'snake');
+      if (row?.demo && row.data) {
+        head1 = (row.data as typeof snake0).snakes.demo.body[0]!;
+        break;
+      }
+    }
+    expect(head1).not.toBeNull();
+    const head0 = snake0.snakes.demo.body[0]!;
+    // at most one resume step (moveInterval 10, ≤12 ticks after back); 90 live
+    // ticks would have walked ~9 cells if the demo had kept running
+    expect(Math.abs(head1!.x - head0.x) + Math.abs(head1!.y - head0.y)).toBeLessThanOrEqual(1);
+  });
+
+  it('reconnect reseats a live solo Coast without a new debit (P1-B)', () => {
+    arcade.handleMessage('c1', { type: 'freePlay', on: false });
+    arcade.handleMessage('c1', { type: 'coin', game: 'coast' });
+    arcade.handleMessage('c1', { type: 'coin', game: 'coast' });
+    arcade.handleMessage('c1', { type: 'start', game: 'coast', mode: 'solo' });
+    for (let i = 0; i < 10; i++) arcade.tick();
+    const snap0 = net.last<SnapshotMsg>('c1', 'snapshot');
+    expect(snap0?.table.game).toBe('coast');
+    expect(snap0?.table.mode).toBe('solo');
+    expect(snap0?.credits).toBe(1); // two coins, one spent at the seat
+    const tableId = snap0?.table.id;
+    const dist0 = (snap0?.data as { dist?: number } | null)?.dist ?? 0;
+
+    arcade.removeConnection('c1');
+    arcade.addConnection({ id: 'c9', name: '???', lang: 'en' });
+    arcade.handleMessage('c9', { type: 'join', name: 'AKIRA', lang: 'en' });
+    arcade.handleMessage('c9', { type: 'start', game: 'coast', mode: 'solo' });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    const snap1 = net.last<SnapshotMsg>('c9', 'snapshot');
+    expect(snap1?.table.id).toBe(tableId);
+    expect(snap1?.table.mode).toBe('solo');
+    expect(snap1?.table.game).toBe('coast');
+    expect(snap1?.credits).toBe(1); // parked wallet restored, no second debit
+    expect((snap1?.data as { dist?: number } | null)?.dist ?? 0).toBeGreaterThanOrEqual(dist0);
+  });
+
+  it('lapsed reconnect grace is a normal start: insert-coin when the wallet is gone (P1-B)', () => {
+    arcade.handleMessage('c1', { type: 'freePlay', on: false });
+    arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
+    arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'solo' });
+    for (let i = 0; i < 4; i++) arcade.tick();
+    arcade.removeConnection('c1');
+    for (let i = 0; i < CREDIT_RECONNECT_GRACE + 1; i++) arcade.tick();
+    arcade.addConnection({ id: 'c9', name: '???', lang: 'en' });
+    arcade.handleMessage('c9', { type: 'join', name: 'AKIRA', lang: 'en' });
+    net.take('c9');
+    arcade.handleMessage('c9', { type: 'start', game: 'snake', mode: 'solo' });
+    expect(net.last<{ code: string }>('c9', 'error')?.code).toBe('insert-coin');
   });
 });
 

@@ -3,7 +3,7 @@ import { WebSocket } from 'ws';
 import { mkdtempSync, rmSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {createGameServer, type GameServerHandle, isFatalNetError} from './http';
+import {createGameServer, type GameServerHandle, isFatalNetError, contentTypeFor} from './http';
 import type { ServerMessage } from '@arkad/core';
 
 interface Peer {
@@ -248,6 +248,29 @@ describe('game server (real websockets)', () => {
       if (Date.now() - started > 12000) throw new Error('the hall watcher never saw the live versus row');
     }
   }, 40000);
+
+  it('pause over a real socket keeps snapshots flowing (P2-H)', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'arkad-ws-'));
+    handle = await createGameServer({ port: 0, dataDir: dir });
+    const url = `ws://127.0.0.1:${handle.port}/ws`;
+    const a = await peer(url);
+    peers.push(a);
+    a.ws.send(JSON.stringify({ type: 'join', name: 'AKIRA', lang: 'en' }));
+    await a.waitFor('welcome');
+    a.ws.send(JSON.stringify({ type: 'coin', game: 'snake' }));
+    a.ws.send(JSON.stringify({ type: 'start', game: 'snake', mode: 'solo' }));
+    await waitPhase(a, 'playing');
+    a.ws.send(JSON.stringify({ type: 'pause' }));
+    const frozen: Array<{ paused?: boolean; credits?: number }> = [];
+    const deadline = Date.now() + 4000;
+    while (frozen.length < 3 && Date.now() < deadline) {
+      const m = await a.waitFor<SnapMsg & { credits?: number; table: { paused?: boolean } }>('snapshot', 4000);
+      if (m.table.paused) frozen.push({ paused: m.table.paused, credits: m.credits });
+    }
+    expect(frozen.length).toBeGreaterThanOrEqual(2);
+    expect(frozen.every((s) => s.paused === true)).toBe(true);
+    expect(typeof frozen[0]!.credits).toBe('number');
+  }, 20000);
 });
 
 describe('static files (P2-4)', () => {
@@ -278,6 +301,21 @@ describe('static files (P2-4)', () => {
     expect(txt.status).toBe(200);
   }, 15000);
 
+  it('serves .jpg as image/jpeg, never as image/png (P2-C)', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'arkad-http-'));
+    mkdirSync(join(dir, 'public'), { recursive: true });
+    writeFileSync(join(dir, 'public', 'shot.jpg'), Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
+    writeFileSync(join(dir, 'public', 'shot.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    handle = await createGameServer({ port: 0, dataDir: join(dir, 'data'), publicDir: join(dir, 'public') });
+    const base = `http://127.0.0.1:${handle.port}`;
+    const jpg = await fetch(`${base}/shot.jpg`);
+    expect(jpg.status).toBe(200);
+    expect(jpg.headers.get('content-type')).toBe('image/jpeg');
+    const png = await fetch(`${base}/shot.png`);
+    expect(png.status).toBe(200);
+    expect(png.headers.get('content-type')).toBe('image/png');
+  }, 15000);
+
   it('rejects encoded path traversal instead of escaping publicDir', async () => {
     const base = await serve();
     for (const probe of ['/%2e%2e/secret.txt', '/%2e%2e/%2e%2e/secret.txt', '/..%2fsecret.txt', '/%2e%2e/data/scores.json']) {
@@ -303,5 +341,14 @@ describe('fatal net error classification (stability)', () => {
     expect(isFatalNetError({ code: 'ECONNRESET' })).toBe(false);
     expect(isFatalNetError({})).toBe(false);
     expect(isFatalNetError(undefined)).toBe(false);
+  });
+});
+
+describe('static MIME (P2-C)', () => {
+  it('maps jpg to image/jpeg and png to image/png — never guesses the other way', () => {
+    expect(contentTypeFor('shot.jpg')).toBe('image/jpeg');
+    expect(contentTypeFor('shot.jpeg')).toBe('image/jpeg');
+    expect(contentTypeFor('shot.png')).toBe('image/png');
+    expect(contentTypeFor('Late_Night_Cabinet.mp3')).toBe('audio/mpeg');
   });
 });

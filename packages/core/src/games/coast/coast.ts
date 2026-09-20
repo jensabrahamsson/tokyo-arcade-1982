@@ -34,7 +34,7 @@ export const COAST_BILLBOARDS: readonly CoastBillboard[] = [
   { d: 620, side: 1, text: 'HARPSUND - EKAN' },
   { d: 1040, side: -1, text: 'BOMMERSVIK 1982' },
   { d: 1460, side: 1, text: 'VALDEBATT 76' },
-  { d: 1840, side: -1, text: 'PALME I HABANNA' },
+  { d: 1840, side: -1, text: 'PALME I HAVANNA' },
 ];
 
 /** road curve per segment, -1 hard left .. +1 hard right; ends straight at the castle */
