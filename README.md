@@ -113,7 +113,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 491 tests across engine, games, server, client
+npm test          # vitest: 502 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```
@@ -130,8 +130,8 @@ as the hall's attract/splash loop and `coast_yosen_start_ja` as the Coast
 READY call, played exactly once per Coast table. Operator volume/mute
 applies to them, a missing file fails closed to silence, and core never
 touches audio. The credits wall (press `C`) carries the provenance, pixel
-art included: procedural drawing until real PNGs land in the drop zone
-(then originals, watermark-checked).
+art included: Coast billboards and LO-borgen are watermark-checked
+PNGs; hall chrome stays procedural until those drops land.
 
 ## License
 
