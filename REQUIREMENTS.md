@@ -83,7 +83,7 @@ defines done. Each item is verified by a test, a live check, or both.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (411 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (432 tests, incl. real-WebSocket E2E for 2- and
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
@@ -626,3 +626,16 @@ paths/protocol keep `arkad`. EN/JA tables updated in lockstep.
   distances; `static/art/coast-*.png` PNG drop zone wired in the R38
   manifest, procedural fallback until art lands. Homage scenery,
   not propaganda.
+
+## Lab — Jev self-play & 1-minute autoplay (all cabinets)
+
+- Enable: `ARKAD_JEV_SELFPLAY=1` + `TYPESAFE_API_KEY` (env or gitignored
+  `.env.typesafe`). Attract demos of ALL seven cabinets consult Jev at
+  ~8 Hz with compact JSON state; missing key/HTTP/low-confidence
+  fail-closed to `spec.demo`. Adapters: `JEV_ADAPTERS` in
+  `packages/server/src/jevPolicy.ts`; core stays pure (no fetch).
+- One-minute autoplay per cabinet (mock-fetch unit tests cover all
+  games; the live harness runs outside the vitest suite):
+  `ARKAD_JEV_AUTOPLAY_SECONDS=60 npm run jev:autoplay` — prints
+  ticks/calls/ok/avg-confidence per cabinet and exits 0; without a key
+  every game is skipped with a log line.

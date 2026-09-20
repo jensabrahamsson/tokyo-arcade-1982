@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DIRS, snakeSpec, type SnakeState, type PlayerInput } from '@arkad/core';
+import { DIRS, GAME_IDS, REGISTRY, coastSpec, snakeSpec, type GameId, type GameStateBase, type SnakeState, type PlayerInput } from '@arkad/core';
 import {
   ACTION_DIRS,
   JEV_CONFIDENCE_MIN,
@@ -22,7 +22,10 @@ import {
   rateLimitAllows,
   runJevSmoke,
   snakeJevQuestions,
+  JEV_ADAPTERS,
+  mapChoiceToInput,
 } from './jevPolicy';
+import { runAutoplayForAll } from './jevAutoplay';
 
 const cfg = { mode: 'solo' as const, playerIds: ['demo'], seed: 1982 };
 const fallback: PlayerInput = { dir: DIRS.right, button: false, seq: 0 };
@@ -203,7 +206,10 @@ describe('jevSelfPlayFromEnv', () => {
     const on = jevSelfPlayFromEnv({ ARKAD_JEV_SELFPLAY: '1' });
     expect(on).toBeInstanceOf(JevSelfPlay);
     expect(on!.covers('snake')).toBe(true);
-    expect(on!.covers('puck')).toBe(false);
+    // lab pack 2026-09-20: Jev now covers every cabinet, not just snake
+    expect(on!.covers('puck')).toBe(true);
+    expect(on!.covers('coast')).toBe(true);
+    expect(on!.covers('ping-pong')).toBe(false);
   });
 });
 
@@ -433,5 +439,156 @@ describe('parseDotEnv / .env.typesafe', () => {
   it('gitignore lists .env.typesafe so the key file is never committed', () => {
     const gi = readFileSync(join(process.cwd(), '.gitignore'), 'utf8');
     expect(gi.split(/\r?\n/).map((l) => l.trim())).toContain('.env.typesafe');
+  });
+});
+
+describe('jev adapters for all seven cabinets', () => {
+  const playing = (id: string): GameStateBase => {
+    const spec = REGISTRY[id as GameId]!;
+    return { ...spec.create({ mode: 'solo', playerIds: ['demo'], seed: 1982 }), phase: 'playing' } as GameStateBase;
+  };
+
+  for (const id of GAME_IDS) {
+    it(`${id}: adapter compacts to a payload with legal actions and a choice question`, () => {
+      const adapter = JEV_ADAPTERS[id]!;
+      expect(adapter).toBeDefined();
+      const jev = adapter(playing(id));
+      expect(jev).not.toBeNull();
+      expect(jev!.legal.length).toBeGreaterThan(0);
+      expect(jev!.payload).toBeTruthy();
+      const q = jev!.questions(jev!.payload);
+      const first = Object.values(q)[0]!;
+      expect(first.type).toBe('choice');
+      expect((first as { criteria: Record<string, string> }).criteria).toBeTruthy();
+    });
+
+    it(`${id}: toInput maps each legal action to a PlayerInput`, () => {
+      const jev = JEV_ADAPTERS[id]!(playing(id));
+      for (const a of jev!.legal) {
+        const input = jev!.toInput(a, 42);
+        expect(input).not.toBeNull();
+        expect(typeof input!.button).toBe('boolean');
+        expect(input!.seq).toBe(42);
+      }
+      expect(jev!.toInput('moon-walk', 1)).toBeNull();
+    });
+  }
+
+  it('JevSelfPlay covers every cabinet and fails closed without a key', () => {
+    const p = new JevSelfPlay({ apiKey: '' });
+    for (const id of GAME_IDS) {
+      expect(p.covers(id)).toBe(true);
+      const fb: PlayerInput = { dir: DIRS.right, button: false, seq: 0 };
+      const out = p.inputFor(id, playing(id), 10, fb);
+      expect(out).toBeTruthy();
+      expect(typeof out.button).toBe('boolean');
+    }
+  });
+
+  it('a mocked Jev answer drives the coast cabinet and is remembered', async () => {
+    let calls = 0;
+    const fetchImpl = (async (_url: unknown, init: { body: string }) => {
+      calls++;
+      const sent = JSON.parse(init.body as string) as { questions: Record<string, { type: string }> };
+      const actionKey = Object.keys(sent.questions)[0]!;
+      const answers: Record<string, unknown> = {};
+      for (const [k, q] of Object.entries(sent.questions)) {
+        if (q.type === 'choice') answers[k] = { type: 'choice', choice: 'left', confidence: 0.9 };
+        else if (q.type === 'noul') answers[k] = { type: 'noul', noul: 0.8 };
+        else answers[k] = { type: 'score', score: 2 };
+      }
+      return jsonResponse({ model: 'jev-1.13.0', answers });
+    }) as unknown as typeof fetch;
+    const p = new JevSelfPlay({ apiKey: 'k', fetchImpl, minIntervalMs: 0 });
+    let sawJevLeft = false;
+    const state0 = { ...coastSpec.create({ mode: 'solo', playerIds: ['demo'], seed: 7 }), phase: 'playing' } as GameStateBase;
+    let s = state0;
+    for (let i = 0; i < 40 && !sawJevLeft; i++) {
+      const input = p.inputFor('coast', s, i, { dir: null, button: true, seq: i });
+      if (input.dir?.dx === -1) sawJevLeft = true;
+      s = coastSpec.step(s as never, { demo: input }) as GameStateBase;
+      await Promise.resolve();
+    }
+    expect(calls).toBeGreaterThan(0);
+    expect(p.stats.ok).toBeGreaterThan(0);
+    expect(sawJevLeft).toBe(true);
+  });
+
+  it('myriad carries a per-game confidence floor below the global one (5-choice cap)', () => {
+    const jev = JEV_ADAPTERS.myriad!(playing('myriad'))!;
+    expect(jev.confidenceMin).toBeDefined();
+    expect(jev.confidenceMin!).toBeLessThan(JEV_CONFIDENCE_MIN);
+    expect(jev.confidenceMin!).toBeGreaterThanOrEqual(0.25);
+    const fb: PlayerInput = { dir: DIRS.right, button: false, seq: 0 };
+    const conf = jev.confidenceMin! + 0.02;
+    const got = mapChoiceToInput({ action: { choice: 'fire', confidence: conf } }, jev, fb, 5);
+    expect(got.button).toBe(true);
+    expect(got.seq).toBe(5);
+    const noise = mapChoiceToInput({ action: { choice: 'fire', confidence: 0.2 } }, jev, fb, 6);
+    expect(noise).toEqual(fb);
+  });
+
+  it('JevSelfPlay honours the per-game floor for myriad but keeps the global floor for snake', async () => {
+    const fetchImpl = (async (_url: unknown, init: { body: string }) => {
+      const sent = JSON.parse(init.body as string) as { state: { game: string } };
+      const choice = sent.state.game === 'myriad' ? 'fire' : 'up';
+      return jsonResponse({
+        model: 'jev-1.13.0',
+        answers: { action: { type: 'choice', choice, confidence: 0.3 } },
+      });
+    }) as unknown as typeof fetch;
+    const myriadBot = new JevSelfPlay({ apiKey: 'k', fetchImpl, minIntervalMs: 0 });
+    const ms = playing('myriad');
+    myriadBot.inputFor('myriad', ms, 1, { dir: null, button: false, seq: 1 });
+    await flush();
+    const held = myriadBot.inputFor('myriad', ms, 2, { dir: null, button: false, seq: 2 });
+    expect(held.button).toBe(true);
+    expect(myriadBot.stats.ok).toBe(1);
+    const snakeBot = new JevSelfPlay({ apiKey: 'k', fetchImpl, minIntervalMs: 0 });
+    const out = snakeBot.inputFor('snake', liveSnake(), 1, fallback);
+    await flush();
+    expect(out).toEqual(fallback);
+    expect(snakeBot.stats.ok).toBe(0);
+  });
+
+  it('low-confidence and junk answers never override the fallback', () => {
+    for (const conf of [0.1, Number.NaN]) {
+      const input = mapChoiceToInput(
+        { action: { choice: 'left', confidence: conf } },
+        { legal: ['left', 'right'], toInput: (c, t) => (c === 'left' ? { dir: DIRS.left, button: false, seq: t } : null) },
+        { dir: DIRS.right, button: false, seq: 0 },
+        9,
+      );
+      expect(input.dir).toEqual(DIRS.right);
+    }
+  });
+});
+
+describe('one-minute autoplay harness', () => {
+  it('runs ticks for every game with a fake fetch and reports summaries', async () => {
+    const fetchImpl = (async () =>
+      jsonResponse({
+        model: 'jev-1.13.0',
+        answers: { action: { type: 'choice', choice: 'stay', confidence: 0.9 } },
+      })) as unknown as typeof fetch;
+    const summaries = await runAutoplayForAll({
+      apiKey: 'k',
+      fetchImpl,
+      secondsPerGame: 0.05,
+      minIntervalMs: 0,
+      sleep: async () => Promise.resolve(),
+      now: () => Date.now(),
+      log: () => undefined,
+    });
+    expect(summaries).toHaveLength(GAME_IDS.length);
+    for (const s of summaries) {
+      expect(s.ticks).toBeGreaterThan(0);
+      expect(s.jevCalls).toBeGreaterThan(0);
+    }
+  });
+
+  it('without a key the harness skips every game and reports skipped', async () => {
+    const summaries = await runAutoplayForAll({ apiKey: '', secondsPerGame: 0.02, log: () => undefined });
+    expect(summaries.every((s) => s.skipped)).toBe(true);
   });
 });
