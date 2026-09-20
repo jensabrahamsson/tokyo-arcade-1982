@@ -193,6 +193,61 @@ describe('game server (real websockets)', () => {
       if (Date.now() - started > 10000) throw new Error('attract demo never reopened the snake cabinet');
     }
   }, 30000);
+
+  it('solo start -> back hands the cabinet back to the live demo (P1-7a, real sockets)', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'arkad-ws-'));
+    handle = await createGameServer({ port: 0, dataDir: dir });
+    const url = `ws://127.0.0.1:${handle.port}/ws`;
+    const a = await peer(url);
+    peers.push(a);
+    a.ws.send(JSON.stringify({ type: 'join', name: 'AKIRA', lang: 'en' }));
+    await a.waitFor('welcome');
+    a.ws.send(JSON.stringify({ type: 'hall', watch: true }));
+    a.ws.send(JSON.stringify({ type: 'coin', game: 'snake' }));
+    a.ws.send(JSON.stringify({ type: 'start', game: 'snake', mode: 'solo' }));
+    await waitPhase(a, 'playing');
+
+    a.ws.send(JSON.stringify({ type: 'back' }));
+    const started = Date.now();
+    for (;;) {
+      const hall = await a.waitFor<{ type: 'hallTables'; cabinets: { game: string; demo: boolean; data: unknown; players: number }[] }>('hallTables', 15000);
+      const rows = hall.cabinets.filter((c) => c.game === 'snake');
+      if (rows.length === 1 && rows[0]!.demo === true && rows[0]!.data !== null && rows[0]!.players === 0) break;
+      if (Date.now() - started > 10000) throw new Error('back-out never reopened the snake attract demo');
+    }
+  }, 30000);
+
+  it('a live versus match wins over the demo in every hall watcher (P1-7b, real sockets)', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'arkad-ws-'));
+    handle = await createGameServer({ port: 0, dataDir: dir });
+    const url = `ws://127.0.0.1:${handle.port}/ws`;
+    const a = await peer(url);
+    const b = await peer(url);
+    const w = await peer(url);
+    peers.push(a, b, w);
+    a.ws.send(JSON.stringify({ type: 'join', name: 'AKIRA', lang: 'en' }));
+    b.ws.send(JSON.stringify({ type: 'join', name: 'MIO', lang: 'ja' }));
+    w.ws.send(JSON.stringify({ type: 'join', name: 'WALKER', lang: 'en' }));
+    await a.waitFor('welcome');
+    await b.waitFor('welcome');
+    const ww = await w.waitFor<{ type: 'welcome'; playerId: string }>('welcome');
+    void ww;
+    w.ws.send(JSON.stringify({ type: 'hall', watch: true }));
+
+    a.ws.send(JSON.stringify({ type: 'coin', game: 'snake' }));
+    b.ws.send(JSON.stringify({ type: 'coin', game: 'snake' }));
+    a.ws.send(JSON.stringify({ type: 'start', game: 'snake', mode: 'versus' }));
+    b.ws.send(JSON.stringify({ type: 'start', game: 'snake', mode: 'versus' }));
+
+    const started = Date.now();
+    for (;;) {
+      const hall = await w.waitFor<{ type: 'hallTables'; cabinets: { game: string; demo: boolean; players: number }[] }>('hallTables', 15000);
+      const rows = hall.cabinets.filter((c) => c.game === 'snake');
+      const live = rows.find((c) => c.demo === false);
+      if (rows.length === 1 && live && live.players === 2) break;
+      if (Date.now() - started > 12000) throw new Error('the hall watcher never saw the live versus row');
+    }
+  }, 40000);
 });
 
 describe('static files (P2-4)', () => {

@@ -165,7 +165,13 @@ function drawBillboard(ctx: CanvasRenderingContext2D, b: BoardDraw, p: { y: numb
   }
 }
 
-export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 0, lang: Lang = 'en'): void {
+/** P1-8: hall minis shrink the road to a thumbnail — a quarter of the
+ * strips still reads as the same road, because the grass/road band period
+ * is exactly 4 distance units, so a stride of 4 samples one band per strip
+ * and the layout is identical, just coarser. Full-size cabinets keep 1. */
+export const coastLodStride = (mini: boolean): number => (mini ? 4 : 1);
+
+export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 0, lang: Lang = 'en', mini = false): void {
   const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
   sky.addColorStop(0, blend(SKY_TOP));
   sky.addColorStop(1, blend(SKY_BOT));
@@ -184,9 +190,10 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
   ctx.fillRect(0, HORIZON, W, H - HORIZON);
 
   const cam = s.dist;
-  for (let d = 140; d >= 1; d--) {
+  const stride = coastLodStride(mini); // P1-8: quarter the strip count in hall minis
+  for (let d = 140; d >= 1; d -= stride) {
     const p1 = project(cam + d, cam, s.playerX);
-    const p0 = project(cam + d - 1, cam, s.playerX);
+    const p0 = project(cam + d - stride, cam, s.playerX);
     if (p1.y > H || p0.y < HORIZON) continue;
     const band = Math.floor((cam + d) / 4) % 2;
     const y = Math.max(HORIZON, p1.y);

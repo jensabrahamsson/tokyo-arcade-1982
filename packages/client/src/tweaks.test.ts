@@ -14,7 +14,7 @@ import {
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
   hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect,
   escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue,
-  escapeClearsFullscreenOnly, provenanceLines,
+  escapeClearsFullscreenOnly, provenanceLines, guardRender,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -635,5 +635,25 @@ describe('credits provenance (P2-8/P2-10)', () => {
     expect(all).toContain('COAST YOSEN START');
     expect(all).toContain('WATERMARK');
     for (const line of lines) expect(line.length).toBeLessThanOrEqual(46);
+  });
+});
+
+describe('render guard (P1-7)', () => {
+  it('a healthy render runs and reports success', () => {
+    let drew = 0;
+    expect(guardRender('cab snake', () => { drew++; })).toBe(true);
+    expect(drew).toBe(1);
+  });
+
+  it('a throwing render is contained, logged with its label, and never rethrown', () => {
+    const logs: string[] = [];
+    const log = (m: string) => { logs.push(m); };
+    expect(guardRender('cab coast', () => { throw new Error('boom'); }, log)).toBe(false);
+    expect(guardRender('cab coast', () => { throw new Error('boom'); }, log)).toBe(false);
+    expect(logs).toEqual(['[arkad] render cab coast failed', '[arkad] render cab coast failed']);
+  });
+
+  it('default logger swallows silently', () => {
+    expect(() => guardRender('cab myriad', () => { throw new Error('hush'); })).not.toThrow();
   });
 });

@@ -412,6 +412,26 @@ export const provenanceLines = (): string[] => [
   'PIXEL ART: ORIGINALS, CHECKED FOR WATERMARKS',
 ];
 
+/**
+ * P1-7: one throwing renderer must never take down the canvas or the rAF
+ * loop. The guarded call returns whether the frame survived; the logger is
+ * injected (no console in a pure helper), so callers decide how loud — and
+ * how often — to be about a broken cabinet.
+ */
+export function guardRender(
+  label: string,
+  fn: () => void,
+  log: (msg: string) => void = () => undefined,
+): boolean {
+  try {
+    fn();
+    return true;
+  } catch {
+    log(`[arkad] render ${label} failed`);
+    return false;
+  }
+}
+
 /** P3 fix: plate rect behind a small badge label so the CRT scanline/glow
  * overlay cannot stripe out the glyphs; honor alignment, clamp to the canvas */
 export function badgePlateRect(
