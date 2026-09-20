@@ -64,8 +64,10 @@ describe('i18n', () => {
     expect(JA['hall.wait']).toBe('待機');
   });
 
-  it('river tag is katakana, no Latin shouting in the JA marquee of it', () => {
-    expect(JA['game.river.tag']).toBe('カワヲ ワタレ!');
+  // Wave 6 leftover: old lock was machine-katakana カワヲ ワタレ!.
+  // Native PCB mix is 川を渡れ! — still no Latin shouting.
+  it('river tag is native Japanese, no Latin shouting in the JA marquee of it', () => {
+    expect(JA['game.river.tag']).toBe('川を渡れ!');
     expect(JA['game.river.tag']).not.toMatch(/[A-Za-z]/);
   });
 
@@ -75,12 +77,11 @@ describe('i18n', () => {
     expect(JA['toast.generic']).toBe('ただいま 故障中');
   });
 
-  // Wave 6 / R58: marquee.3 used ロキャッスル + アンゼン ウンテン (all katakana).
-  // Native PCB mix is エルオー城 + 安全運転; still LO Castle, still not リーゼ.
-  // game.coast.tag stays ロキャッスル (Wave 6 did not retune cabinet names/tags).
+  // Wave 6 leftover: game.coast.tag used ロキャッスルマデ ハシレ (all katakana).
+  // Native tag is エルオー城まで走れ; still LO Castle, still not リーゼ.
   it('coast copy follows the EN table to LO Castle, not to a Swedish park', () => {
     expect(JA['marquee.3']).toContain('エルオー城');
-    expect(JA['game.coast.tag']).toContain('ロキャッスル');
+    expect(JA['game.coast.tag']).toContain('エルオー城');
     expect(JA['marquee.3']).not.toContain('リーゼ');
     expect(JA['game.coast.tag']).not.toContain('リーゼ');
     expect(JA['marquee.3']).toContain('安全運転');
@@ -129,6 +130,18 @@ describe('i18n', () => {
     'net.lost': '接続が切れました',
     'name.title': 'ネームを入れてください',
     'toast.soloOnly': '1人用です',
+    'menu.language': '言語',
+    'menu.back': 'もどる',
+    'menu.map': '館内図',
+    'name.select': '決定',
+    'name.cancel': 'やめる',
+    'game.snake.tag': 'しっぽを出せ!',
+    'game.puck.tag': 'ドットを全部くれ!',
+    'game.block.tag': '壁を砕け!',
+    'game.galaxy.tag': '空を守れ!',
+    'game.river.tag': '川を渡れ!',
+    'game.coast.tag': 'エルオー城まで走れ',
+    'game.myriad.tag': '虫にさわるな!',
   } as const;
 
   const WAVE6_EN_UNCHANGED = {
@@ -147,6 +160,18 @@ describe('i18n', () => {
     'net.lost': 'CONNECTION LOST',
     'name.title': 'ENTER YOUR NAME',
     'toast.soloOnly': 'ONE PLAYER ONLY ON THAT CABINET',
+    'menu.language': 'LANGUAGE',
+    'menu.back': 'BACK',
+    'menu.map': 'HALL MAP',
+    'name.select': 'SELECT',
+    'name.cancel': 'CANCEL',
+    'game.snake.tag': 'TRON-STYLE TAIL TAG',
+    'game.puck.tag': 'EAT EVERY DOT',
+    'game.block.tag': 'BREAK THE WALL',
+    'game.galaxy.tag': 'DEFEND THE SKY',
+    'game.river.tag': 'CROSS THE BUSY RIVER',
+    'game.coast.tag': 'RUN TO LO CASTLE',
+    'game.myriad.tag': 'DONT TOUCH THE BUG',
   } as const;
 
   it('Wave 6 JA strings are native cabinet copy (R58)', () => {

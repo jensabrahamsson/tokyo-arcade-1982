@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (527 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (529 tests, incl. real-WebSocket E2E for 2- and
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
@@ -825,6 +825,20 @@ values unchanged. Canvas-only (R1.3). Repo stays GPL-3.0-only.
 - R58.3 Tests pin the native JA strings and the unchanged EN partners.
   A reasoned correction replaces the old machine-katakana locks on
   `toast.generic` and `marquee.3`.
+- R58.4 Menu chrome (`menu.language` 言語, `menu.back` もどる,
+  `menu.map` 館内図), name-pad select/cancel (決定 / やめる), and
+  cabinet tags (`game.*.tag`, including 川を渡れ! and エルオー城まで走れ)
+  use native mixed kanji + kana. Cabinet *names* stay 1982 katakana
+  (ヘビ, パック メイズ, …). EN values unchanged.
+
+## R59 — Hall marquee clears the F-hint
+
+The first-run `F: FULLSCREEN` hint (R53.2) and the neon marquee (R27)
+must never share pixels. A pure `hallMarqueeClip(canvasW)` reserves
+left/right gutters for the hint and the hall clock; tests prove
+`rectsOverlap` is false. Presentation only — no sim or protocol.
+Canvas-only. GPL-3.0-only. No Circuit d’Or (R55). No Coast look / art
+ID rewrite.
 
 ## Lab — Jev self-play & 1-minute autoplay (all cabinets)
 
