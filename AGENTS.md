@@ -60,16 +60,26 @@ exist; the repo stays GPL-3.0-only. Player-facing brand is
 fail-closed silent when a file is missing. Core stays pure — it emits
 no audio for these.
 
-## Jev snake self-play (optional autotest)
+## Jev self-play (optional autotest, all cabinets)
 
-`ARKAD_JEV_SELFPLAY=1` lets the snake attract demo consult TypeSafe Jev
+`ARKAD_JEV_SELFPLAY=1` lets the attract demos of all seven cabinets
+(snake, puck, block, galaxy, river, myriad, coast) consult TypeSafe Jev
 (`POST https://api.typesafe.ai/v1/systemone`, model `jev-latest`) at
-~8 Hz. Compact JSON state only (no images). The key is `TYPESAFE_API_KEY`
-in the environment or gitignored repo-root `.env.typesafe` (never commit
-that file; never log the value). Missing key or HTTP failure fail-closed
-to `spec.demo`. Core stays pure — fetch lives in
-`packages/server/src/jevPolicy.ts`. CI uses a mock classifier; live
-one-shot: `npm run jev:smoke` (skips if the key is unset).
+~8 Hz. Compact JSON state only (no images); per-cabinet adapters live
+in `packages/server/src/jevPolicy.ts` (`JEV_ADAPTERS`), fetch included
+— core stays pure. Missing key or HTTP failure fail-closed to
+`spec.demo`. The key is `TYPESAFE_API_KEY` in the environment or
+gitignored repo-root `.env.typesafe` (never commit that file; never
+log the value). One-shot snake smoke: `npm run jev:smoke`. Full
+one-minute autoplay per cabinet (~7 min, prints action/confidence
+summary, exit 0 even when every call fails closed):
+
+```sh
+ARKAD_JEV_AUTOPLAY_SECONDS=60 npm run jev:autoplay
+```
+
+CI uses a mock classifier; live one-shot: `npm run jev:smoke` (skips if
+the key is unset).
 
 ## Working agreements
 
@@ -98,7 +108,7 @@ packages/client   main.ts, net.ts, input.ts, namepad.ts, audio/, renderers/, sta
 ```
 
 ```sh
-npm test                # vitest run (411 tests, incl. real-socket E2E)
+npm test                # vitest run (432 tests, incl. real-socket E2E)
 npx vitest run <path>   # one file while iterating
 npm run typecheck       # tsc -b
 node build.mjs          # esbuild bundles into dist/

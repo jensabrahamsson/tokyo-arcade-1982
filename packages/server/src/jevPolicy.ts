@@ -9,11 +9,23 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   DIRS,
+  MAZE,
+  MAZE_H,
+  MAZE_W,
   NO_INPUT,
+  RIVER_W,
   SNAKE_GRID,
+  coastSpec,
   snakeSpec,
+  type BlockState,
+  type CoastState,
+  type GalaxyState,
+  type GameId,
   type GameStateBase,
+  type MyriadState,
   type PlayerInput,
+  type PuckState,
+  type RiverState,
   type SnakeState,
 } from '@arkad/core';
 
@@ -257,6 +269,309 @@ export async function askJev(opts: {
   }
 }
 
+
+/**
+ * Per-cabinet adapters (all seven games, Jens lab pack 2026-09-20):
+ * compact state + typed questions + action -> PlayerInput, fail-closed.
+ */
+export interface JevedGame {
+  game: GameId;
+  payload: Record<string, unknown>;
+  legal: string[];
+  questions: (payload: Record<string, unknown>) => Record<string, JevQuestion>;
+  toInput: (choice: string, tick: number) => PlayerInput | null;
+  /**
+   * Optional per-game confidence floor. Jev caps reported confidence near
+   * the argmax probability, so a 5-choice question (e.g. myriad) rarely
+   * reaches the global 0.35 even with a clear winner. Floor stays above
+   * the uniform-distribution noise level (1/legal).
+   */
+  confidenceMin?: number;
+}
+
+export type GameJevAdapter = (state: GameStateBase) => JevedGame | null;
+
+const DIR_ACTION: Record<string, { dx: number; dy: number }> = {
+  up: DIRS.up,
+  down: DIRS.down,
+  left: DIRS.left,
+  right: DIRS.right,
+};
+
+const dirInput = (choice: string, tick: number, button = false): PlayerInput | null => {
+  const d = DIR_ACTION[choice];
+  return d ? { dir: { dx: d.dx, dy: d.dy }, button, seq: tick } : null;
+};
+
+const DANGER = (subject: string, dangerIf: string, safeIf: string) =>
+  ({
+    danger: {
+      type: 'noul' as const,
+      instructions: `Is ${subject} in immediate danger right now?`,
+      criteria: { true: dangerIf, false: safeIf },
+    },
+    aggression: {
+      type: 'score' as const,
+      instructions: 'How aggressively should the player chase reward versus playing safe?',
+      criteria: ['Play safe, survival first', 'Balanced', 'Greedy: go straight at the reward'],
+    },
+  }) as Record<string, JevQuestion>;
+
+const choiceQ = (instructions: string, legal: string[], rubric: Record<string, string>): Record<string, JevQuestion> => ({
+  action: { type: 'choice', instructions, criteria: Object.fromEntries(legal.map((a) => [a, rubric[a] ?? `Choose ${a}`])) },
+});
+
+export const snakeAdapter: GameJevAdapter = (raw) => {
+  const state = raw as SnakeState;
+  const compact = compactSnakeState(state);
+  if (!compact) return null;
+  return {
+    game: 'snake',
+    payload: compact as unknown as Record<string, unknown>,
+    legal: [...compact.legal],
+    questions: () => ({ ...snakeJevQuestions(compact) }),
+    toInput: (c, t) => dirInput(c, t),
+  };
+};
+
+const puckLegal = (p: PuckState): string[] => {
+  const out: string[] = [];
+  for (const [a, d] of Object.entries(DIR_ACTION)) {
+    let nx = p.player.x + d.dx;
+    const ny = p.player.y + d.dy;
+    if (nx < 0 || nx >= MAZE_W) nx = (nx + MAZE_W) % MAZE_W;
+    if (ny < 0 || ny >= MAZE_H) continue;
+    if (MAZE[ny]?.[nx] !== '#') out.push(a);
+  }
+  return out;
+};
+
+export const puckAdapter: GameJevAdapter = (raw) => {
+  const s = raw as PuckState;
+  const legal = puckLegal(s);
+  if (legal.length === 0) return null;
+  const payload = {
+    game: 'puck',
+    player: { x: s.player.x, y: s.player.y, dir: dirToAction(s.player.dir) ?? 'right' },
+    ghosts: s.ghosts.map((g) => ({ x: g.x, y: g.y })),
+    frightTimer: s.frightTimer,
+    dotsLeft: Object.keys(s.dots).length,
+    score: s.scores[Object.keys(s.scores)[0] ?? ''] ?? 0,
+  };
+  return {
+    game: 'puck',
+    payload,
+    legal,
+    questions: () => ({
+      ...choiceQ(
+        'Pick the next maze heading for Puck. Eat dots, avoid ghosts (chase them only while frightened).',
+        legal,
+        { up: 'Head up.', down: 'Head down.', left: 'Head left.', right: 'Head right.' },
+      ),
+      ...DANGER('Puck', 'A ghost is one cell away on any heading or a dead end is near', 'Open corridors around Puck'),
+    }),
+    toInput: (c, t) => dirInput(c, t),
+  };
+};
+
+export const blockAdapter: GameJevAdapter = (raw) => {
+  const s = raw as BlockState;
+  const id = Object.keys(s.paddles)[0];
+  if (!id) return null;
+  const pad = s.paddles[id]!;
+  const center = pad.x + pad.span / 2;
+  const legal = center <= 0.5 ? ['stay', 'right'] : center >= 29.5 ? ['stay', 'left'] : ['stay', 'left', 'right'];
+  const payload = {
+    game: 'block',
+    paddleCenter: Math.round(center * 10) / 10,
+    ball: { x: Math.round(s.ball.x * 10) / 10, y: Math.round(s.ball.y * 10) / 10, dx: s.ball.dx, dy: s.ball.dy },
+    bricksLeft: Object.keys(s.bricks).length,
+    score: s.scores[id] ?? 0,
+  };
+  return {
+    game: 'block',
+    payload,
+    legal,
+    questions: () => ({
+      ...choiceQ(
+        'Move the paddle to keep the ball in play; line up angled hits when safe.',
+        legal,
+        { left: 'Move paddle left.', right: 'Move paddle right.', stay: 'Hold position; the ball is aligned.' },
+      ),
+      ...DANGER('the ball', 'The ball is falling toward an edge the paddle cannot reach', 'The ball is catchable'),
+    }),
+    toInput: (c, t) =>
+      c === 'left'
+        ? { dir: { dx: -1, dy: 0 }, button: false, seq: t }
+        : c === 'right'
+          ? { dir: { dx: 1, dy: 0 }, button: false, seq: t }
+          : c === 'stay'
+            ? { dir: null, button: false, seq: t }
+            : null,
+  };
+};
+
+export const galaxyAdapter: GameJevAdapter = (raw) => {
+  const s = raw as GalaxyState;
+  const legal = ['stay', 'left', 'right', 'fire'];
+  const payload = {
+    game: 'galaxy',
+    player: { x: Math.round(s.player.x * 10) / 10 },
+    aliens: s.aliens.slice(0, 8).map((a) => ({ x: Math.round(a.x), y: Math.round(a.y) })),
+    aliensLeft: s.aliens.length,
+    bullets: s.bullets.length,
+    score: s.scores[Object.keys(s.scores)[0] ?? ''] ?? 0,
+  };
+  return {
+    game: 'galaxy',
+    payload,
+    legal,
+    questions: () => ({
+      ...choiceQ(
+        'Defend the sky: line up with the lowest alien and shoot; dodge descending aliens.',
+        legal,
+        { left: 'Move left.', right: 'Move right.', stay: 'Hold course.', fire: 'Fire now (aligned with a target).' },
+      ),
+      ...DANGER('the ship', 'An alien is close overhead or descending onto the player column', 'The column above is clear'),
+    }),
+    toInput: (c, t) => {
+      if (c === 'fire') return { dir: null, button: true, seq: t };
+      if (c === 'stay') return { dir: null, button: false, seq: t };
+      return dirInput(c, t);
+    },
+  };
+};
+
+export const riverAdapter: GameJevAdapter = (raw) => {
+  const s = raw as RiverState;
+  const legal = ['up', 'down', 'left', 'right'].filter((a) => {
+    const d = DIR_ACTION[a]!;
+    const nx = s.frog.x + d.dx;
+    return nx >= 0 && nx < RIVER_W;
+  });
+  const payload = {
+    game: 'river',
+    frog: { x: s.frog.x, y: s.frog.y },
+    lanes: s.river.map((l) => ({ y: l.y, dir: l.dir, xs: l.xs.slice(0, 6) })),
+    cars: s.cars.map((l) => ({ y: l.y, dir: l.dir, xs: l.xs.slice(0, 6) })),
+    homesDone: s.homes.filter(Boolean).length,
+    score: s.scores[Object.keys(s.scores)[0] ?? ''] ?? 0,
+  };
+  return {
+    game: 'river',
+    payload,
+    legal,
+    questions: () => ({
+      ...choiceQ('Hop the frog toward the goal rows; wait for a safe gap in traffic.', legal, {
+        up: 'Hop forward toward home.',
+        down: 'Step back to dodge.',
+        left: 'Sidestep left.',
+        right: 'Sidestep right.',
+      }),
+      ...DANGER('the frog', 'The next row would hit the frog at its current column', 'A clear gap lines up ahead'),
+    }),
+    toInput: (c, t) => dirInput(c, t),
+  };
+};
+
+export const myriadAdapter: GameJevAdapter = (raw) => {
+  const s = raw as MyriadState;
+  const legal = ['up', 'down', 'left', 'right', 'fire'];
+  const payload = {
+    game: 'myriad',
+    player: { x: Math.round(s.player.x), y: Math.round(s.player.y) },
+    segments: s.segments.slice(0, 8).map((p) => ({ x: p.x, y: p.y })),
+    mushrooms: Object.keys(s.mushrooms).length,
+    score: s.scores[Object.keys(s.scores)[0] ?? ''] ?? 0,
+  };
+  return {
+    game: 'myriad',
+    payload,
+    legal,
+    // 5-choice questions cap Jev confidence near 0.4; 0.25 stays well above uniform (0.2)
+    confidenceMin: 0.25,
+    questions: () => ({
+      ...choiceQ('Blast the bug chain bottom-up; dodge segments, shoot mushrooms in the way.', legal, {
+        up: 'Move up.',
+        down: 'Move down.',
+        left: 'Move left.',
+        right: 'Move right.',
+        fire: 'Shoot straight up.',
+      }),
+      ...DANGER('the player', 'A bug segment is close in the current column or row', 'The neighbourhood is clear'),
+    }),
+    toInput: (c, t) => {
+      if (c === 'fire') return { dir: null, button: true, seq: t };
+      return dirInput(c, t);
+    },
+  };
+};
+
+export const coastAdapter: GameJevAdapter = (raw) => {
+  const s = raw as CoastState;
+  const legal = ['left', 'straight', 'right'];
+  const payload = {
+    game: 'coast',
+    playerX: Math.round(s.playerX * 100) / 100,
+    speed: Math.round(s.speed),
+    dist: Math.round(s.dist),
+    timeLeft: s.timeLeft,
+    checkpoints: s.checkpoints,
+    nextObstacles: s.obstacles
+      .filter((o) => !o.hit && o.d > s.dist && o.d - s.dist < 40)
+      .map((o) => ({ ahead: Math.round(o.d - s.dist), x: Math.round(o.x * 10) / 10 })),
+  };
+  return {
+    game: 'coast',
+    payload,
+    legal,
+    questions: () => ({
+      ...choiceQ('Coast toward LO Castle on full throttle; steer around roadside obstacles and stay on the road.', legal, {
+        left: 'Steer left.',
+        straight: 'Hold the line (full throttle).',
+        right: 'Steer right.',
+      }),
+      ...DANGER('the car', 'An obstacle or the road edge is right ahead on the current line', 'The lane ahead is clear'),
+    }),
+    toInput: (c, t) => {
+      if (c === 'straight') return { dir: null, button: true, seq: t };
+      if (c === 'left') return { dir: { dx: -1, dy: 0 }, button: true, seq: t };
+      if (c === 'right') return { dir: { dx: 1, dy: 0 }, button: true, seq: t };
+      return null;
+    },
+  };
+};
+
+export const JEV_ADAPTERS: Partial<Record<GameId, GameJevAdapter>> = {
+  snake: snakeAdapter,
+  puck: puckAdapter,
+  block: blockAdapter,
+  galaxy: galaxyAdapter,
+  river: riverAdapter,
+  myriad: myriadAdapter,
+  coast: coastAdapter,
+};
+
+/** apply a validated JeV choice; falls back on unknown choice or low confidence */
+export function mapChoiceToInput(
+  answers: Record<string, unknown>,
+  jev: {
+    legal: readonly string[];
+    toInput: (choice: string, tick: number) => PlayerInput | null;
+    confidenceMin?: number;
+  },
+  fallback: PlayerInput,
+  tick: number,
+  confidenceMin = JEV_CONFIDENCE_MIN,
+): PlayerInput {
+  const action = readChoice(answers, 'action');
+  if (!action) return fallback;
+  if (!jev.legal.includes(action.choice)) return fallback;
+  const floor = jev.confidenceMin ?? confidenceMin;
+  if (!Number.isFinite(action.confidence) || action.confidence < floor) return fallback;
+  return jev.toInput(action.choice, tick) ?? fallback;
+}
+
 export interface JevSelfPlayOpts {
   apiKey: string;
   fetchImpl?: typeof fetch;
@@ -273,9 +588,11 @@ export class JevSelfPlay implements DemoInputPolicy {
   private readonly minIntervalMs: number;
   private readonly confidenceMin: number;
   private readonly timeoutMs: number;
-  private cached: PlayerInput | null = null;
+  private cached = new Map<string, PlayerInput>();
   private lastCallMs: number | null = null;
   private inflight = false;
+  /** observability for the autoplay harness: counters since construction */
+  readonly stats = { calls: 0, ok: 0, failed: 0, confSum: 0, confN: 0, choices: {} as Record<string, number> };
 
   constructor(opts: JevSelfPlayOpts) {
     this.apiKey = opts.apiKey.trim();
@@ -287,24 +604,24 @@ export class JevSelfPlay implements DemoInputPolicy {
   }
 
   covers(game: string): boolean {
-    return game === JEV_GAME;
+    return JEV_ADAPTERS[game as GameId] !== undefined;
   }
 
   inputFor(game: string, state: GameStateBase, tick: number, fallback: PlayerInput): PlayerInput {
-    if (game !== JEV_GAME) return fallback;
+    const adapter = JEV_ADAPTERS[game as GameId];
+    if (!adapter) return fallback;
     try {
-      const compact = compactSnakeState(state as SnakeState);
-      if (!compact) return fallback;
-      if (compact.legal.length === 0) return fallback;
-      if (compact.legal.length === 1) {
-        const dir = ACTION_DIRS[compact.legal[0]!];
-        return { dir: { dx: dir.dx, dy: dir.dy }, button: false, seq: tick };
-      }
-      this.maybeRefresh(compact);
-      const cached = this.cached;
-      if (cached?.dir) {
-        const a = dirToAction(cached.dir);
-        if (a && compact.legal.includes(a)) return { dir: cached.dir, button: false, seq: tick };
+      const jev = adapter(state);
+      if (!jev || jev.legal.length === 0) return fallback;
+      if (jev.legal.length === 1) return jev.toInput(jev.legal[0]!, tick) ?? fallback;
+      this.maybeRefresh(jev);
+      const cached = this.cached.get(game);
+      if (cached) {
+        const choice = choiceFromInput(cached);
+        if (choice && jev.legal.includes(choice)) {
+          const fresh = jev.toInput(choice, tick);
+          if (fresh) return fresh;
+        }
       }
       return fallback;
     } catch {
@@ -312,36 +629,67 @@ export class JevSelfPlay implements DemoInputPolicy {
     }
   }
 
-  private maybeRefresh(compact: CompactSnakeState): void {
+  private maybeRefresh(jev: JevedGame): void {
     if (this.inflight) return;
     if (!this.apiKey || !this.fetchImpl) return;
     if (!rateLimitAllows(this.lastCallMs, this.now(), this.minIntervalMs)) return;
     this.inflight = true;
     this.lastCallMs = this.now();
-    void this.refresh(compact).catch(() => {
-      this.cached = null;
-    }).finally(() => {
-      this.inflight = false;
-    });
+    void this.refresh(jev)
+      .catch(() => {
+        this.cached.delete(jev.game);
+      })
+      .finally(() => {
+        this.inflight = false;
+      });
   }
 
-  private async refresh(compact: CompactSnakeState): Promise<void> {
+  private async refresh(jev: JevedGame): Promise<void> {
     const fetchImpl = this.fetchImpl;
     if (!fetchImpl) return;
+    this.stats.calls += 1;
     const got = await askJev({
       apiKey: this.apiKey,
-      state: compact,
-      questions: snakeJevQuestions(compact),
+      state: jev.payload,
+      questions: jev.questions(jev.payload),
       fetchImpl,
       timeoutMs: this.timeoutMs,
     });
     if (!got.ok) {
-      this.cached = null;
+      this.stats.failed += 1;
+      this.cached.delete(jev.game);
       return;
     }
-    const mapped = mapJevToInput(got.body.answers, compact.legal, NO_INPUT, 0, this.confidenceMin);
-    this.cached = mapped.dir ? mapped : null;
+    const action = readChoice(got.body.answers, 'action');
+    const floor = jev.confidenceMin ?? this.confidenceMin;
+    if (
+      action &&
+      Number.isFinite(action.confidence) &&
+      action.confidence >= floor &&
+      jev.legal.includes(action.choice)
+    ) {
+      const mapped = jev.toInput(action.choice, 0);
+      this.stats.ok += 1;
+      this.stats.confSum += action.confidence;
+      this.stats.confN += 1;
+      this.stats.choices[`${jev.game}:${action.choice}`] = (this.stats.choices[`${jev.game}:${action.choice}`] ?? 0) + 1;
+      if (mapped) this.cached.set(jev.game, mapped);
+    } else {
+      this.stats.failed += 1;
+      this.cached.delete(jev.game);
+    }
   }
+}
+
+/** coarse action word for a mapped input, used to re-validate cached sticks */
+function choiceFromInput(input: PlayerInput): string | null {
+  if (input.button && !input.dir) return 'fire';
+  if (!input.dir) return input.button ? 'straight' : null;
+  if (input.dir.dx === -1) return 'left';
+  if (input.dir.dx === 1) return 'right';
+  if (input.dir.dy === -1) return 'up';
+  if (input.dir.dy === 1) return 'down';
+  return null;
 }
 
 export const TYPESAFE_ENV_FILENAME = '.env.typesafe';

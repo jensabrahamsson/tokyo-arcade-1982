@@ -15,6 +15,16 @@ await esbuild.build({
 });
 
 await esbuild.build({
+  entryPoints: ['packages/server/src/jevAutoplayMain.ts'],
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node20',
+  outfile: 'dist/jev-autoplay.mjs',
+  alias,
+});
+
+await esbuild.build({
   entryPoints: ['packages/client/src/main.ts'],
   bundle: true,
   platform: 'browser',

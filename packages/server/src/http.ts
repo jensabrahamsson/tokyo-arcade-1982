@@ -55,8 +55,8 @@ export async function createGameServer(opts: { port: number; dataDir: string; pu
     const hasKey = (process.env.TYPESAFE_API_KEY ?? '').trim().length > 0;
     safeLog(
       hasKey
-        ? '[arkad] Jev snake self-play on'
-        : '[arkad] Jev snake self-play on (fail-closed, no TYPESAFE_API_KEY)',
+        ? '[arkad] Jev self-play on (all cabinets)'
+        : '[arkad] Jev self-play on (fail-closed to demos, no TYPESAFE_API_KEY)',
     );
   }
   const arcade = new Arcade({
