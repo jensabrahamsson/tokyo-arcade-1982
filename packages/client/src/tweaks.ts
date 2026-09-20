@@ -538,13 +538,40 @@ export function cabAccent(game: GameId): string {
   return CAB_ACCENTS[game]!;
 }
 
-/** P2-G: one header chrome row — left stack vs right stack, never the same cell */
+/** P2-G / R59: header chrome — left stack vs right stack, never the same cell.
+ *  F-hint and clock gutters keep the neon marquee from painting those pixels. */
 export const HALL_CHROME = {
   leftY: 2,
   leftY2: 12,
   rightY: 2,
   rightY2: 12,
+  fHintX: 6,
+  fHintMaxW: 90,
+  clockMaxW: 52,
+  marqueeTop: 8,
+  marqueeH: 10,
 } as const;
+
+export type HallRect = { x: number; y: number; w: number; h: number };
+
+export function rectsOverlap(a: HallRect, b: HallRect): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+export function hallFullscreenHintRect(): HallRect {
+  return { x: HALL_CHROME.fHintX, y: HALL_CHROME.leftY2, w: HALL_CHROME.fHintMaxW, h: 8 };
+}
+
+export function hallClockRect(canvasW: number): HallRect {
+  return { x: canvasW - HALL_CHROME.clockMaxW, y: HALL_CHROME.rightY2, w: HALL_CHROME.clockMaxW, h: 10 };
+}
+
+/** neon marquee text clip — clears the F-hint and clock gutters (R59) */
+export function hallMarqueeClip(canvasW: number): HallRect {
+  const x = HALL_CHROME.fHintX + HALL_CHROME.fHintMaxW;
+  const right = canvasW - HALL_CHROME.clockMaxW;
+  return { x, y: HALL_CHROME.marqueeTop, w: Math.max(0, right - x), h: HALL_CHROME.marqueeH };
+}
 
 /** P2-E: FREE PLAY / COIN 1C from the i18n tables, not a hardcoded English pair */
 export function hallCoinBadge(freePlay: boolean, freePlayLabel: string, coinLabel: string): string {

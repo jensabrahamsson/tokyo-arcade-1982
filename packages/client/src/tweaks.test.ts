@@ -15,7 +15,8 @@ import {
   hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect,
   escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue,
   escapeClearsFullscreenOnly, provenanceLines, guardRender,
-  hallCoinBadge, countedChrome, HALL_CHROME, reconnectStart, escapeSendsBack,
+  hallCoinBadge, countedChrome, HALL_CHROME, hallMarqueeClip, hallFullscreenHintRect,
+  hallClockRect, rectsOverlap, reconnectStart, escapeSendsBack,
   coastQualifyingOverlay, COAST_QUALIFYING_MS, splashAdvance, SPLASH_MS, SPLASH_SKIP_KEYS,
   titleStartTarget, isBackHomeKey, cabinetScreenData,
   type CrtKnobs, type VolumeDetent,
@@ -690,6 +691,24 @@ describe('hall header chrome row (P2-G)', () => {
     expect(HALL_CHROME.leftY).toBe(HALL_CHROME.rightY);
     expect(HALL_CHROME.leftY2).toBe(HALL_CHROME.rightY2);
     expect(HALL_CHROME.leftY2).toBeLessThan(40); // still above the 4×2 cabinet row
+  });
+});
+
+describe('hall marquee vs F-hint (R59)', () => {
+  it('rectsOverlap is true only when boxes share interior pixels', () => {
+    expect(rectsOverlap({ x: 0, y: 0, w: 10, h: 10 }, { x: 5, y: 5, w: 10, h: 10 })).toBe(true);
+    expect(rectsOverlap({ x: 0, y: 0, w: 10, h: 10 }, { x: 10, y: 0, w: 10, h: 10 })).toBe(false);
+    expect(rectsOverlap({ x: 0, y: 0, w: 10, h: 10 }, { x: 0, y: 10, w: 10, h: 10 })).toBe(false);
+  });
+
+  it('F-hint gutter and marquee clip never share pixels', () => {
+    const clip = hallMarqueeClip(320);
+    const hint = hallFullscreenHintRect();
+    const clock = hallClockRect(320);
+    expect(rectsOverlap(hint, clip)).toBe(false);
+    expect(rectsOverlap(clock, clip)).toBe(false);
+    expect(clip.w).toBeGreaterThan(80);
+    expect(clip.y).toBe(HALL_CHROME.marqueeTop);
   });
 });
 
