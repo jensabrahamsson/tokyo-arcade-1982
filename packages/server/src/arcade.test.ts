@@ -434,6 +434,7 @@ describe('Arcade', () => {
       tick: number;
       credits: number;
       note: string;
+      freePlay: boolean;
     }[];
 
   it('the hall runs attract demos for every cabinet (R8)', () => {
@@ -753,6 +754,52 @@ describe('Arcade', () => {
     net.take('c9');
     arcade.handleMessage('c9', { type: 'start', game: 'snake', mode: 'solo' });
     expect(net.last<{ code: string }>('c9', 'error')?.code).toBe('insert-coin');
+  });
+
+  it('free-play smoke: 7-cab hall, Coast, back, snake versus in hall, pause keeps credits, lang (wave 0)', () => {
+    arcade.handleMessage('c1', { type: 'join', name: 'AKIRA', lang: 'en' });
+    arcade.handleMessage('c1', { type: 'hall', watch: true });
+    arcade.handleMessage('c3', { type: 'hall', watch: true });
+    for (let i = 0; i < 20; i++) arcade.tick();
+    const hall = hallMsgs('c1').at(-1)!;
+    expect(hall.freePlay).toBe(true);
+    expect(hall.cabinets).toHaveLength(7);
+    expect(hall.cabinets.map((c) => c.game).sort()).toEqual(
+      ['block', 'coast', 'galaxy', 'myriad', 'puck', 'river', 'snake'].sort(),
+    );
+    net.take('c3');
+
+    arcade.handleMessage('c1', { type: 'start', game: 'coast', mode: 'solo' });
+    for (let i = 0; i < 12; i++) arcade.tick();
+    const coast = net.last<SnapshotMsg>('c1', 'snapshot');
+    expect(coast?.table.game).toBe('coast');
+    expect(['ready', 'playing']).toContain(coast?.table.phase);
+    const creditsAtSeat = coast?.credits ?? 0;
+
+    arcade.handleMessage('c1', { type: 'back' });
+    arcade.handleMessage('c1', { type: 'hall', watch: true });
+    for (let i = 0; i < 16; i++) arcade.tick();
+    expect(hallMsgs('c1').at(-1)!.cabinets.find((c) => c.game === 'coast')?.demo).toBe(true);
+
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'versus' });
+    arcade.handleMessage('c2', { type: 'start', game: 'snake', mode: 'versus' });
+    // snake seats 2/4: the join window is START_GRACE (120 ticks) before beginTable
+    for (let i = 0; i < 140; i++) arcade.tick();
+    const snake = hallMsgs('c3').at(-1)!.cabinets.find((c) => c.game === 'snake')!;
+    expect(snake.demo).toBe(false);
+    expect(snake.players).toBe(2);
+    expect(snake.data).not.toBeNull();
+
+    const beforePause = net.last<SnapshotMsg>('c1', 'snapshot')?.credits ?? creditsAtSeat;
+    arcade.handleMessage('c1', { type: 'pause' });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    const paused = net.last<SnapshotMsg & { table: { paused?: boolean } }>('c1', 'snapshot');
+    expect(paused?.table.paused).toBe(true);
+    expect(paused?.credits).toBe(beforePause);
+
+    net.take('c1');
+    arcade.handleMessage('c1', { type: 'join', name: 'AKIRA', lang: 'ja' });
+    expect(net.last<{ type: string }>('c1', 'welcome')?.type).toBe('welcome');
   });
 });
 

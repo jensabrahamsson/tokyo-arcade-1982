@@ -85,6 +85,63 @@ ARKAD_JEV_AUTOPLAY_SECONDS=60 npm run jev:autoplay
 CI uses a mock classifier; live one-shot: `npm run jev:smoke` (skips if
 the key is unset).
 
+## Show-floor smokes (muted CDP / Jev autoplay)
+
+Wave 0 proof runs **in this checkout** (cloud VM or your own machine) —
+never on Jens's Mac, never as fullscreen Chrome, never `--kiosk`. The
+required path is vitest (unit / FakeNet / real-ws). CDP and Jev autoplay
+are optional extras. Operator mute (R23) applies; CDP launches with
+`--mute-audio`.
+
+### Required: vitest (unit / FakeNet / real-ws)
+
+```sh
+npm test
+# the wave-0 walk lives in:
+#   packages/client/src/showFloorSmoke.test.ts
+#   Arcade free-play smoke in packages/server/src/arcade.test.ts
+#   real-ws free-play smoke in packages/server/src/http.test.ts
+npx vitest run packages/client/src/showFloorSmoke.test.ts \
+  packages/server/src/arcade.test.ts packages/server/src/http.test.ts
+```
+
+Covers splash → title → namepad → 7-cab hall → Coast qualifying overlay
+(~3 s) + stinger-due when the MP3 is present → Escape/KeyB home → snake
+versus on the hall mini → pause keeps credits → L language toggle.
+P1-A/B (Coast overlay independent of phase; reconnect without re-debit)
+stay in the same suite.
+
+### Optional: Jev attract autoplay
+
+```sh
+ARKAD_JEV_AUTOPLAY_SECONDS=60 npm run jev:autoplay
+```
+
+~7 min, all seven cabinets, compact JSON only (no images). Missing key
+or HTTP failure fail-closes to `spec.demo` and still exits 0. One-shot:
+`npm run jev:smoke` (skips if `TYPESAFE_API_KEY` is unset).
+
+### Optional: muted CDP (headless, windowed, localhost only)
+
+Chrome DevTools Protocol against **this process's localhost**. Do not
+`--start-fullscreen` / `--kiosk`. Do not attach to a remote Mac display
+or steal a coworker's desktop.
+
+```sh
+node build.mjs
+ARKAD_PORT=8443 node dist/server/index.cjs
+# other terminal — headless, muted, windowed:
+google-chrome --headless=new --mute-audio --window-size=1280,720 \
+  --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 \
+  http://127.0.0.1:8443/
+# CDP Input.dispatchKeyEvent: Space (splash→title) → Space (namepad) →
+# type a name + OK → hall → Coast Z → ~3 s QUALIFYING START! →
+# Escape/KeyB home → snake X versus → P pause → L language.
+# Targets: http://127.0.0.1:9222/json
+```
+
+If Chrome is missing, skip CDP; `npm test` is the required smoke.
+
 ## Working agreements
 
 - Small, verifiable steps. Run the suite after every handful of edits,
@@ -112,7 +169,7 @@ packages/client   main.ts, net.ts, input.ts, namepad.ts, audio/, renderers/, sta
 ```
 
 ```sh
-npm test                # vitest run (457 tests, incl. real-socket E2E)
+npm test                # vitest run (465 tests, incl. real-socket E2E)
 npx vitest run <path>   # one file while iterating
 npm run typecheck       # tsc -b
 node build.mjs          # esbuild bundles into dist/

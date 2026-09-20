@@ -1,9 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { LANGS, t, EN, JA, type Lang } from './i18n';
+import { LANGS, t, EN, JA, nextLang } from './i18n';
 
 describe('i18n', () => {
   it('supports exactly English and Japanese', () => {
     expect(LANGS).toEqual(['en', 'ja']);
+  });
+
+  it('L toggles language EN ↔ JA and back', () => {
+    expect(nextLang('en')).toBe('ja');
+    expect(nextLang('ja')).toBe('en');
+    expect(nextLang(nextLang('en'))).toBe('en');
+    expect(t(nextLang('en'), 'coast.qualifying')).toBe(JA['coast.qualifying']);
   });
 
   it('every EN key exists in JA and vice versa', () => {

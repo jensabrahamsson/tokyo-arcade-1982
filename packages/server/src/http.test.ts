@@ -271,6 +271,73 @@ describe('game server (real websockets)', () => {
     expect(frozen.every((s) => s.paused === true)).toBe(true);
     expect(typeof frozen[0]!.credits).toBe('number');
   }, 20000);
+
+  it('free-play smoke: 7-cab hall, Coast, back, snake versus on the hall, pause, lang (wave 0)', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'arkad-w0-'));
+    handle = await createGameServer({ port: 0, dataDir: dir });
+    const url = `ws://127.0.0.1:${handle.port}/ws`;
+    const a = await peer(url);
+    const b = await peer(url);
+    const w = await peer(url);
+    peers.push(a, b, w);
+
+    a.ws.send(JSON.stringify({ type: 'freePlay', on: true }));
+    a.ws.send(JSON.stringify({ type: 'join', name: 'AKIRA', lang: 'en' }));
+    b.ws.send(JSON.stringify({ type: 'join', name: 'MIO', lang: 'ja' }));
+    w.ws.send(JSON.stringify({ type: 'join', name: 'WALKER', lang: 'en' }));
+    await a.waitFor('welcome');
+    await b.waitFor('welcome');
+    await w.waitFor('welcome');
+    a.ws.send(JSON.stringify({ type: 'hall', watch: true }));
+    w.ws.send(JSON.stringify({ type: 'hall', watch: true }));
+
+    const hall0 = await a.waitFor<{
+      type: 'hallTables';
+      cabinets: { game: string }[];
+      freePlay: boolean;
+    }>('hallTables');
+    expect(hall0.freePlay).toBe(true);
+    expect(hall0.cabinets).toHaveLength(7);
+
+    a.ws.send(JSON.stringify({ type: 'start', game: 'coast', mode: 'solo' }));
+    const coast = await waitPhase(a, 'playing');
+    expect((coast as SnapMsg & { table: { game: string } }).table.game).toBe('coast');
+
+    a.ws.send(JSON.stringify({ type: 'back' }));
+    const backAt = Date.now();
+    for (;;) {
+      const hall = await a.waitFor<{ cabinets: { game: string; demo: boolean; data: unknown }[] }>('hallTables', 15000);
+      const row = hall.cabinets.find((c) => c.game === 'coast');
+      if (row?.demo === true && row.data !== null) break;
+      if (Date.now() - backAt > 10000) throw new Error('Coast never returned to attract after back');
+    }
+
+    a.ws.send(JSON.stringify({ type: 'start', game: 'snake', mode: 'versus' }));
+    b.ws.send(JSON.stringify({ type: 'start', game: 'snake', mode: 'versus' }));
+    const vsAt = Date.now();
+    for (;;) {
+      const hall = await w.waitFor<{
+        cabinets: { game: string; demo: boolean; players: number; data: unknown }[];
+      }>('hallTables', 15000);
+      const snake = hall.cabinets.find((c) => c.game === 'snake');
+      if (snake && snake.demo === false && snake.players === 2 && snake.data !== null) break;
+      if (Date.now() - vsAt > 12000) throw new Error('hall mini never showed live snake versus');
+    }
+
+    a.ws.send(JSON.stringify({ type: 'pause' }));
+    const frozen: Array<{ paused?: boolean; credits?: number }> = [];
+    const deadline = Date.now() + 4000;
+    while (frozen.length < 2 && Date.now() < deadline) {
+      const m = await a.waitFor<SnapMsg & { credits?: number; table: { paused?: boolean } }>('snapshot', 4000);
+      if (m.table.paused) frozen.push({ paused: m.table.paused, credits: m.credits });
+    }
+    expect(frozen.length).toBeGreaterThanOrEqual(2);
+    expect(frozen.every((s) => s.paused === true)).toBe(true);
+    expect(frozen[0]!.credits).toBe(frozen[1]!.credits);
+
+    a.ws.send(JSON.stringify({ type: 'join', name: 'AKIRA', lang: 'ja' }));
+    await a.waitFor('welcome');
+  }, 40000);
 });
 
 describe('static files (P2-4)', () => {
