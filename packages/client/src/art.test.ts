@@ -1,13 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ART_FILES, artPath, loadArt, artGet } from './art';
+import { ART_FILES, artPath, loadArt, artGet, cabinetArtFile, WAVE3_CABINET_GAMES } from './art';
 
 const fakeImg = (src: string, w = 128, h = 128) =>
   ({ src, ok: true, naturalWidth: w, naturalHeight: h }) as unknown as HTMLImageElement;
 
 describe('art manifest (R38)', () => {
   it('lists the manifest with stable names (first batch + R54 coast landmarks)', () => {
+    // Old expectation was first-batch + R54 coast only. Wave 3 (R57) adds
+    // six-cabinet marquee/attract plates; Coast landmark names are unchanged
+    // (PR #8 owns coast-*.png drops). Hero sheets stay off the manifest.
     expect([...ART_FILES].sort()).toEqual(
       [
         'cabinet-bezel.png', 'coast-lo-castle.png', 'hall-floor.png', 'splash-logo.png',
@@ -15,6 +18,12 @@ describe('art manifest (R38)', () => {
         // R54 additions: Coast roadside landmark billboards (Imagine PNG drop zone)
         'coast-centerpartiet.png', 'coast-harpsund.png', 'coast-bommersvik.png',
         'coast-valdebatt76.png', 'coast-castro-visit.png',
+        'snake-marquee.png', 'snake-attract.png',
+        'puck-marquee.png', 'puck-attract.png',
+        'block-marquee.png', 'block-attract.png',
+        'galaxy-marquee.png', 'galaxy-attract.png',
+        'river-marquee.png', 'river-attract.png',
+        'myriad-marquee.png', 'myriad-attract.png',
       ].sort(),
     );
   });
@@ -105,5 +114,52 @@ describe('art manifest (R38)', () => {
       const head = readFileSync(p).subarray(0, 8);
       expect(head.equals(pngMagic), p).toBe(true);
     }
+  });
+});
+
+const pngIhdr = (buf: Buffer) => ({
+  width: buf.readUInt32BE(16),
+  height: buf.readUInt32BE(20),
+  bitDepth: buf[24]!,
+  colorType: buf[25]!,
+});
+
+describe('Wave 3 six-cabinet plates (R57)', () => {
+  const artDir = join(__dirname, '..', 'static', 'art');
+
+  it('maps marquee/attract for the six cabinets and never Coast (PR #8)', () => {
+    for (const g of WAVE3_CABINET_GAMES) {
+      expect(cabinetArtFile(g, 'marquee')).toBe(`${g}-marquee.png`);
+      expect(cabinetArtFile(g, 'attract')).toBe(`${g}-attract.png`);
+    }
+    expect(cabinetArtFile('coast', 'marquee')).toBeNull();
+    expect(cabinetArtFile('coast', 'attract')).toBeNull();
+  });
+
+  it('lands paletted ≥64 px PNG plates at 16–32 KB (no 16×16 stubs, no JPEG)', () => {
+    const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    for (const g of WAVE3_CABINET_GAMES) {
+      for (const slot of ['marquee', 'attract'] as const) {
+        const name = `${g}-${slot}.png`;
+        const p = join(artDir, name);
+        expect(existsSync(p), name).toBe(true);
+        const buf = readFileSync(p);
+        expect(buf.subarray(0, 8).equals(pngMagic), name).toBe(true);
+        const { width, height, colorType } = pngIhdr(buf);
+        expect(Math.max(width, height), name).toBeGreaterThanOrEqual(64);
+        expect(colorType, `${name} indexed palette`).toBe(3);
+        expect(buf.byteLength, name).toBeGreaterThanOrEqual(16 * 1024);
+        expect(buf.byteLength, name).toBeLessThanOrEqual(32 * 1024);
+      }
+    }
+  });
+
+  it('leaves Coast marquee/attract/hero unwired; Wave 1 already landed landmark PNGs', () => {
+    const castle = readFileSync(join(artDir, 'coast-lo-castle.png'));
+    const { width, height } = pngIhdr(castle);
+    expect(Math.max(width, height)).toBeGreaterThanOrEqual(64);
+    expect(existsSync(join(artDir, 'coast-marquee.png'))).toBe(false);
+    expect(existsSync(join(artDir, 'coast-attract.png'))).toBe(false);
+    expect(existsSync(join(artDir, 'coast-hero.png'))).toBe(false);
   });
 });

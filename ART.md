@@ -14,32 +14,43 @@ This catalog does **not** drop Coast billboard or LO-borgen PNGs
 
 **Landed** = PNG magic, ≥64 px on at least one axis, typically 16–32 KB
 (R7.4 / R38.5), original / GPL-compatible, no commercial sprites.
-A 16×16 stub is never landed. **Zero assets are landed** as of
-`origin/main` SHA `352782b` + this catalog.
+A 16×16 stub is never landed. **Twelve** six-cabinet marquee/attract
+plates are landed (R57.52). Hall chrome, hero sheets, and Coast IDs
+are still TODO. Coast PNG drops belong to PR #8.
 
-Credits provenance (`packages/client/src/tweaks.ts` `provenanceLines`)
-must stay `PIXEL ART: PROCEDURAL UNTIL ART LANDS` until one ID below
-is landed (R57.51). Do not claim watermark-checked originals while the
-drop zone is stubs.
+Credits provenance names the six-cabinet plates and keeps hall chrome
+/ Coast procedural (R57.51). Do not claim a full original art set.
 
 ## Drop-zone files (`packages/client/static/art/`)
 
-All eight files on disk are 16×16 8-bit colormap PNGs (~109–136 B).
-The loader refuses them (`naturalWidth/Height` max < 64), so they do
-not draw. None are JPEG-misnamed.
+Hall/splash chrome and LO-borgen remain 16×16 stubs (loader ignores).
+None are JPEG-misnamed. Wave 3 six-cabinet plates are paletted ≥64 px,
+16–32 KB, color-type 3.
 
-| File | Bytes | Pixels | Magic | Kind | Wired `drawImage` | Catalog |
-|------|------:|--------|-------|------|-------------------|---------|
-| `hall-floor.png` | 110 | 16×16 | PNG | stub | hall carpet pattern (skipped) | R57.1 |
-| `cabinet-bezel.png` | 109 | 16×16 | PNG | stub | cabinet body (skipped) | R57.2 |
-| `splash-logo.png` | 136 | 16×16 | PNG | stub | **not used** — splash is procedural `drawWordmark` | R57.3 |
-| `marquee-neon.png` | 113 | 16×16 | PNG | stub | hall neon strip (skipped) | R57.4 |
-| `coin-slot.png` | 116 | 16×16 | PNG | stub | coin-insert chrome (skipped) | R57.5 |
-| `credit-panel.png` | 112 | 16×16 | PNG | stub | credit-strip backdrop (skipped) | R57.6 |
-| `wait-badge.png` | 132 | 16×16 | PNG | stub | WAIT badge (skipped) | R57.7 |
-| `coast-lo-castle.png` | 112 | 16×16 | PNG | stub | Coast LO-borgen (skipped → procedural castle) | R57.40 |
+| File | Kind | Wired `drawImage` | Catalog |
+|------|------|-------------------|---------|
+| `hall-floor.png` | stub 16×16 | skipped | R57.1 |
+| `cabinet-bezel.png` | stub 16×16 | skipped | R57.2 |
+| `splash-logo.png` | stub 16×16 | unused (procedural wordmark) | R57.3 |
+| `marquee-neon.png` | stub 16×16 | skipped | R57.4 |
+| `coin-slot.png` | stub 16×16 | skipped | R57.5 |
+| `credit-panel.png` | stub 16×16 | skipped | R57.6 |
+| `wait-badge.png` | stub 16×16 | skipped | R57.7 |
+| `coast-lo-castle.png` | stub 16×16 | skipped → procedural castle | R57.40 |
+| `snake-marquee.png` | **landed** paletted | hall cabinet marquee | R57.11 |
+| `snake-attract.png` | **landed** paletted | idle mini if no live demo | R57.12 |
+| `puck-marquee.png` | **landed** paletted | hall cabinet marquee | R57.14 |
+| `puck-attract.png` | **landed** paletted | idle mini if no live demo | R57.15 |
+| `block-marquee.png` | **landed** paletted | hall cabinet marquee | R57.17 |
+| `block-attract.png` | **landed** paletted | idle mini if no live demo | R57.18 |
+| `galaxy-marquee.png` | **landed** paletted | hall cabinet marquee | R57.20 |
+| `galaxy-attract.png` | **landed** paletted | idle mini if no live demo | R57.21 |
+| `river-marquee.png` | **landed** paletted | hall cabinet marquee | R57.23 |
+| `river-attract.png` | **landed** paletted | idle mini if no live demo | R57.24 |
+| `myriad-marquee.png` | **landed** paletted | hall cabinet marquee | R57.26 |
+| `myriad-attract.png` | **landed** paletted | idle mini if no live demo | R57.27 |
 
-Manifest names with **no file** (R38 `ART_FILES`, R54.7). Loader leaves
+Manifest names with **no file** (Coast landmarks, PR #8). Loader leaves
 the slot empty; Coast renderer draws procedural glyphs.
 
 | File | Kind | Catalog |
@@ -69,30 +80,24 @@ claim `image/png`). Wave 3 does not move them again.
 
 ## Cabinets → current hero visual
 
-Every cabinet is **procedural**. Hall idle minis use `cabThumb` glyphs
-in `cabAccent` when there is no live snapshot; otherwise the attract
-demo is the live procedural renderer scaled into the bezel (R8).
-Marquees are i18n titles on an accent fill — no plate art.
+Live attract demos (R8) still fill the mini-screen when a snapshot
+exists. Marquee plates sit behind the i18n title. Idle `cabThumb`
+uses attract PNG when there is no live snapshot.
 
 | Game | In-cabinet hero | Hall marquee | Attract / idle mini | IDs |
 |------|-----------------|--------------|---------------------|-----|
-| snake | procedural grid snakes + food | i18n title + accent | `cabThumb` chevrons / live demo | R57.10–.12 |
-| puck | procedural maze / dots / ghosts | i18n title + accent | `cabThumb` dotted field / live demo | R57.13–.15 |
-| block | procedural bricks / paddles / ball | i18n title + accent | `cabThumb` brick rows / live demo | R57.16–.18 |
-| galaxy | procedural starfield / aliens / ship | i18n title + accent | `cabThumb` stars + ship / live demo | R57.19–.21 |
-| river | procedural lanes / frog | i18n title + accent | `cabThumb` water lines / live demo | R57.22–.24 |
-| myriad | procedural mushrooms / segments | i18n title + accent | `cabThumb` dots / live demo | R57.25–.27 |
-| coast | procedural pseudo-3D road; LO-borgen procedural (stub ignored); billboards procedural glyphs | i18n title + accent | `cabThumb` road + castle glyph / live demo | R57.28–.30 + R57.40–.45 |
+| snake | procedural grid snakes + food | **landed** plate + i18n title | landed idle card / live demo | R57.10–.12 |
+| puck | procedural maze / dots / ghosts | **landed** plate + i18n title | landed idle card / live demo | R57.13–.15 |
+| block | procedural bricks / paddles / ball | **landed** plate + i18n title | landed idle card / live demo | R57.16–.18 |
+| galaxy | procedural starfield / aliens / ship | **landed** plate + i18n title | landed idle card / live demo | R57.19–.21 |
+| river | procedural lanes / frog | **landed** plate + i18n title | landed idle card / live demo | R57.22–.24 |
+| myriad | procedural mushrooms / segments | **landed** plate + i18n title | landed idle card / live demo | R57.25–.27 |
+| coast | procedural pseudo-3D road; LO-borgen procedural; billboards procedural | i18n title + accent (PR #8) | `cabThumb` / live demo (PR #8) | R57.28–.30 + R57.40–.45 |
 
-Reserved drop names (not in `ART_FILES` yet — do not add 16×16
-placeholders; wiring is a later wave):
+Reserved drop names still unwired (do not add 16×16 placeholders):
 
-`snake-hero.png` `snake-marquee.png` `snake-attract.png`
-`puck-hero.png` `puck-marquee.png` `puck-attract.png`
-`block-hero.png` `block-marquee.png` `block-attract.png`
-`galaxy-hero.png` `galaxy-marquee.png` `galaxy-attract.png`
-`river-hero.png` `river-marquee.png` `river-attract.png`
-`myriad-hero.png` `myriad-marquee.png` `myriad-attract.png`
+`snake-hero.png` `puck-hero.png` `block-hero.png`
+`galaxy-hero.png` `river-hero.png` `myriad-hero.png`
 `coast-hero.png` `coast-marquee.png` `coast-attract.png`
 
 Live attract demos stay (R8). Attract PNGs are idle mini-screen cards,

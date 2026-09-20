@@ -114,7 +114,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 515 tests across engine, games, server, client
+npm test          # vitest: 518 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```
@@ -131,22 +131,21 @@ as the hall's attract/splash loop and `coast_yosen_start_ja` as the Coast
 READY call, played exactly once per Coast table. Operator volume/mute
 applies to them, a missing file fails closed to silence, and core never
 touches audio. The credits wall (press `C`) carries the provenance, pixel
-art included: Coast billboards and LO-borgen are watermark-checked
-PNGs; hall chrome stays procedural until those drops land.
+art included: Coast billboards and LO-borgen plus six-cabinet plates are
+watermark-checked PNGs; hall chrome stays procedural until those drops land.
 
 ## Pixel art (R38 / R46 / R54 / R57)
 
 Drop real PNGs into `packages/client/static/art/` using the filenames in
-[`ART.md`](ART.md) (catalog IDs R57.1–R57.51). Style: 1982 Tokyo arcade,
+[`ART.md`](ART.md) (catalog IDs R57.1–R57.52). Style: 1982 Tokyo arcade,
 limited palette, typically 16–32 KB, ≥64 px on at least one axis. The
 loader ignores 16×16 placeholders, so a stub never beats the procedural
 drawing that already stands alone. JPEG Imagine pilots for Coast
 billboards live in `packages/client/art-pilots/*.jpg` — not served.
 
-As of the Wave 3 catalog every cabinet (snake, puck, block, galaxy,
-river, myriad, coast) is still **procedural**; hall/splash chrome files
-are 16×16 stubs; Coast billboard PNGs are missing. Wave 1 owns the
-real LO-borgen and billboard drops.
+Wave 3 landed paletted marquee + attract plates for snake, puck, block,
+galaxy, river, and myriad (R57.52). Coast art is a separate drop (PR #8).
+Hall/splash chrome files are still 16×16 stubs.
 
 ## License
 
