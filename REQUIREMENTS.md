@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (515 tests, incl. real-WebSocket E2E for 2- and)
+  `npm test` green (518 tests, incl. real-WebSocket E2E for 2- and)
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
@@ -699,9 +699,14 @@ is Tokyo Arcade 1982. Core never loads Image/DOM/fetch.
 magic, ≥64 px on at least one axis (P1-6), typically 16–32 KB
 (R7.4 / R38.5), original / GPL-compatible, no commercial sprites.
 A 16×16 stub is never landed. Credits provenance stays
-`PROCEDURAL UNTIL ART LANDS` until at least one ID below is landed.
+`PROCEDURAL UNTIL ART LANDS` until at least one ID below is landed;
+once six-cabinet plates land, the wall names those plates and keeps
+hall chrome / Coast honest as still procedural (R57.51).
 
-Hall / six-cabinet plates are still TODO in this inventory commit. Coast landmarks R57.40–R57.45 already landed with Wave 1 (R56). R55 remains Circuit d’Or (queued, no gameplay).
+As of Wave 3 art drop, **twelve** six-cabinet marquee/attract plates
+are landed (R57.52). Hall chrome and hero sheets remain TODO. Coast
+landmarks R57.40–R57.45 already landed with Wave 1 (R56). R55 is Circuit
+d’Or (queued, no gameplay).
 
 ### Hall / splash chrome (drop zone files exist; all stubs)
 
@@ -715,9 +720,10 @@ Hall / six-cabinet plates are still TODO in this inventory commit. Coast landmar
 | R57.6 | `credit-panel.png` | Credit-digit strip backdrop | **TODO** — 16×16 stub (112 B); loader ignores; procedural badge |
 | R57.7 | `wait-badge.png` | Join-queue wait badge | **TODO** — 16×16 stub (132 B); loader ignores; procedural WAIT dots |
 
-- R57.8 Reserved filenames for per-cabinet art (R57.10–R57.30) are
-  **not** in `ART_FILES` yet. Wiring is a later wave. Do not drop
-  16×16 placeholders for them.
+- R57.8 Six-cabinet marquee/attract filenames (R57.11/12, .14/15, .17/18,
+  .20/21, .23/24, .26/27) are in `ART_FILES` and landed. Hero sheets
+  (R57.10, .13, .16, .19, .22, .25) and Coast plates (R57.28–.30) stay
+  off the manifest. Do not drop 16×16 placeholders for unwired IDs.
 - R57.9 JPEG Imagine pilots are already off the static serve path
   (`packages/client/art-pilots/*.jpg`, P2-C). Wave 3 does not move
   them again. They are 1280×720 JPEG reference stills, not pixel art,
@@ -732,23 +738,23 @@ mini-screen card — not a replacement for the demo.
 | ID | File | Cabinet | Slot | Current hero visual | Status |
 |----|------|---------|------|---------------------|--------|
 | R57.10 | `snake-hero.png` | snake | in-cabinet hero | procedural grid snakes + food | **TODO** (unwired) |
-| R57.11 | `snake-marquee.png` | snake | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
-| R57.12 | `snake-attract.png` | snake | hall idle card | `cabThumb` chevrons | **TODO** (unwired) |
+| R57.11 | `snake-marquee.png` | snake | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
+| R57.12 | `snake-attract.png` | snake | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
 | R57.13 | `puck-hero.png` | puck | in-cabinet hero | procedural maze / dots / ghosts | **TODO** (unwired) |
-| R57.14 | `puck-marquee.png` | puck | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
-| R57.15 | `puck-attract.png` | puck | hall idle card | `cabThumb` dotted field | **TODO** (unwired) |
+| R57.14 | `puck-marquee.png` | puck | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
+| R57.15 | `puck-attract.png` | puck | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
 | R57.16 | `block-hero.png` | block | in-cabinet hero | procedural bricks / paddles / ball | **TODO** (unwired) |
-| R57.17 | `block-marquee.png` | block | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
-| R57.18 | `block-attract.png` | block | hall idle card | `cabThumb` brick rows | **TODO** (unwired) |
+| R57.17 | `block-marquee.png` | block | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
+| R57.18 | `block-attract.png` | block | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
 | R57.19 | `galaxy-hero.png` | galaxy | in-cabinet hero | procedural starfield / aliens / ship | **TODO** (unwired) |
-| R57.20 | `galaxy-marquee.png` | galaxy | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
-| R57.21 | `galaxy-attract.png` | galaxy | hall idle card | `cabThumb` stars + ship | **TODO** (unwired) |
+| R57.20 | `galaxy-marquee.png` | galaxy | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
+| R57.21 | `galaxy-attract.png` | galaxy | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
 | R57.22 | `river-hero.png` | river | in-cabinet hero | procedural lanes / frog | **TODO** (unwired) |
-| R57.23 | `river-marquee.png` | river | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
-| R57.24 | `river-attract.png` | river | hall idle card | `cabThumb` water lines | **TODO** (unwired) |
+| R57.23 | `river-marquee.png` | river | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
+| R57.24 | `river-attract.png` | river | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
 | R57.25 | `myriad-hero.png` | myriad | in-cabinet hero | procedural mushrooms / segments | **TODO** (unwired) |
-| R57.26 | `myriad-marquee.png` | myriad | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
-| R57.27 | `myriad-attract.png` | myriad | hall idle card | `cabThumb` dots | **TODO** (unwired) |
+| R57.26 | `myriad-marquee.png` | myriad | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
+| R57.27 | `myriad-attract.png` | myriad | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
 | R57.28 | `coast-hero.png` | coast | in-cabinet hero | procedural pseudo-3D road | **TODO** (unwired) |
 | R57.29 | `coast-marquee.png` | coast | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
 | R57.30 | `coast-attract.png` | coast | hall idle card | `cabThumb` road + castle glyph | **TODO** (unwired) |
@@ -766,9 +772,16 @@ mini-screen card — not a replacement for the demo.
 
 - R57.50 Do not invent fake “real” 16×16 stubs. A drop that is not ≥64 px
   does not land; procedural drawing keeps precedence.
-- R57.51 Provenance (R13 / P2-8): until one R57 asset is landed, the
-  credits wall must keep `PIXEL ART: PROCEDURAL UNTIL ART LANDS` and
-  must not claim watermark-checked originals.
+- R57.51 Provenance (R13 / P2-8): the credits wall names Coast PNGs
+  (Wave 1) and six-cabinet plates (R57.52), watermark-check, and keeps
+  hall chrome procedural until R57.53. It must not claim a full
+  original art set.
+- R57.52 Wave 3 drop (not Coast, not Circuit): paletted PNG
+  marquee + attract plates for snake, puck, block, galaxy, river,
+  myriad (R57.11/12, .14/15, .17/18, .20/21, .23/24, .26/27). Each
+  file is PNG magic, color-type 3, ≥64 px, 16–32 KB. `cabinetArtFile`
+  returns null for Coast. Hall drawImage uses the plates; live attract
+  demos (R8) still win over idle cards. Hero sheets stay unwired.
 
 ## Constraints for R57
 

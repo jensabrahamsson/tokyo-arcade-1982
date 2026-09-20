@@ -13,7 +13,7 @@ import {
   nextLang,
 } from '@arkad/core';
 import { Net } from './net';
-import { art, loadArtBrowser } from './art';
+import { art, loadArtBrowser, cabinetArtFile } from './art';
 import { Keys } from './input';
 import { Chiptune } from './audio/chiptune';
 import { Samples } from './audio/samples';
@@ -723,6 +723,14 @@ function hallCabinetScreen(game: GameId): { data: unknown; demo: boolean } | nul
 function cabThumb(game: GameId, sx: number, sy: number, sw: number, sh: number, ms: number): void {
   ctx.fillStyle = '#05060c';
   ctx.fillRect(sx, sy, sw, sh);
+  const plate = cabinetArtFile(game, 'attract');
+  const img = plate ? art()[plate] : undefined;
+  if (img) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, sx, sy, sw, sh);
+    ctx.imageSmoothingEnabled = true;
+    return;
+  }
   const accent = cabAccent(game);
   const cx = sx + sw / 2;
   const cy = sy + sh / 2;
@@ -836,14 +844,25 @@ function renderCabinet(
     t('cab.ooo'),
   );
   // UX shell: the marquee band lights up in the cabinet's color and carries
-  // the game's real name — NOW PLAYING / OOO is a lamp, never the title
+  // the game's real name — NOW PLAYING / OOO is a lamp, never the title.
+  // Wave 3: paletted marquee plate behind that type when present.
   ctx.fillStyle = '#000';
   ctx.fillRect(x + 3, y + 2, w - 6, 12);
-  ctx.fillStyle = lamp === 'out-of-order'
-    ? PAL.darkred
-    : (lit ? marqueeColors[i % marqueeColors.length]! : '#3a3a46');
-  ctx.fillRect(x + 3, y + 2, w - 6, 12);
-  const titleColor = lamp === 'out-of-order' ? PAL.yellow : PAL.black;
+  const plate = cabinetArtFile(slot.game, 'marquee');
+  const marqueeImg = plate ? art()[plate] : undefined;
+  if (marqueeImg) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(marqueeImg, x + 3, y + 2, w - 6, 12);
+    ctx.imageSmoothingEnabled = true;
+  } else {
+    ctx.fillStyle = lamp === 'out-of-order'
+      ? PAL.darkred
+      : (lit ? marqueeColors[i % marqueeColors.length]! : '#3a3a46');
+    ctx.fillRect(x + 3, y + 2, w - 6, 12);
+  }
+  const titleColor = marqueeImg
+    ? PAL.white
+    : (lamp === 'out-of-order' ? PAL.yellow : PAL.black);
   if (mark.lampLabel) {
     if (lamp === 'now-playing') {
       ctx.fillStyle = PAL.lime;

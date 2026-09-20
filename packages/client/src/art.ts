@@ -1,5 +1,7 @@
 /** R38: pixel-art manifest + async loader. Presentation only; core never sees this. */
 
+import type { GameId } from '@arkad/core';
+
 export const ART_FILES = [
   'hall-floor.png',
   'cabinet-bezel.png',
@@ -16,9 +18,31 @@ export const ART_FILES = [
   'coast-bommersvik.png',
   'coast-valdebatt76.png',
   'coast-castro-visit.png',
+  // R57 Wave 3: six-cabinet marquee + attract plates. Coast plates are PR #8
+  // (do not add coast-marquee/attract here). Hero sheets stay unwired.
+  'snake-marquee.png',
+  'snake-attract.png',
+  'puck-marquee.png',
+  'puck-attract.png',
+  'block-marquee.png',
+  'block-attract.png',
+  'galaxy-marquee.png',
+  'galaxy-attract.png',
+  'river-marquee.png',
+  'river-attract.png',
+  'myriad-marquee.png',
+  'myriad-attract.png',
 ] as const;
 
 export type ArtFile = (typeof ART_FILES)[number];
+
+/** R57: marquee/attract filenames for the six Wave 3 cabinets. Coast → null. */
+export const WAVE3_CABINET_GAMES = ['snake', 'puck', 'block', 'galaxy', 'river', 'myriad'] as const;
+
+export function cabinetArtFile(game: GameId, slot: 'marquee' | 'attract'): ArtFile | null {
+  const name = `${game}-${slot}.png`;
+  return (ART_FILES as readonly string[]).includes(name) ? (name as ArtFile) : null;
+}
 
 export const artPath = (name: ArtFile): string => `/art/${name}`;
 
