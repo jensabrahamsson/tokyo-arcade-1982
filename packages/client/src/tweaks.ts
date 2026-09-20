@@ -397,6 +397,21 @@ export function escapeClearsFullscreenOnly(isFullscreen: boolean): boolean {
   return isFullscreen;
 }
 
+/**
+ * P2-8/P2-10 provenance — the honest credits-wall lines, short enough for
+ * the 320 px screen. The two Lyria 3.5 samples are the deliberate,
+ * documented exception to the all-synthesized rule (attract loop + Coast
+ * READY call, operator volume/mute applied, fail-closed silent when a file
+ * is missing, never touched by core). Pixel art is original work, checked
+ * for watermarks before it lands in static/art/.
+ */
+export const provenanceLines = (): string[] => [
+  'SFX SYNTHESIZED LIVE - CHIPTUNE ONLY',
+  'ATTRACT TRACK: LATE NIGHT CABINET (LYRIA 3.5)',
+  'READY CALL: COAST YOSEN START JA (LYRIA 3.5)',
+  'PIXEL ART: ORIGINALS, CHECKED FOR WATERMARKS',
+];
+
 /** P3 fix: plate rect behind a small badge label so the CRT scanline/glow
  * overlay cannot stripe out the glyphs; honor alignment, clamp to the canvas */
 export function badgePlateRect(

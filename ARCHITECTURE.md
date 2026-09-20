@@ -22,8 +22,9 @@ Pure TypeScript. No `node:`, no DOM, no `Math.random`, no timers.
   lives, sfx), the phase machine (`ready → playing → roundOver /
   gameOver → attract`), seeded `Rng` (xorshift, passed explicitly), and
   `PlayerInput` (`dir`, `button`, `seq` for edge-triggered reads).
-- `games/<name>/` — six specs: snake (capacity 4 FFA), puck (turnBased,
-  4-personality ghost AI), block, galaxy, river, myriad. Every `step()`
+- `games/<name>/` — seven specs: snake (capacity 4 FFA), puck (turnBased,
+  4-personality ghost AI), block, galaxy, river, myriad, coast (R22).
+  Every `step()`
   is **pure**: it clones before writing, never mutates the state it was
   handed, and returns plain-JSON state.
 - `protocol/` — `ClientMessage`/`ServerMessage` unions plus

@@ -14,7 +14,7 @@ import {
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
   hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect,
   escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue,
-  escapeClearsFullscreenOnly,
+  escapeClearsFullscreenOnly, provenanceLines,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -622,5 +622,18 @@ describe('escape vs fullscreen (P2-9)', () => {
 
   it('windowed Escape goes straight home', () => {
     expect(escapeClearsFullscreenOnly(false)).toBe(false);
+  });
+});
+
+describe('credits provenance (P2-8/P2-10)', () => {
+  it('names the Lyria exception and the art watermark check', () => {
+    const lines = provenanceLines();
+    expect(lines.length).toBeGreaterThanOrEqual(3);
+    const all = lines.join('\n');
+    expect(all).toContain('LYRIA 3.5');
+    expect(all).toContain('LATE NIGHT CABINET');
+    expect(all).toContain('COAST YOSEN START');
+    expect(all).toContain('WATERMARK');
+    for (const line of lines) expect(line.length).toBeLessThanOrEqual(46);
   });
 });
