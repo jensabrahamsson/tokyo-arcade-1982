@@ -83,7 +83,7 @@ defines done. Each item is verified by a test, a live check, or both.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (352 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (375 tests, incl. real-WebSocket E2E for 2- and
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
@@ -118,7 +118,8 @@ defines done. Each item is verified by a test, a live check, or both.
 ## R10 — The hall, not a list
 
 - R10.1 The game select is a rendered arcade hall: floor, back wall,
-  six cabinets with lit marquees and live mini-screens fed by the demo
+  six cabinets (seven since R22) with lit marquees and live mini-screens
+  fed by the demo
   (or live) snapshots. No flat text list.
 - R10.2 A glowing "you are here" token stands at the selected cabinet;
   navigation walks the hall with arrows/WASD.

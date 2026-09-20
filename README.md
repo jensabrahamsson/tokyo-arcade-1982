@@ -1,6 +1,6 @@
 # ARKAD — Tokyo Arcade Hall 1982 🕹️
 
-Six classic arcade cabinets from the golden age, rebuilt in TypeScript with
+Seven classic arcade cabinets from the golden age, rebuilt in TypeScript with
 authentic 1982 flavor: CRT scanlines, synthesized chiptune sound, coin drops
 and a Japanese arcade hall atmosphere. Play solo or challenge your friends on
 the same LAN.
@@ -58,7 +58,7 @@ banner tracks the live leader of the hall.
 
 ## The hall is alive (1982 mode)
 
-The game select is not a menu — it is a rendered arcade hall: six cabinets
+The game select is not a menu — it is a rendered arcade hall: seven cabinets
 with lit marquees, floor reflections and a "you are here" token you walk
 around with the arrow keys. Every idle cabinet runs a live attract demo
 (built-in deterministic bots playing their own games), so the hall hums
@@ -85,7 +85,7 @@ pushes harder when a player is cruising — never boring, never unfair.
 
 ```
 packages/
-  core/      pure game logic (no DOM, no Node): engines, six games,
+  core/      pure game logic (no DOM, no Node): engines, seven games,
              i18n (EN/JA), difficulty, protocol, chiptune note tables
   server/    Node + ws: lobby, tables, authoritative 60 Hz loop, high scores
   client/    Canvas 2D renderer, Web Audio chiptune synth, scenes
@@ -98,7 +98,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 352 tests across engine, games, server, client
+npm test          # vitest: 375 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```
@@ -108,9 +108,14 @@ makes it green.
 
 ## Sound
 
-No audio files — every bleep, crumb-munch and exploding ghost is synthesized
-live with Web Audio square/triangle/noise channels, the way the hardware
-did it.
+Almost every bleep, crumb-munch and exploding ghost is synthesized live with
+Web Audio square/triangle/noise channels, the way the hardware did it. The
+single documented exception (R54): two Lyria 3.5 MP3s — `Late_Night_Cabinet`
+as the hall's attract/splash loop and `coast_yosen_start_ja` as the Coast
+READY call, played exactly once per Coast table. Operator volume/mute
+applies to them, a missing file fails closed to silence, and core never
+touches audio. The credits wall (press `C`) carries the provenance, pixel
+art included: originals only, checked for watermarks before they land.
 
 ## License
 
