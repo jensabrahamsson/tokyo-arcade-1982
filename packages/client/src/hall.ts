@@ -15,14 +15,23 @@ const COLS = 4;
 const CW = 78;
 const CH = 78;
 
+/**
+ * One header chrome band (players / coin / clock / marquee / banner).
+ * Cabinets start at `bottom` so the sticker and tournament line do not
+ * sit on the marquees — 4×2 grid itself is unchanged (P2-G).
+ */
+export const HALL_CHROME_BAND = { top: 0, bottom: 52 } as const;
+
+const HALL_ORIGIN_Y = HALL_CHROME_BAND.bottom;
+
 /** top edge of the carpet floor, below the second cabinet row */
-export const FLOOR_Y = 40 + 2 * (CH + 6) - 6;
+export const FLOOR_Y = HALL_ORIGIN_Y + 2 * (CH + 6) - 6;
 
 /** where the cabinets stand on the hall floor (R10) */
 export const HALL_SLOTS: CabinetSlot[] = GAME_IDS.map((game, i) => ({
   game,
   x: 8 + (i % COLS) * CW,
-  y: 40 + Math.floor(i / COLS) * (CH + 6),
+  y: HALL_ORIGIN_Y + Math.floor(i / COLS) * (CH + 6),
   w: CW - 8,
   h: CH,
 }));
