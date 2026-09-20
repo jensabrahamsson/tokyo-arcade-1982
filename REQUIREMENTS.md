@@ -426,11 +426,14 @@ change R8.1–R8.5.
   copyrighted sprites from commercial games.
 - R38.3 First batch (placeholders until Cursor drops real PNGs with
   the same filenames): `hall-floor.png`, `cabinet-bezel.png`,
-  `coast-lo-castle.png`, `splash-logo.png`.
+  `coast-lo-castle.png`, `splash-logo.png`. Catalog IDs R57.1, R57.2,
+  R57.40, R57.3 — hall/splash chrome still 16×16 stubs (ignored by
+  the P1-6 loader); Wave 1 already landed `coast-lo-castle.png`.
 - R38.4 Client loads assets async; renderers `drawImage` where they
   fit. Missing/failed load falls back to the existing procedural
   drawing (never a crash). Tests mock Image or cover only the
-  path/manifest helpers.
+  path/manifest helpers. 16×16 stubs that load successfully are
+  also ignored (P1-6: real art is ≥64 px on at least one axis).
 - R38.5 AGENTS.md documents the handoff: Cursor/Grok Imagine
   delivers PNGs into `static/art/`; OpenCode writes code/wiring only.
   Bundle budget R7.4 — keep files small (ideally 16-32 KB each).
@@ -510,7 +513,8 @@ change R8.1–R8.5.
 - R46.1 The R38 manifest gains `marquee-neon.png`, `coin-slot.png`,
   `credit-panel.png`, `wait-badge.png`, with tiny palette
   placeholders (<1 KB) until Cursor drops real 16-32 KB PNGs under
-  the same filenames.
+  the same filenames. Catalog IDs R55.4–R55.7 — Wave 3 inventory:
+  still 16×16 stubs, not landed.
 - R46.2 drawImage is wired where they fit (marquee strip, coin slot
   chrome, credit-strip backdrop, wait badge); procedural fallbacks
   stay. Core never touches Image/DOM/fetch. AGENTS lists the new
@@ -684,27 +688,96 @@ new game.
 
 ## R57 — Art ID catalog (Wave 3)
 
-Stable Imagine PNG IDs. **R55 is Circuit d’Or only.** Hall / cabinet
-pixel-art must not reuse R55. Full inventory tables land in `ART.md`
-with Wave 3. (A Wave 3 draft briefly numbered these IDs as R55; they
-are R57.) This change does not take `ART.md`.
+R55 is Circuit d’Or (document-only, separate hygiene PR — this catalog
+does not implement gameplay). R56 is reserved for Coast Pole Position
+look (Wave 1). Art IDs live here as **R57**.
 
-Reserved bands (filenames already in R38 / R46 / R54):
+Stable IDs for Imagine PNG drops. Inventory, stub vs real vs missing,
+and per-cabinet hero status: [`ART.md`](ART.md). Player-facing brand
+is Tokyo Arcade 1982. Core never loads Image/DOM/fetch.
 
-- R57.1–R57.7 Hall / splash chrome (`hall-floor`, `cabinet-bezel`,
-  `splash-logo`, `marquee-neon`, `coin-slot`, `credit-panel`,
-  `wait-badge`).
-- R57.8–R57.9 Reserved per-cabinet filenames not yet in `ART_FILES`;
-  JPEG pilots already off the static path (P2-C).
-- R57.10–R57.30 Per-cabinet hero / marquee / attract (7×3).
-- R57.40–R57.45 LO-borgen + five Coast billboards — Wave 1 landed the
-  PNG drops (R54.6 / R54.7).
-- R57.50 No fake 16×16 “heroes”; a drop under 64 px does not land.
-- R57.51 Provenance names Coast PNGs after Wave 1; hall chrome stays
-  procedural until Wave 3.
+**Landed** means a PNG in `packages/client/static/art/` with PNG
+magic, ≥64 px on at least one axis (P1-6), typically 16–32 KB
+(R7.4 / R38.5), original / GPL-compatible, no commercial sprites.
+A 16×16 stub is never landed. Credits provenance stays
+`PROCEDURAL UNTIL ART LANDS` until at least one ID below is landed.
 
-Coast landmark PNGs landed with Wave 1. Hall / six-cabinet plates still
-await Wave 3. 16×16 stubs are not landed (P1-6).
+Hall / six-cabinet plates are still TODO in this inventory commit. Coast landmarks R57.40–R57.45 already landed with Wave 1 (R56). R55 remains Circuit d’Or (queued, no gameplay).
+
+### Hall / splash chrome (drop zone files exist; all stubs)
+
+| ID | File | Role | Status |
+|----|------|------|--------|
+| R57.1 | `hall-floor.png` | Hall carpet tile | **TODO** — 16×16 stub (110 B); loader ignores; procedural floor + piping |
+| R57.2 | `cabinet-bezel.png` | Cabinet body chrome | **TODO** — 16×16 stub (109 B); loader ignores; procedural cabinet fill |
+| R57.3 | `splash-logo.png` | Splash / credits wordmark art | **TODO** — 16×16 stub (136 B); splash uses procedural `drawWordmark`, never `drawImage` |
+| R57.4 | `marquee-neon.png` | Hall neon marquee strip | **TODO** — 16×16 stub (113 B); loader ignores; procedural scroll text |
+| R57.5 | `coin-slot.png` | Coin-insert slot chrome | **TODO** — 16×16 stub (116 B); loader ignores; procedural slot |
+| R57.6 | `credit-panel.png` | Credit-digit strip backdrop | **TODO** — 16×16 stub (112 B); loader ignores; procedural badge |
+| R57.7 | `wait-badge.png` | Join-queue wait badge | **TODO** — 16×16 stub (132 B); loader ignores; procedural WAIT dots |
+
+- R57.8 Reserved filenames for per-cabinet art (R57.10–R57.30) are
+  **not** in `ART_FILES` yet. Wiring is a later wave. Do not drop
+  16×16 placeholders for them.
+- R57.9 JPEG Imagine pilots are already off the static serve path
+  (`packages/client/art-pilots/*.jpg`, P2-C). Wave 3 does not move
+  them again. They are 1280×720 JPEG reference stills, not pixel art,
+  and must never be renamed `.png` under `static/`.
+
+### Per-cabinet hero / marquee / attract (none on disk)
+
+Live attract demos (R8) stay: bots + the procedural renderer. These
+PNGs are chrome around that — a hero skin, a marquee plate, an idle
+mini-screen card — not a replacement for the demo.
+
+| ID | File | Cabinet | Slot | Current hero visual | Status |
+|----|------|---------|------|---------------------|--------|
+| R57.10 | `snake-hero.png` | snake | in-cabinet hero | procedural grid snakes + food | **TODO** (unwired) |
+| R57.11 | `snake-marquee.png` | snake | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
+| R57.12 | `snake-attract.png` | snake | hall idle card | `cabThumb` chevrons | **TODO** (unwired) |
+| R57.13 | `puck-hero.png` | puck | in-cabinet hero | procedural maze / dots / ghosts | **TODO** (unwired) |
+| R57.14 | `puck-marquee.png` | puck | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
+| R57.15 | `puck-attract.png` | puck | hall idle card | `cabThumb` dotted field | **TODO** (unwired) |
+| R57.16 | `block-hero.png` | block | in-cabinet hero | procedural bricks / paddles / ball | **TODO** (unwired) |
+| R57.17 | `block-marquee.png` | block | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
+| R57.18 | `block-attract.png` | block | hall idle card | `cabThumb` brick rows | **TODO** (unwired) |
+| R57.19 | `galaxy-hero.png` | galaxy | in-cabinet hero | procedural starfield / aliens / ship | **TODO** (unwired) |
+| R57.20 | `galaxy-marquee.png` | galaxy | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
+| R57.21 | `galaxy-attract.png` | galaxy | hall idle card | `cabThumb` stars + ship | **TODO** (unwired) |
+| R57.22 | `river-hero.png` | river | in-cabinet hero | procedural lanes / frog | **TODO** (unwired) |
+| R57.23 | `river-marquee.png` | river | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
+| R57.24 | `river-attract.png` | river | hall idle card | `cabThumb` water lines | **TODO** (unwired) |
+| R57.25 | `myriad-hero.png` | myriad | in-cabinet hero | procedural mushrooms / segments | **TODO** (unwired) |
+| R57.26 | `myriad-marquee.png` | myriad | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
+| R57.27 | `myriad-attract.png` | myriad | hall idle card | `cabThumb` dots | **TODO** (unwired) |
+| R57.28 | `coast-hero.png` | coast | in-cabinet hero | procedural pseudo-3D road | **TODO** (unwired) |
+| R57.29 | `coast-marquee.png` | coast | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
+| R57.30 | `coast-attract.png` | coast | hall idle card | `cabThumb` road + castle glyph | **TODO** (unwired) |
+
+### Coast landmarks (Wave 1 owns the PNG drops)
+
+| ID | File | Role | Status |
+|----|------|------|--------|
+| R57.40 | `coast-lo-castle.png` | LO-borgen silhouette | **landed** paletted PNG (Wave 1 / R56) |
+| R57.41 | `coast-centerpartiet.png` | Billboard CENTRUM TRADPLAN | **landed** paletted PNG (Wave 1 / R56) |
+| R57.42 | `coast-harpsund.png` | Billboard HARPSUND - EKAN | **landed** paletted PNG (Wave 1 / R56) |
+| R57.43 | `coast-bommersvik.png` | Billboard BOMMERSVIK 1982 | **landed** paletted PNG (Wave 1 / R56) |
+| R57.44 | `coast-valdebatt76.png` | Billboard VALDEBATT 76 | **landed** paletted PNG (Wave 1 / R56) |
+| R57.45 | `coast-castro-visit.png` | Billboard PALME I HAVANNA | **landed** paletted PNG (Wave 1 / R56) |
+
+- R57.50 Do not invent fake “real” 16×16 stubs. A drop that is not ≥64 px
+  does not land; procedural drawing keeps precedence.
+- R57.51 Provenance (R13 / P2-8): until one R57 asset is landed, the
+  credits wall must keep `PIXEL ART: PROCEDURAL UNTIL ART LANDS` and
+  must not claim watermark-checked originals.
+
+## Constraints for R57
+
+- GPL-3.0-only; canvas-only UI; chiptune plus the two documented Lyria
+  3.5 samples (R54); TypeScript strict; the core stays pure; no new
+  npm dependencies. Wave 3 is the catalog — it does not drop Coast
+  billboard / LO-borgen PNGs (Wave 1) and does not rewrite AGENTS.md
+  (Wave 0). When green: commit, push, summary with the new test count.
 
 ## Lab — Jev self-play & 1-minute autoplay (all cabinets)
 

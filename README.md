@@ -66,7 +66,8 @@ on the hall wall. A dropped socket parks leftover coins in memory
 for 60 s under `name|lang` (arcade convention: two players who pick
 the same tag share the wallet) and puts you back at the same cabinet
 without another coin if the table is still up — never written to disk. Pixel art
-(R38) drops into `static/art/` — missing
+IDs (R55) and the drop-zone inventory live in [`ART.md`](ART.md) —
+`static/art/` is the Imagine PNG drop zone; 16×16 stubs and missing
 files fall back to procedural drawing. Attract
 signage alternates English and Japanese on its own timer, and a tournament
 banner tracks the live leader of the hall.
@@ -132,6 +133,20 @@ applies to them, a missing file fails closed to silence, and core never
 touches audio. The credits wall (press `C`) carries the provenance, pixel
 art included: Coast billboards and LO-borgen are watermark-checked
 PNGs; hall chrome stays procedural until those drops land.
+
+## Pixel art (R38 / R46 / R54 / R55)
+
+Drop real PNGs into `packages/client/static/art/` using the filenames in
+[`ART.md`](ART.md) (catalog IDs R55.1–R55.51). Style: 1982 Tokyo arcade,
+limited palette, typically 16–32 KB, ≥64 px on at least one axis. The
+loader ignores 16×16 placeholders, so a stub never beats the procedural
+drawing that already stands alone. JPEG Imagine pilots for Coast
+billboards live in `packages/client/art-pilots/*.jpg` — not served.
+
+As of the Wave 3 catalog every cabinet (snake, puck, block, galaxy,
+river, myriad, coast) is still **procedural**; hall/splash chrome files
+are 16×16 stubs; Coast billboard PNGs are missing. Wave 1 owns the
+real LO-borgen and billboard drops.
 
 ## License
 
