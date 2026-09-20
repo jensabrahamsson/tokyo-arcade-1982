@@ -23,7 +23,9 @@ repo root, gitignored, never commit it). Unset key fail-closes to the
 built-in demo bots. Live one-shot: `npm run jev:smoke` (skips if the key
 is unset). One-minute autoplay per cabinet:
 `ARKAD_JEV_AUTOPLAY_SECONDS=60 npm run jev:autoplay` (~7 min total, prints
-an action/confidence summary, exit 0). Show-floor smokes (muted, not a
+an action/confidence summary, exit 0). See [`JEV.md`](JEV.md) for attract
+self-play tuning. Soak: `ARKAD_JEV_SOAK_MINUTES=5 npm run jev:soak`
+(JSON under `data/`, gitignored). Show-floor smokes (muted, not a
 human Mac, not fullscreen Chrome): `npm test` is the required path;
 optional muted headless CDP is in `AGENTS.md`.
 
@@ -111,7 +113,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 469 tests across engine, games, server, client
+npm test          # vitest: 491 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```
