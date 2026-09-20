@@ -415,7 +415,6 @@ export const provenanceLines = (): string[] => [
   'PIXEL ART: HALL CHROME + SIX CABS + COAST',
   'WATERMARK-CHECKED',
 ];
-];
 
 /**
  * P1-7: one throwing renderer must never take down the canvas or the rAF
