@@ -64,9 +64,11 @@ no audio for these.
 
 `ARKAD_JEV_SELFPLAY=1` lets the snake attract demo consult TypeSafe Jev
 (`POST https://api.typesafe.ai/v1/systemone`, model `jev-latest`) at
-~8 Hz. Compact JSON state only (no images). Missing `TYPESAFE_API_KEY`
-or HTTP failure fail-closed to `spec.demo`. Core stays pure — fetch lives
-in `packages/server/src/jevPolicy.ts`. CI uses a mock classifier; live
+~8 Hz. Compact JSON state only (no images). The key is `TYPESAFE_API_KEY`
+in the environment or gitignored repo-root `.env.typesafe` (never commit
+that file; never log the value). Missing key or HTTP failure fail-closed
+to `spec.demo`. Core stays pure — fetch lives in
+`packages/server/src/jevPolicy.ts`. CI uses a mock classifier; live
 one-shot: `npm run jev:smoke` (skips if the key is unset).
 
 ## Working agreements
@@ -96,11 +98,11 @@ packages/client   main.ts, net.ts, input.ts, namepad.ts, audio/, renderers/, sta
 ```
 
 ```sh
-npm test                # vitest run (406 tests, incl. real-socket E2E)
+npm test                # vitest run (411 tests, incl. real-socket E2E)
 npx vitest run <path>   # one file while iterating
 npm run typecheck       # tsc -b
 node build.mjs          # esbuild bundles into dist/
-node dist/server/index.cjs   # ARKAD_PORT / ARKAD_DATA / ARKAD_JEV_SELFPLAY / TYPESAFE_API_KEY
+node dist/server/index.cjs   # ARKAD_PORT / ARKAD_DATA / ARKAD_JEV_SELFPLAY; key from env or .env.typesafe
 npm run jev:smoke            # one live Snake Jev decision; skip if no key
 ```
 

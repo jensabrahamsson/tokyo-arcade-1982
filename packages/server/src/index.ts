@@ -1,5 +1,7 @@
 import { networkInterfaces } from 'node:os';
+import { join } from 'node:path';
 import { createGameServer, isFatalNetError, safeLog } from './http';
+import { loadTypesafeEnvFile } from './jevPolicy';
 
 function lanAddresses(): string[] {
   const out: string[] = [];
@@ -30,6 +32,8 @@ process.on('unhandledRejection', (reason) => {
 });
 
 async function main(): Promise<void> {
+  // gitignored repo-root .env.typesafe; shell env wins; never log the value
+  loadTypesafeEnvFile(process.env, [process.cwd(), join(__dirname, '..', '..')]);
   const handle = await createGameServer({ port: PORT, dataDir: DATA_DIR });
   for (const sig of ['SIGINT', 'SIGTERM'] as const) {
     process.on(sig, () => {

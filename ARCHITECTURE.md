@@ -57,8 +57,9 @@ unit testing, and snapshots that are just `JSON.stringify` of state.
   with shape-checked loads and non-throwing saves.
 - `jevPolicy.ts` — optional TypeSafe Jev self-play for the snake attract
   demo (`ARKAD_JEV_SELFPLAY=1`). Compact JSON snapshot in, stick out;
-  missing `TYPESAFE_API_KEY` or HTTP failure fail-closed to `spec.demo`.
-  Fetch stays here; core never sees it.
+  `TYPESAFE_API_KEY` from the environment or gitignored `.env.typesafe`;
+  missing key or HTTP failure fail-closed to `spec.demo`. Fetch stays
+  here; core never sees it.
 
 Model: **full snapshot broadcast** (~30 Hz, ~1.3 KB/table client, ~800
 KB/s for a 20-client snake table). Right model for a LAN hall of dozens

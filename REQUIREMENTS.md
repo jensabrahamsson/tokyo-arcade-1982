@@ -83,7 +83,7 @@ defines done. Each item is verified by a test, a live check, or both.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (406 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (411 tests, incl. real-WebSocket E2E for 2- and
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
@@ -114,9 +114,10 @@ Operator/autotest flag, not a cabinet requirement. When
 with a TypeSafe Jev choice over legal actions (parallel noul danger +
 score aggression), mapped through a confidence threshold onto the
 existing stick. `TYPESAFE_API_KEY` may be unset: fail-closed to
-`spec.demo`. Rate-limited ~5–10 Hz, cached between calls, no live API
-in CI. Other cabinets stay on their deterministic bots. Does not change
-R8.1–R8.5.
+`spec.demo`. Local key file is gitignored `.env.typesafe` at the repo
+root (never commit). Rate-limited ~5–10 Hz, cached between calls, no
+live API in CI. Other cabinets stay on their deterministic bots. Does
+not change R8.1–R8.5.
 
 ## R9 — Arrow keys everywhere
 
