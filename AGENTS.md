@@ -60,6 +60,15 @@ exist; the repo stays GPL-3.0-only. Player-facing brand is
 fail-closed silent when a file is missing. Core stays pure — it emits
 no audio for these.
 
+## Jev snake self-play (optional autotest)
+
+`ARKAD_JEV_SELFPLAY=1` lets the snake attract demo consult TypeSafe Jev
+(`POST https://api.typesafe.ai/v1/systemone`, model `jev-latest`) at
+~8 Hz. Compact JSON state only (no images). Missing `TYPESAFE_API_KEY`
+or HTTP failure fail-closed to `spec.demo`. Core stays pure — fetch lives
+in `packages/server/src/jevPolicy.ts`. CI uses a mock classifier; live
+one-shot: `npm run jev:smoke` (skips if the key is unset).
+
 ## Working agreements
 
 - Small, verifiable steps. Run the suite after every handful of edits,
@@ -82,16 +91,17 @@ no audio for these.
 
 ```
 packages/core     engine/, games/<7>/, protocol/, i18n/, audio/, difficulty/
-packages/server   http.ts, arcade.ts, session.ts, highscores.ts
+packages/server   http.ts, arcade.ts, session.ts, highscores.ts, jevPolicy.ts
 packages/client   main.ts, net.ts, input.ts, namepad.ts, audio/, renderers/, static/
 ```
 
 ```sh
-npm test                # vitest run (382 tests, incl. real-socket E2E)
+npm test                # vitest run (406 tests, incl. real-socket E2E)
 npx vitest run <path>   # one file while iterating
 npm run typecheck       # tsc -b
 node build.mjs          # esbuild bundles into dist/
-node dist/server/index.cjs   # ARKAD_PORT / ARKAD_DATA
+node dist/server/index.cjs   # ARKAD_PORT / ARKAD_DATA / ARKAD_JEV_SELFPLAY / TYPESAFE_API_KEY
+npm run jev:smoke            # one live Snake Jev decision; skip if no key
 ```
 
 ## Conventions

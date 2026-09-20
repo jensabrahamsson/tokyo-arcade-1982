@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "npm run typecheck && node build.mjs",
-    "start": "node dist/server/index.cjs"
+    "start": "node dist/server/index.cjs",
+    "jev:smoke": "node scripts/jev-smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

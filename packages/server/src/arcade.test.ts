@@ -6,6 +6,7 @@ import { Arcade, CREDIT_RECONNECT_GRACE, type Conn } from './arcade';
 import { HighScoreStore } from './highscores';
 import { ServiceStore } from './service';
 import type { ServerMessage, RosterMsg, SnapshotMsg } from '@arkad/core';
+import { DIRS } from '@arkad/core';
 
 class FakeNet {
   inbox: Map<string, ServerMessage[]> = new Map();
@@ -622,6 +623,48 @@ describe('Arcade', () => {
     arcade.handleMessage('c5', { type: 'coin', game: 'coast' });
     for (let i = 0; i < 8; i++) arcade.tick();
     expect(hallMsgs('c5').at(-1)?.credits).toBe(1);
+  });
+
+  it('snake attract follows an injected Jev policy (ARKAD_JEV_SELFPLAY)', () => {
+    arcade.stop();
+    arcade = new Arcade({
+      send: net.send,
+      store: new HighScoreStore(join(dir, 'scores.json')),
+      service: new ServiceStore(join(dir, 'service.json')),
+      jev: {
+        covers: (game) => game === 'snake',
+        inputFor: (_game, _state, tick) => ({ dir: DIRS.up, button: false, seq: tick }),
+      },
+    });
+    arcade.addConnection(conns[0]!);
+    arcade.handleMessage('c1', { type: 'hall', watch: true });
+    for (let i = 0; i < 40; i++) arcade.tick();
+    const cab = hallMsgs('c1').at(-1)?.cabinets.find((c) => c.game === 'snake');
+    const data = cab?.data as { snakes: { demo: { dir: { dx: number; dy: number } } } } | undefined;
+    expect(data?.snakes.demo.dir).toEqual({ dx: 0, dy: -1 });
+  });
+
+  it('a throwing Jev policy fail-closes to the built-in snake demo', () => {
+    arcade.stop();
+    arcade = new Arcade({
+      send: net.send,
+      store: new HighScoreStore(join(dir, 'scores.json')),
+      service: new ServiceStore(join(dir, 'service.json')),
+      jev: {
+        covers: () => true,
+        inputFor: () => {
+          throw new Error('jev down');
+        },
+      },
+    });
+    arcade.addConnection(conns[0]!);
+    arcade.handleMessage('c1', { type: 'hall', watch: true });
+    expect(() => {
+      for (let i = 0; i < 20; i++) arcade.tick();
+    }).not.toThrow();
+    const cab = hallMsgs('c1').at(-1)?.cabinets.find((c) => c.game === 'snake');
+    expect(cab?.demo).toBe(true);
+    expect(cab?.data).not.toBeNull();
   });
 });
 
