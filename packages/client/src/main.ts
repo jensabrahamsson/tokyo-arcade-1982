@@ -36,7 +36,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, reconnectStart, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, reconnectStart, coastQualifyingOverlay, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -70,6 +70,7 @@ const music = new Samples();
 const ATTRACT_TRACK = 'audio/Late_Night_Cabinet.mp3';
 const COAST_READY_STINGER = 'audio/coast_yosen_start_ja.mp3';
 let coastAnnouncedFor = '';
+let coastAnnouncedAt = 0;
 
 let lang: Lang = (localStorage.getItem('arkad-lang') as Lang) === 'ja' ? 'ja' : 'en';
 type Scene = 'splash' | 'title' | 'name' | 'hall' | 'map' | 'table' | 'scores' | 'credits' | 'service' | 'note' | 'coinInsert';
@@ -139,6 +140,7 @@ net.onMessage((msg: ServerMessage) => {
       const seated = snap.table.players.some((p) => p.id === world.myId);
       if (readyStingerDue(coastAnnouncedFor, snap.table.id, snap.table.game, snap.table.phase, seated)) {
         coastAnnouncedFor = snap.table.id;
+        coastAnnouncedAt = performance.now();
         void music.play(COAST_READY_STINGER, 0.9);
       }
       break;
@@ -177,8 +179,8 @@ net.onOpen(() => {
   if (scene === 'table') {
     world.snap = null;
     // P1-4: replay the game+mode we were actually playing, not always versus
-    const st = reconnectStart(lastStart, GAME_IDS[sel]!);
-    net.send({ type: 'start', game: st.game, mode: st.mode });
+    const st = reconnectStart(lastStart);
+    if (st) net.send({ type: 'start', game: st.game, mode: st.mode });
   }
 });
 net.connect();
@@ -628,8 +630,16 @@ function renderGame(ms: number): void {
     const secs = readyCountdown(msSinceFull);
     if (secs !== null) px(ctx, countedChrome(t('phase.ready'), secs), CANVAS_W / 2, 104, 20, blink(ms, 400) ? PAL.yellow : PAL.orange, 'center');
   }
-  // R54.5: Pole Position qualifying call — the text twin of the 予選スタート sample
-  if (game === 'coast' && (phase === 'ready' || snap.table.readyAt != null)) {
+  // R54.5 / P1-A: Pole Position qualifying call — N seconds after the first
+  // seated Coast snapshot, even when solo begin() has already jumped to playing
+  if (coastQualifyingOverlay({
+    game,
+    tableId: snap.table.id,
+    seated: iAmSeated,
+    announcedFor: coastAnnouncedFor,
+    announcedAtMs: coastAnnouncedAt,
+    nowMs: ms,
+  })) {
     px(ctx, t('coast.qualifying'), cx, 78, 12, blink(ms, 420) ? PAL.white : PAL.magenta, 'center');
   }
   const left = joinCountdown(snap.table.joinDeadline ?? null, snap.tick ?? 0);

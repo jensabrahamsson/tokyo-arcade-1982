@@ -60,7 +60,8 @@ RECORD, idle coin cabinets blink INSERT COIN, cabinets carry power
 LEDs and rolling top-3 boards, and the operator can slap a sticker
 on the hall wall. A dropped socket parks leftover coins in memory
 for 60 s under `name|lang` (arcade convention: two players who pick
-the same tag share the wallet) — never written to disk. Pixel art
+the same tag share the wallet) and puts you back at the same cabinet
+without another coin if the table is still up — never written to disk. Pixel art
 (R38) drops into `static/art/` — missing
 files fall back to procedural drawing. Attract
 signage alternates English and Japanese on its own timer, and a tournament
@@ -108,7 +109,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 451 tests across engine, games, server, client
+npm test          # vitest: 457 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```

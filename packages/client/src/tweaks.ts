@@ -472,6 +472,27 @@ export function readyStingerDue(announcedFor: string, tableId: string, game: str
   return phase === 'ready' || seated;
 }
 
+/** P1-A: 「予選スタート！」 overlay — N seconds after the first seated Coast
+ *  snapshot, independent of phase. Solo begin() jumps to playing, so a
+ *  phase==='ready' || readyAt gate never fires on the only playable path. */
+export const COAST_QUALIFYING_MS = 3000;
+
+export function coastQualifyingOverlay(opts: {
+  game: string;
+  tableId: string;
+  seated: boolean;
+  announcedFor: string;
+  announcedAtMs: number;
+  nowMs: number;
+  windowMs?: number;
+}): boolean {
+  if (opts.game !== 'coast' || !opts.seated) return false;
+  if (opts.announcedFor !== opts.tableId) return false;
+  const windowMs = opts.windowMs ?? COAST_QUALIFYING_MS;
+  const elapsed = opts.nowMs - opts.announcedAtMs;
+  return elapsed >= 0 && elapsed < windowMs;
+}
+
 /** UX shell: one warm accent per cabinet so hall cabinets read as games,
  * not as seven identical debug frames; distinct, palette-true colors */
 const CAB_ACCENTS: Record<GameId, string> = {
@@ -508,10 +529,10 @@ export function countedChrome(word: string, n: number): string {
 
 export type StartChoice = { game: GameId; mode: GameMode };
 
-/** P1-4/P2-H: onOpen re-seats the table we were at; lastStart wins so a
- *  dropped solo Coast does not come back as a versus fallback. */
-export function reconnectStart(lastStart: StartChoice | null, fallbackGame: GameId): StartChoice {
-  return lastStart ?? { game: fallbackGame, mode: 'versus' };
+/** P1-4/P1-B: onOpen re-seats the table we were at. No versus fallback —
+ *  a dropped solo Coast must not come back as a duel. */
+export function reconnectStart(lastStart: StartChoice | null): StartChoice | null {
+  return lastStart;
 }
 
 /** P2-H: windowed Escape from a seated table sends `back` (reopens attract).

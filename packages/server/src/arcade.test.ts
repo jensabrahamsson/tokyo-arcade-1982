@@ -713,6 +713,47 @@ describe('Arcade', () => {
     // ticks would have walked ~9 cells if the demo had kept running
     expect(Math.abs(head1!.x - head0.x) + Math.abs(head1!.y - head0.y)).toBeLessThanOrEqual(1);
   });
+
+  it('reconnect reseats a live solo Coast without a new debit (P1-B)', () => {
+    arcade.handleMessage('c1', { type: 'freePlay', on: false });
+    arcade.handleMessage('c1', { type: 'coin', game: 'coast' });
+    arcade.handleMessage('c1', { type: 'coin', game: 'coast' });
+    arcade.handleMessage('c1', { type: 'start', game: 'coast', mode: 'solo' });
+    for (let i = 0; i < 10; i++) arcade.tick();
+    const snap0 = net.last<SnapshotMsg>('c1', 'snapshot');
+    expect(snap0?.table.game).toBe('coast');
+    expect(snap0?.table.mode).toBe('solo');
+    expect(snap0?.credits).toBe(1); // two coins, one spent at the seat
+    const tableId = snap0?.table.id;
+    const dist0 = (snap0?.data as { dist?: number } | null)?.dist ?? 0;
+
+    arcade.removeConnection('c1');
+    arcade.addConnection({ id: 'c9', name: '???', lang: 'en' });
+    arcade.handleMessage('c9', { type: 'join', name: 'AKIRA', lang: 'en' });
+    arcade.handleMessage('c9', { type: 'start', game: 'coast', mode: 'solo' });
+    for (let i = 0; i < 8; i++) arcade.tick();
+    const snap1 = net.last<SnapshotMsg>('c9', 'snapshot');
+    expect(snap1?.table.id).toBe(tableId);
+    expect(snap1?.table.mode).toBe('solo');
+    expect(snap1?.table.game).toBe('coast');
+    expect(snap1?.credits).toBe(1); // parked wallet restored, no second debit
+    expect((snap1?.data as { dist?: number } | null)?.dist ?? 0).toBeGreaterThanOrEqual(dist0);
+  });
+
+  it('lapsed reconnect grace is a normal start: insert-coin when the wallet is gone (P1-B)', () => {
+    arcade.handleMessage('c1', { type: 'freePlay', on: false });
+    arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
+    arcade.handleMessage('c1', { type: 'coin', game: 'snake' });
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'solo' });
+    for (let i = 0; i < 4; i++) arcade.tick();
+    arcade.removeConnection('c1');
+    for (let i = 0; i < CREDIT_RECONNECT_GRACE + 1; i++) arcade.tick();
+    arcade.addConnection({ id: 'c9', name: '???', lang: 'en' });
+    arcade.handleMessage('c9', { type: 'join', name: 'AKIRA', lang: 'en' });
+    net.take('c9');
+    arcade.handleMessage('c9', { type: 'start', game: 'snake', mode: 'solo' });
+    expect(net.last<{ code: string }>('c9', 'error')?.code).toBe('insert-coin');
+  });
 });
 
 describe('Arcade smoke (all cabinets)', () => {

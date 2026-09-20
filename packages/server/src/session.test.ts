@@ -53,4 +53,25 @@ describe('Session', () => {
     s.setInput('p99', { dir: DIRS.up, button: false });
     expect(Object.keys((s.state as unknown as { snakes?: Record<string, unknown> }).snakes ?? {})).toHaveLength(2);
   });
+
+  it('rebindPlayer moves scores, lives and snake onto the new conn id (P1-B)', () => {
+    const s = mk();
+    s.begin();
+    s.setInput('p1', { dir: DIRS.up, button: false });
+    for (let i = 0; i < 4; i++) s.tick();
+    const before = JSON.parse(JSON.stringify(s.state)) as {
+      scores: Record<string, number>;
+      lives: Record<string, number>;
+      snakes: Record<string, unknown>;
+    };
+    s.rebindPlayer('p1', 'c9');
+    expect(s.state.scores['c9']).toBe(before.scores['p1']);
+    expect(s.state.lives['c9']).toBe(before.lives['p1']);
+    expect(s.state.scores['p1']).toBeUndefined();
+    expect((s.state as unknown as { snakes: Record<string, unknown> }).snakes['c9']).toEqual(before.snakes['p1']);
+    expect((s.state as unknown as { snakes: Record<string, unknown> }).snakes['p1']).toBeUndefined();
+    s.setInput('c9', { dir: DIRS.down, button: false });
+    for (let i = 0; i < 12; i++) s.tick();
+    expect((s.state as unknown as { snakes: Record<string, { dir: { dy: number } }> }).snakes['c9']!.dir.dy).toBe(1);
+  });
 });

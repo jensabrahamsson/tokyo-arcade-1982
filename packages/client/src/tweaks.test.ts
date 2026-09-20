@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { GAME_IDS } from '@arkad/core';
+import { GAME_IDS, t } from '@arkad/core';
 import {
   DEFAULT_KNOBS, cycleKnob, crtFilterCss, scanlineOpacity,
   ACCESS_MODES, nextAccess, accessFilterCss,
@@ -16,6 +16,7 @@ import {
   escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue,
   escapeClearsFullscreenOnly, provenanceLines, guardRender,
   hallCoinBadge, countedChrome, HALL_CHROME, reconnectStart, escapeSendsBack,
+  coastQualifyingOverlay, COAST_QUALIFYING_MS,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -684,14 +685,17 @@ describe('hall header chrome row (P2-G)', () => {
   });
 });
 
-describe('reconnect start payload (P2-H)', () => {
+describe('reconnect start payload (P2-H/P1-B)', () => {
   it('replays lastStart game+mode instead of falling back to versus', () => {
-    expect(reconnectStart({ game: 'coast', mode: 'solo' }, 'snake')).toEqual({ game: 'coast', mode: 'solo' });
-    expect(reconnectStart({ game: 'block', mode: 'versus' }, 'snake')).toEqual({ game: 'block', mode: 'versus' });
+    expect(reconnectStart({ game: 'coast', mode: 'solo' })).toEqual({ game: 'coast', mode: 'solo' });
+    expect(reconnectStart({ game: 'block', mode: 'versus' })).toEqual({ game: 'block', mode: 'versus' });
   });
 
-  it('versus fallback is only for a cold seat with no lastStart', () => {
-    expect(reconnectStart(null, 'galaxy')).toEqual({ game: 'galaxy', mode: 'versus' });
+  // P1-B: the old expectation was reconnectStart(null, 'galaxy') === { game: 'galaxy', mode: 'versus' }.
+  // That versus fallback is how a dropped solo Coast came back as a duel (P1-4 rest).
+  // Reconnect without lastStart now sends nothing; Z/X on the hall pick a fresh mode.
+  it('a reconnect without lastStart does not invent a versus start (P1-B)', () => {
+    expect(reconnectStart(null)).toBeNull();
   });
 });
 
@@ -703,5 +707,34 @@ describe('Escape from table sends back (P2-H)', () => {
 
   it('fullscreen spends the first Escape leaving FS, not back', () => {
     expect(escapeSendsBack('table', true, true)).toBe(false);
+  });
+});
+
+describe('Coast qualifying overlay (P1-A)', () => {
+  const playingSolo = {
+    game: 'coast' as const,
+    tableId: 't-coast',
+    seated: true,
+    announcedFor: 't-coast',
+    announcedAtMs: 1_000,
+  };
+
+  it('today\'s phase/readyAt gate would hide a playing solo Coast snapshot', () => {
+    const oldGate = (phase: string, readyAt: number | null): boolean => phase === 'ready' || readyAt != null;
+    expect(oldGate('playing', null)).toBe(false);
+  });
+
+  it('still draws t(coast.qualifying) for N seconds after the first seated snapshot, independent of phase', () => {
+    expect(t('en', 'coast.qualifying')).toBe('QUALIFYING START!');
+    expect(t('ja', 'coast.qualifying')).toBe('予選スタート！');
+    expect(coastQualifyingOverlay({ ...playingSolo, nowMs: 1_000 })).toBe(true);
+    expect(coastQualifyingOverlay({ ...playingSolo, nowMs: 1_000 + COAST_QUALIFYING_MS - 1 })).toBe(true);
+    expect(coastQualifyingOverlay({ ...playingSolo, nowMs: 1_000 + COAST_QUALIFYING_MS })).toBe(false);
+  });
+
+  it('does not show for other games, spectators, or a table that has not announced', () => {
+    expect(coastQualifyingOverlay({ ...playingSolo, game: 'snake', nowMs: 1_100 })).toBe(false);
+    expect(coastQualifyingOverlay({ ...playingSolo, seated: false, nowMs: 1_100 })).toBe(false);
+    expect(coastQualifyingOverlay({ ...playingSolo, announcedFor: '', nowMs: 1_100 })).toBe(false);
   });
 });
