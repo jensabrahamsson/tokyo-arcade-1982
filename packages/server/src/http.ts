@@ -19,8 +19,15 @@ const MIME: Record<string, string> = {
   '.css': 'text/css',
   '.json': 'application/json',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
   '.mp3': 'audio/mpeg',
 };
+
+/** extension → Content-Type; unknown stays octet-stream (never guess image/png) */
+export function contentTypeFor(filename: string): string {
+  return MIME[extname(filename).toLowerCase()] ?? 'application/octet-stream';
+}
 
 export function createArcade(dataDir: string, send: (id: string, msg: unknown) => void): Arcade {
   return new Arcade({
@@ -92,7 +99,7 @@ export async function createGameServer(opts: { port: number; dataDir: string; pu
       res.writeHead(404).end('not found');
       return;
     }
-    res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' });
+    res.writeHead(200, { 'content-type': contentTypeFor(file) });
     // P2-4: a read error (file yanked between stat and read, EPERM, EIO)
     // must kill the response, not the process — streams throw on 'error'
     createReadStream(file)

@@ -67,6 +67,23 @@ export const COIN_WINDOW_TICKS = 60;
 export const CREDIT_RECONNECT_GRACE = 3600;
 export const MAX_PARKED_WALLETS = 32;
 
+/** P2-2 / P1-B: wallets and held tables share the arcade `name|lang` key */
+export function reconnectKey(name: string, lang: Lang): string {
+  return `${name.toLowerCase()}|${lang}`;
+}
+
+/** P2-D: a live (!demo) table of the same game pauses that cabinet's attract
+ *  bot so we don't pay CPU for a demo the hall already hid. */
+export function liveTablePausesDemo(
+  game: GameId,
+  tables: Iterable<{ game: GameId; demo: boolean }>,
+): boolean {
+  for (const t of tables) {
+    if (t.game === game && !t.demo) return true;
+  }
+  return false;
+}
+
 export interface CoinRateWindow {
   sinceTick: number;
   count: number;
@@ -114,6 +131,13 @@ export class Arcade {
   private credits = new Map<string, number>();
   /** P2-2: wallets parked at disconnect, keyed `name|lang`, in memory only */
   private parked = new Map<string, { credits: number; expiresTick: number }>();
+  /** P1-B: live tables held for a name|lang reconnect, not in the hall roster */
+  private heldTables = new Map<string, {
+    table: Table;
+    playerId: string;
+    spectator: boolean;
+    expiresTick: number;
+  }>();
   private coinRate = new Map<string, CoinRateWindow>();
   /** last tick a human sat at each cabinet, for attract energy tiers (R39) */
   private lastHuman = new Map<GameId, number>();
@@ -176,13 +200,23 @@ export class Arcade {
     // P2-2: park the wallet (never an anonymous '???') so the same player
     // reconnecting by name+lang within the grace window picks it right up
     if (conn && credits > 0 && conn.name !== '???') this.parkCredits(conn.name, conn.lang, credits);
-    for (const table of this.tables.values()) {
+    for (const table of [...this.tables.values()]) {
+      const seat = table.seats.find((s) => s.connId === connId);
+      if (!seat) continue;
       table.seats = table.seats.filter((s) => s.connId !== connId);
       this.clearReadyIfUnderstaffed(table);
       // a disconnected player must never leave others holding a frozen table (R26.3)
       if (table.paused) table.paused = false;
       // demos are seatless by design (P0-1): never tear one down for having no seats
-      if (!table.demo && !table.seats.some((s) => !s.spectator)) this.closeTable(table);
+      if (table.demo) continue;
+      if (table.seats.some((s) => !s.spectator)) continue;
+      // P1-B: last human dropped — hold the live table under name|lang and
+      // put attract back on the floor; back() still closes for real
+      if (conn && conn.name !== '???' && !seat.spectator) {
+        this.holdLiveTable(conn, table, connId, seat.spectator);
+      } else {
+        this.closeTable(table);
+      }
     }
     this.broadcastRoster();
   }
@@ -195,7 +229,7 @@ export class Arcade {
         conn.name = msg.name.trim() || '???';
         conn.lang = msg.lang;
         // P2-2: a reconnecting player claims the wallet parked for this name+lang
-        const key = `${conn.name.toLowerCase()}|${conn.lang}`;
+        const key = reconnectKey(conn.name, conn.lang);
         const parked = this.parked.get(key);
         if (parked) {
           this.parked.delete(key);
@@ -212,7 +246,7 @@ export class Arcade {
         this.broadcastRoster();
         break;
       case 'start':
-        this.seat(connId, msg.game, msg.mode);
+        if (!this.tryReseat(connId, msg.game, msg.mode)) this.seat(connId, msg.game, msg.mode);
         break;
       case 'input': {
         const table = this.tableOf(connId);
@@ -447,12 +481,58 @@ export class Arcade {
     const now = this.tickCount;
     for (const [k, v] of this.parked) if (v.expiresTick <= now) this.parked.delete(k);
     while (this.parked.size >= MAX_PARKED_WALLETS) this.parked.delete(this.parked.keys().next().value as string);
-    const key = `${name.toLowerCase()}|${lang}`;
+    const key = reconnectKey(name, lang);
     const prev = this.parked.get(key);
     this.parked.set(key, {
       credits: (prev?.credits ?? 0) + credits,
       expiresTick: now + CREDIT_RECONNECT_GRACE,
     });
+  }
+
+  /** P1-B: pull the live table off the floor so attract can run, keep the
+   *  session frozen in memory until name|lang comes back (or grace lapses). */
+  private holdLiveTable(conn: Conn, table: Table, playerId: string, spectator: boolean): void {
+    this.tables.delete(table.id);
+    const now = this.tickCount;
+    for (const [k, v] of this.heldTables) if (v.expiresTick <= now) this.heldTables.delete(k);
+    while (this.heldTables.size >= MAX_PARKED_WALLETS) {
+      this.heldTables.delete(this.heldTables.keys().next().value as string);
+    }
+    const key = reconnectKey(conn.name, conn.lang);
+    this.heldTables.set(key, { table, playerId, spectator, expiresTick: now + CREDIT_RECONNECT_GRACE });
+    if (![...this.tables.values()].some((t) => t.game === table.game)) {
+      this.openDemoTable(table.game);
+    }
+  }
+
+  /** P1-B: same name|lang, same game+mode, table still held → sit back down, no debit */
+  private tryReseat(connId: string, game: GameId, mode: GameMode): boolean {
+    const conn = this.conns.get(connId);
+    if (!conn || conn.name === '???') return false;
+    const key = reconnectKey(conn.name, conn.lang);
+    const held = this.heldTables.get(key);
+    if (!held) return false;
+    if (held.expiresTick <= this.tickCount) {
+      this.heldTables.delete(key);
+      return false;
+    }
+    if (held.table.game !== game || held.table.mode !== mode) return false;
+    this.heldTables.delete(key);
+    const table = held.table;
+    this.tables.set(table.id, table);
+    table.session?.rebindPlayer(held.playerId, connId);
+    if (!table.seats.some((s) => s.connId === connId)) {
+      table.seats.push({ connId, spectator: held.spectator });
+    }
+    this.broadcastRoster();
+    return true;
+  }
+
+  private sweepHeldTables(): void {
+    const now = this.tickCount;
+    for (const [k, v] of this.heldTables) {
+      if (v.expiresTick <= now) this.heldTables.delete(k);
+    }
   }
 
   private closeTable(table: Table): void {
@@ -477,9 +557,11 @@ export class Arcade {
 
   tick(): void {
     this.tickCount++;
+    this.sweepHeldTables();
     for (const table of [...this.tables.values()]) {
       if (table.demo) {
-        if (!this.opts.service.snapshot().outOfOrder.includes(table.game)) this.tickDemo(table);
+        const ooo = this.opts.service.snapshot().outOfOrder.includes(table.game);
+        if (!ooo && !liveTablePausesDemo(table.game, this.tables.values())) this.tickDemo(table);
         continue;
       }
       const session = table.session;

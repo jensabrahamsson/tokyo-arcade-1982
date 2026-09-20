@@ -31,6 +31,7 @@ export const EN = {
   'toast.generic': 'THE MACHINE SAYETH NO',
   'hall.credits': 'CREDITS',
   'hall.freePlay': 'FREE PLAY',
+  'hall.coinMode': 'COIN 1C',
   'record.new': 'NEW RECORD',
   'hall.topScores': 'TOP',
   'hall.sticker': 'STICKER',

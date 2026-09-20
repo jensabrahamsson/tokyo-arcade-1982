@@ -1,7 +1,7 @@
 import { EN } from './en';
 
 export const JA: Record<keyof typeof EN, string> = {
-  'app.title': 'TOKYO ARCADE',
+  'app.title': 'トウキョウ アーケード',
   'app.year': '1982年',
   'splash.welcome': 'ヨウコソ - ドウゾ オハイリ クダサイ',
   'splash.enter': 'スペースキー デ ごニュウジョウ',
@@ -33,6 +33,7 @@ export const JA: Record<keyof typeof EN, string> = {
   'toast.generic': 'キカイ ガ イヤト イッテイル',
   'hall.credits': 'クレジット',
   'hall.freePlay': 'フリープレイ',
+  'hall.coinMode': 'コイン1枚',
   'record.new': '新記録',
   'hall.topScores': 'トップ',
   'hall.sticker': 'ステッカー',
@@ -56,7 +57,7 @@ export const JA: Record<keyof typeof EN, string> = {
   'game.myriad.tag': 'ムシニ サワル ナ!',
   'coast.qualifying': '予選スタート！',
   'coast.time': 'タイム',
-  'coast.mph': 'マイル',
+  'coast.mph': 'キロ',
   'coast.gate': 'ゲート',
   'coast.offRoad': 'オフロード！',
   'hud.score': 'スコア',

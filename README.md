@@ -58,7 +58,11 @@ ride the hall channel, a FREE PLAY banner flies in free-play mode,
 the standing cabinet gets a focus ring, finished runs flash NEW
 RECORD, idle coin cabinets blink INSERT COIN, cabinets carry power
 LEDs and rolling top-3 boards, and the operator can slap a sticker
-on the hall wall. Pixel art (R38) drops into `static/art/` — missing
+on the hall wall. A dropped socket parks leftover coins in memory
+for 60 s under `name|lang` (arcade convention: two players who pick
+the same tag share the wallet) and puts you back at the same cabinet
+without another coin if the table is still up — never written to disk. Pixel art
+(R38) drops into `static/art/` — missing
 files fall back to procedural drawing. Attract
 signage alternates English and Japanese on its own timer, and a tournament
 banner tracks the live leader of the hall.
@@ -105,7 +109,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 432 tests across engine, games, server, client
+npm test          # vitest: 457 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```
@@ -122,7 +126,8 @@ as the hall's attract/splash loop and `coast_yosen_start_ja` as the Coast
 READY call, played exactly once per Coast table. Operator volume/mute
 applies to them, a missing file fails closed to silence, and core never
 touches audio. The credits wall (press `C`) carries the provenance, pixel
-art included: originals only, checked for watermarks before they land.
+art included: procedural drawing until real PNGs land in the drop zone
+(then originals, watermark-checked).
 
 ## License
 
