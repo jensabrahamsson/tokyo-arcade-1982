@@ -203,9 +203,9 @@ const ROADSIDE: readonly BoardDraw[] = COAST_BILLBOARDS.map((b, i) => ({
 }));
 
 function drawBillboard(ctx: CanvasRenderingContext2D, b: BoardDraw, p: { y: number; scale: number; roadW: number; offX: number }, tMs: number): void {
-  const bw = Math.max(10, p.scale * 260);
+  const bw = Math.max(10, Math.min(88, p.scale * 240));
   const bh = Math.round(bw * 0.62);
-  const bx = p.offX + b.side * (p.roadW * 1.35 + bw * 0.7);
+  const bx = p.offX + b.side * (p.roadW * 0.7 + bw * 0.45);
   if (bx < -bw || bx > W + bw) return;
   const groundY = p.y;
   const postW = Math.max(1, Math.round(bw * 0.06));
