@@ -2,9 +2,53 @@
 /**
  * Optional live Jev smoke: one Snake decision, print probabilities.
  * Skips (exit 0) when TYPESAFE_API_KEY is unset — CI never hits the live API.
+ * Loads gitignored repo-root `.env.typesafe` if the shell env is empty.
  * Keep questions in sync with packages/server/src/jevPolicy.ts snakeJevQuestions().
  */
-const key = (process.env.TYPESAFE_API_KEY ?? '').trim();
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+function parseDotEnv(text) {
+  const out = {};
+  for (const raw of text.replace(/^\uFEFF/, '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const body = line.startsWith('export ') ? line.slice(7).trim() : line;
+    const eq = body.indexOf('=');
+    if (eq <= 0) continue;
+    const k = body.slice(0, eq).trim();
+    let v = body.slice(eq + 1).trim();
+    if (
+      v.length >= 2 &&
+      ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))
+    ) {
+      v = v.slice(1, -1);
+    }
+    out[k] = v;
+  }
+  return out;
+}
+
+function loadKey() {
+  const fromEnv = (process.env.TYPESAFE_API_KEY ?? '').trim();
+  if (fromEnv) return fromEnv;
+  const roots = [process.cwd(), join(dirname(fileURLToPath(import.meta.url)), '..')];
+  for (const root of roots) {
+    const p = join(root, '.env.typesafe');
+    if (!existsSync(p)) continue;
+    try {
+      const parsed = parseDotEnv(readFileSync(p, 'utf8'));
+      const k = (parsed.TYPESAFE_API_KEY ?? '').trim();
+      if (k) return k;
+    } catch {
+      /* fail closed */
+    }
+  }
+  return '';
+}
+
+const key = loadKey();
 if (!key) {
   console.log('jev-smoke: skip (TYPESAFE_API_KEY unset)');
   process.exit(0);

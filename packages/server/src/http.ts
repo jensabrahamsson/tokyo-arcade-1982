@@ -51,7 +51,14 @@ export async function createGameServer(opts: { port: number; dataDir: string; pu
   const sockets = new Map<string, WebSocket>();
   let seq = 0;
   const jev = jevSelfPlayFromEnv();
-  if (jev) safeLog('[arkad] Jev snake self-play on (fail-closed without TYPESAFE_API_KEY)');
+  if (jev) {
+    const hasKey = (process.env.TYPESAFE_API_KEY ?? '').trim().length > 0;
+    safeLog(
+      hasKey
+        ? '[arkad] Jev snake self-play on'
+        : '[arkad] Jev snake self-play on (fail-closed, no TYPESAFE_API_KEY)',
+    );
+  }
   const arcade = new Arcade({
     send: (connId, msg) => {
       const ws = sockets.get(connId);

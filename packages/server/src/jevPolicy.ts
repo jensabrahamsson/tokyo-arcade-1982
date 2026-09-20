@@ -2,7 +2,11 @@
  * TypeSafe Jev self-play for the snake attract cabinet.
  * Lives on the server (fetch/I/O). Core stays pure: missing key or HTTP
  * failure fail-closed to spec.demo. No images — compact JSON state only.
+ *
+ * Local key file: repo-root `.env.typesafe` (gitignored). Never log the value.
  */
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   DIRS,
   NO_INPUT,
@@ -338,6 +342,70 @@ export class JevSelfPlay implements DemoInputPolicy {
     const mapped = mapJevToInput(got.body.answers, compact.legal, NO_INPUT, 0, this.confidenceMin);
     this.cached = mapped.dir ? mapped : null;
   }
+}
+
+export const TYPESAFE_ENV_FILENAME = '.env.typesafe';
+
+/** Parse a tiny KEY=value file. Comments, optional `export`, quotes, CRLF. */
+export function parseDotEnv(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const src = text.replace(/^\uFEFF/, '');
+  for (const raw of src.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const body = line.startsWith('export ') ? line.slice(7).trim() : line;
+    const eq = body.indexOf('=');
+    if (eq <= 0) continue;
+    const key = body.slice(0, eq).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue;
+    let val = body.slice(eq + 1).trim();
+    if (
+      val.length >= 2 &&
+      ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'")))
+    ) {
+      val = val.slice(1, -1);
+    }
+    out[key] = val;
+  }
+  return out;
+}
+
+/** Fill blank keys on `env` from dotenv text. Existing non-empty values win. */
+export function applyTypesafeEnv(
+  env: Record<string, string | undefined>,
+  text: string | null | undefined,
+): Record<string, string | undefined> {
+  if (!text) return env;
+  for (const [k, v] of Object.entries(parseDotEnv(text))) {
+    if ((env[k] ?? '').trim() === '') env[k] = v;
+  }
+  return env;
+}
+
+function readTextFile(path: string): string | null {
+  try {
+    return existsSync(path) ? readFileSync(path, 'utf8') : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Load gitignored `.env.typesafe` from the first search dir that has it.
+ * Does not overwrite keys already set on `env` (CI / shell win).
+ */
+export function loadTypesafeEnvFile(
+  env: Record<string, string | undefined> = process.env,
+  searchDirs: string[] = [process.cwd()],
+): Record<string, string | undefined> {
+  for (const dir of searchDirs) {
+    const text = readTextFile(join(dir, TYPESAFE_ENV_FILENAME));
+    if (text !== null) {
+      applyTypesafeEnv(env, text);
+      break;
+    }
+  }
+  return env;
 }
 
 export function jevSelfPlayFromEnv(

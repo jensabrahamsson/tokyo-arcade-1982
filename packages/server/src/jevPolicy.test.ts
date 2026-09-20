@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DIRS, snakeSpec, type SnakeState, type PlayerInput } from '@arkad/core';
 import {
   ACTION_DIRS,
@@ -7,12 +10,15 @@ import {
   JEV_MIN_INTERVAL_MS,
   JEV_MODEL,
   JevSelfPlay,
+  applyTypesafeEnv,
   askJev,
   compactSnakeState,
   dirToAction,
   jevSelfPlayFromEnv,
   legalSnakeActions,
+  loadTypesafeEnvFile,
   mapJevToInput,
+  parseDotEnv,
   rateLimitAllows,
   runJevSmoke,
   snakeJevQuestions,
@@ -382,5 +388,50 @@ describe('runJevSmoke', () => {
     }
     expect(lines.join('\n')).toMatch(/up/);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('parseDotEnv / .env.typesafe', () => {
+  it('parses KEY=value, comments, export, quotes and CRLF', () => {
+    const got = parseDotEnv(
+      '\uFEFF# secret file\r\nexport TYPESAFE_API_KEY="abc def"\nARKAD_JEV_SELFPLAY=1\nnot a line\n=novalue\n',
+    );
+    expect(got).toEqual({ TYPESAFE_API_KEY: 'abc def', ARKAD_JEV_SELFPLAY: '1' });
+  });
+
+  it('fills blank env keys from file text and never overwrites a set key', () => {
+    const env: Record<string, string | undefined> = { TYPESAFE_API_KEY: '', OTHER: 'keep' };
+    applyTypesafeEnv(env, 'TYPESAFE_API_KEY=from-file\nOTHER=nope\n');
+    expect(env.TYPESAFE_API_KEY).toBe('from-file');
+    expect(env.OTHER).toBe('keep');
+    applyTypesafeEnv(env, 'TYPESAFE_API_KEY=second\n');
+    expect(env.TYPESAFE_API_KEY).toBe('from-file');
+  });
+
+  it('loadTypesafeEnvFile reads a temp .env.typesafe and no-ops when missing', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'arkad-typesafe-'));
+    try {
+      writeFileSync(join(dir, '.env.typesafe'), 'TYPESAFE_API_KEY=file-key\n');
+      const env: Record<string, string | undefined> = {};
+      loadTypesafeEnvFile(env, [dir]);
+      expect(env.TYPESAFE_API_KEY).toBe('file-key');
+      const missing: Record<string, string | undefined> = {};
+      loadTypesafeEnvFile(missing, [join(dir, 'no-such-dir')]);
+      expect(missing.TYPESAFE_API_KEY).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('runJevSmoke with an explicit empty env never fetches even if a key file exists on disk', async () => {
+    const fetchImpl = vi.fn();
+    const got = await runJevSmoke({ env: {}, fetchImpl, log: () => undefined });
+    expect(got.skipped).toBe(true);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('gitignore lists .env.typesafe so the key file is never committed', () => {
+    const gi = readFileSync(join(process.cwd(), '.gitignore'), 'utf8');
+    expect(gi.split(/\r?\n/).map((l) => l.trim())).toContain('.env.typesafe');
   });
 });
