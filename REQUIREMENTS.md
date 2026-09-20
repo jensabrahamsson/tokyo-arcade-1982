@@ -3,6 +3,10 @@
 The contract for what this product must do. `README.md` sells it; this list
 defines done. Each item is verified by a test, a live check, or both.
 
+**Process:** every accepted product requirement lives in this file as a
+numbered R-item or a Lab bullet. Chat threads and pull-request text are
+not a substitute — if it is not written here, it is not the contract.
+
 ## R1 — Theme & atmosphere
 
 - R1.1 Setting: a Tokyo arcade hall, 1982. Cabinet marquee, Japanese copy,
@@ -629,6 +633,66 @@ paths/protocol keep `arkad`. EN/JA tables updated in lockstep.
   manifest, procedural fallback until art lands. Homage scenery,
   not propaganda.
 
+## R55 — Circuit d’Or / サーキット・ドール / Guldvarvet (queued)
+
+Eighth cabinet. This item is the canonical contract. **Do not implement
+gameplay until soak is done** (Monday 2026-09-21 ~06:00 CEST plus E2E)
+unless the owner says implement now. Childhood memory: Atari 1976
+circuit / endurance from an overview camera — a bright track you read
+at speed, not a Night Driver void and not Coast Runner’s (R22)
+behind-car camera.
+
+Never ship the string “Le Mans” on marquees, UI, i18n, or filenames.
+
+- R55.1 Game id: `circuit` (or `or` if that collides). Titles, EN/JA
+  lockstep: Circuit d’Or · サーキット・ドール · optional SV Guldvarvet.
+- R55.2 Same house rules as every cabinet: pure `packages/core`,
+  server-authoritative, canvas renderer, chiptune, EN/JA. Hall presence
+  like R22.5 (marquee, attract demo, high scores, map). Solo-first in
+  v1; versus is out of scope until a later R.
+- R55.3 After soak the hall has **eight** cabinets. Until then the live
+  count stays seven (R2 + R22). This item is not a license to land
+  `games/circuit` now.
+- R55.4 Look: bright circuit, readable at speed. Not Night Driver. Not
+  the R22 Coast camera.
+
+## R56 — Coast Pole Position look (visual bar)
+
+Coast must read **1982–83 Japanese arcade racing** (Pole Position /
+early OutRun silhouette), not C64 Night Rider / Night Driver void.
+Wave 1 lands the look and writes the detailed R-text in the same PR.
+R22 mechanics and the R54.5 「予選スタート！」 overlay stay required.
+
+- R56.1 Bright daytime or clear dusk: sky band, horizon, vanishing-point
+  road, chunky rear-view car, roadside rhythm (posts / signs / trees /
+  billboards) readable at speed. Swedish landmarks stay billboard
+  **moments** (R54.7), not a black void with a speck car.
+- R56.2 Visual bar on top of R22 / R54 — not a new camera, not a new
+  game. Qualifying overlay (R54.5) must remain.
+
+## R57 — Art ID catalog (Wave 3)
+
+Stable Imagine PNG IDs. **R55 is Circuit d’Or only.** Hall / cabinet
+pixel-art must not reuse R55. Full inventory tables land in `ART.md`
+with Wave 3. (A Wave 3 draft briefly numbered these IDs as R55; they
+are R57.) This change does not take `ART.md`.
+
+Reserved bands (filenames already in R38 / R46 / R54):
+
+- R57.1–R57.7 Hall / splash chrome (`hall-floor`, `cabinet-bezel`,
+  `splash-logo`, `marquee-neon`, `coin-slot`, `credit-panel`,
+  `wait-badge`).
+- R57.8–R57.9 Reserved per-cabinet filenames not yet in `ART_FILES`;
+  JPEG pilots already off the static path (P2-C).
+- R57.10–R57.30 Per-cabinet hero / marquee / attract (7×3).
+- R57.40–R57.45 LO-borgen + five Coast billboards (Wave 1 owns the
+  PNG drops).
+- R57.50 No fake 16×16 “heroes”; a drop under 64 px does not land.
+- R57.51 Provenance stays `PROCEDURAL UNTIL ART LANDS` until one R57
+  asset is landed.
+
+Zero assets landed on `origin/main`. 16×16 stubs are not landed (P1-6).
+
 ## Lab — Jev self-play & 1-minute autoplay (all cabinets)
 
 - Enable: `ARKAD_JEV_SELFPLAY=1` + `TYPESAFE_API_KEY` (env or gitignored
@@ -641,3 +705,19 @@ paths/protocol keep `arkad`. EN/JA tables updated in lockstep.
   `ARKAD_JEV_AUTOPLAY_SECONDS=60 npm run jev:autoplay` — prints
   ticks/calls/ok/avg-confidence per cabinet and exits 0; without a key
   every game is skipped with a log line.
+
+### Adapter tuning (Wave 4 fills measurements in the same PR)
+
+Tuning is Lab, not a new R-batch. Wave 4 owns the implementation and
+the before/after numbers; this heading is the contract so those edits
+have a home. Fail-closed to `spec.demo` stays. CI stays mock-fetch
+(no live API in CI). Core stays pure.
+
+- **MUST — Block:** the paddle should track the ball, not sit on stay
+  while the ball is clearly off-center.
+- **MUST — Myriad:** fire when a segment is in-column and the shot is
+  clear; otherwise dodge. Fire-spam is not the default.
+- **SHOULD — Galaxy:** omit fire when the sky above the ship is empty.
+- **SHOULD — Coast:** if an obstacle is dead ahead on the current line,
+  prefer left/right over straight-only.
+- Snake / puck / river: do not regress.
