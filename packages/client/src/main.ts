@@ -36,7 +36,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -45,14 +45,14 @@ const t = (key: Parameters<typeof translate>[1], params?: Record<string, string 
 
 const MARQUEE_KEYS = ['marquee.1', 'marquee.2', 'marquee.3'] as const;
 
-const renderers: Partial<Record<GameId, (ctx: CanvasRenderingContext2D, data: never, tMs: number) => void>> = {
+const renderers: Partial<Record<GameId, (ctx: CanvasRenderingContext2D, data: never, tMs: number, mini?: boolean) => void>> = {
   snake: (ctx, data, ms) => renderSnake(ctx, data, ms),
   puck: (ctx, data, ms) => renderPuck(ctx, data, ms),
   block: (ctx, data, ms) => renderBlock(ctx, data, ms),
   galaxy: (ctx, data, ms) => renderGalaxy(ctx, data, ms),
   river: (ctx, data, ms) => renderRiver(ctx, data, ms),
   myriad: (ctx, data, ms) => renderMyriad(ctx, data, ms),
-  coast: (ctx, data, ms) => renderCoast(ctx, data, ms, lang),
+  coast: (ctx, data, ms, mini) => renderCoast(ctx, data, ms, lang, mini ?? false),
 };
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
@@ -283,6 +283,11 @@ function exitFullscreenFirst(): boolean {
   return true;
 }
 
+/** P1-8: canvas.style writes force a full repaint every frame; the CSS
+ * filter/scanline pair only ever changes with the knobs and the access
+ * palette, so the style writes are memoized on that key */
+let lastPresentationKey = '';
+
 function applyPresentation(): void {
   const liveSeat = (world.hall?.cabinets ?? []).some((c) => !c.demo && c.players > 0);
   audio.setAttract(scene === 'table' ? 1 : attractGain(liveSeat));
@@ -291,9 +296,13 @@ function applyPresentation(): void {
   music.setMaster(effectiveGain(volume, muted));
   if (attractMusicActive(scene)) void music.startLoop(ATTRACT_TRACK);
   else music.stopLoop();
-  canvas.style.filter = crtFilterCss(knobs, access);
-  const scan = document.querySelector('.scanlines') as HTMLElement | null;
-  if (scan) scan.style.opacity = String(scanlineOpacity(knobs, access));
+  const key = `${knobs.brightness}|${knobs.contrast}|${knobs.scanlines}|${access}`;
+  if (key !== lastPresentationKey) {
+    lastPresentationKey = key;
+    canvas.style.filter = crtFilterCss(knobs, access);
+    const scan = document.querySelector('.scanlines') as HTMLElement | null;
+    if (scan) scan.style.opacity = String(scanlineOpacity(knobs, access));
+  }
 }
 
 function openService(from: Scene): void {
@@ -766,6 +775,15 @@ function cabThumb(game: GameId, sx: number, sy: number, sw: number, sh: number, 
   }
 }
 
+/** P1-7: a broken renderer is reported once, then silently contained —
+ * the cabinet blanks itself, the hall and the rAF loop live on */
+const loggedRenders = new Set<string>();
+const renderLog = (msg: string): void => {
+  if (loggedRenders.has(msg)) return;
+  loggedRenders.add(msg);
+  console.error(msg);
+};
+
 function renderCabinet(
   slot: (typeof HALL_SLOTS)[number],
   i: number,
@@ -825,7 +843,9 @@ function renderCabinet(
     ctx.clip();
     ctx.translate(screenX, screenY);
     ctx.scale(screenW / CANVAS_W, screenH / CANVAS_H);
-    render(ctx, live.data as never, ms);
+    // P1-7/P1-8: one cabinet's throw (or its 140-street road) must not kill
+    // the hall — minis render at reduced LOD inside a per-cabinet guard
+    guardRender(`cab ${slot.game}`, () => render(ctx, live.data as never, ms, true), renderLog);
     ctx.restore();
     if (live.demo && blink(ms, 700)) {
       px(ctx, t('hall.attract'), screenX + 2, screenY + screenH - 9, 7, PAL.yellow);
@@ -1277,34 +1297,38 @@ function drawError(): void {
 // ---- main loop ----------------------------------------------------------
 
 function frame(ms: number): void {
-  update(ms);
-  ctx.fillStyle = PAL.black;
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  if (net.status !== 'open' && scene !== 'splash') {
-    const reason = net.status === 'lost' && net.closeInfo ? ` (${net.closeInfo})` : '';
-    px(ctx, `${t(net.status === 'connecting' ? 'net.connecting' : 'net.lost')}${reason}`, CANVAS_W / 2, 116, 10, PAL.gray, 'center');
-  } else if (scene === 'splash') renderSplash(ms);
-  else if (scene === 'title') renderTitle(ms);
-  else if (scene === 'name') renderNamePad(ms);
-  else if (scene === 'hall') renderHall(ms);
-  else if (scene === 'map') renderMap(ms);
-  else if (scene === 'credits') renderCredits(ms);
-  else if (scene === 'table') {
-    if (world.snap) renderGame(ms);
-    else renderTableWaiting(ms); // P0 fix: the screen names its own way out
-  } else if (scene === 'scores') renderScores(ms);
-  const now = performance.now();
-  if (
-    (scene === 'hall' || scene === 'title' || scene === 'map') &&
-    !recordFlashVisible(recordFlashAt, now) &&
-    exitToastVisible(exitToastAt, now, 1200)
-  ) {
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(CANVAS_W / 2 - 70, 200, 140, 18);
-    px(ctx, t('hall.thanks'), CANVAS_W / 2, 205, 10, PAL.lime, 'center');
-  }
-  applyPresentation();
-requestAnimationFrame(frame);
+  // P1-7: the last line of defense — even a throw we did not see coming
+  // costs one frame, never the whole canvas; rAF is scheduled unguarded
+  guardRender('frame', () => {
+    update(ms);
+    ctx.fillStyle = PAL.black;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    if (net.status !== 'open' && scene !== 'splash') {
+      const reason = net.status === 'lost' && net.closeInfo ? ` (${net.closeInfo})` : '';
+      px(ctx, `${t(net.status === 'connecting' ? 'net.connecting' : 'net.lost')}${reason}`, CANVAS_W / 2, 116, 10, PAL.gray, 'center');
+    } else if (scene === 'splash') renderSplash(ms);
+    else if (scene === 'title') renderTitle(ms);
+    else if (scene === 'name') renderNamePad(ms);
+    else if (scene === 'hall') renderHall(ms);
+    else if (scene === 'map') renderMap(ms);
+    else if (scene === 'credits') renderCredits(ms);
+    else if (scene === 'table') {
+      if (world.snap) renderGame(ms);
+      else renderTableWaiting(ms); // P0 fix: the screen names its own way out
+    } else if (scene === 'scores') renderScores(ms);
+    const now = performance.now();
+    if (
+      (scene === 'hall' || scene === 'title' || scene === 'map') &&
+      !recordFlashVisible(recordFlashAt, now) &&
+      exitToastVisible(exitToastAt, now, 1200)
+    ) {
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(CANVAS_W / 2 - 70, 200, 140, 18);
+      px(ctx, t('hall.thanks'), CANVAS_W / 2, 205, 10, PAL.lime, 'center');
+    }
+    applyPresentation();
+  }, renderLog);
+  requestAnimationFrame(frame);
 }
 
 applyPresentation();
