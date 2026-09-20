@@ -89,9 +89,10 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (529 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (539 tests, incl. real-WebSocket E2E for 2- and
   4-player snake versus, plus integration surfaces for puck turn-handoff
-  and block first-to-7).
+  and block first-to-7). The integer is this checkout; bump it here, in
+  README, and in AGENTS in the same commit. Do not copy unmerged PR counts.
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
   fixed 60 Hz tick; state is plain JSON; no DOM/Node/Math.random in core.
 - R7.4 Runs on Node 18+, macOS/Linux; build < 10 s; bundle < 200 KB.
@@ -873,3 +874,36 @@ fetch). Notes: [`JEV.md`](JEV.md).
   every game is skipped with a log line.
 - Optional soak: `ARKAD_JEV_SOAK_MINUTES=5 npm run jev:soak` writes
   `data/jev-soak.json` (gitignored; override with `ARKAD_JEV_SOAK_REPORT`).
+
+## R60 — Operator runbook, Lyria honesty, capture script (Wave 7)
+
+Docs-only polish of existing behavior. No new cabinets, no Circuit d’Or
+gameplay (R55), no Coast look rewrite (R56), no art IDs (R57), no JA
+table rewrite (R58). R59 is the hall marquee clip / F-hint gutter
+(other change) — not this item. GPL-3.0-only.
+
+- R60.1 README documents a trusted-LAN demo hall: `npm start`, `Shift+S`
+  then `F` for FREE PLAY (no PIN), `V`/`M` volume/mute, attract loop only
+  on splash/hall. Do not expose the port — `ooo` / `freePlay` / `note`
+  are open on the wire.
+- R60.2 README/AGENTS document Jev without an operator at the stick:
+  `.env.typesafe` / `TYPESAFE_API_KEY`, `ARKAD_JEV_SELFPLAY=1`,
+  `jev:smoke`, `jev:autoplay`. Missing key fail-closes. Muted CDP remains
+  Wave 0's recipe (localhost, `--mute-audio`, never fullscreen / a
+  coworker's Mac); this wave does not delete those notes.
+- R60.3 Coin-mode reconnect is documented: same name+lang within 60 s →
+  same seat, no extra credit; wallet key `name|lang` (two AAA tags share
+  coins). In-memory only.
+- R60.4 Credits (R13) and README Sound name the Lyria 3.5 exception
+  honestly (`Late_Night_Cabinet`, `coast_yosen_start_ja`); pixel art
+  names hall chrome + six cabinets + Coast landmarks that already
+  landed (R56 / R57). No new samples.
+- R60.5 README lists LinkedIn canvas shots (1920-ish of the canvas, not
+  OS chrome): splash TOKYO ARCADE + amber 1982, hall of seven, Coast
+  「予選スタート！」, snake versus NOW PLAYING, one hero frame each for
+  Puck / Block / Galaxy / River / Myriad, waiting/INSERT COIN, credits
+  with chiptune + Lyria + honest pixel-art line. EN pass then `L` for
+  JA. No Mac/fullscreen theft.
+- R60.6 The integer published in README, AGENTS `npm test` comment, and
+  R7.2 is this checkout's `npm test` total, updated in the same commit.
+  Do not copy counts from unmerged PRs.
