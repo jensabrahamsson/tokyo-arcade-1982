@@ -13,7 +13,10 @@ import {
   nextLang,
 } from '@arkad/core';
 import { Net } from './net';
-import { art, loadArtBrowser, cabinetArtFile } from './art';
+import {
+  art, loadArtBrowser, cabinetArtFile,
+  skipCabinetBodyWash, splashWordmarkKind, heroSheetForScene, containRect,
+} from './art';
 import { Keys } from './input';
 import { Chiptune } from './audio/chiptune';
 import { Samples } from './audio/samples';
@@ -599,7 +602,21 @@ function renderGame(ms: number): void {
 
   const phase = snap.table.phase;
   const cx = CANVAS_W / 2;
-  if (phase === 'ready' && blink(ms)) px(ctx, t('phase.ready'), cx, 100, 16, PAL.yellow, 'center');
+  // R57.54: hero sheet is ready-phase chrome, never a gameplay replacement
+  if (phase === 'ready') {
+    const heroName = heroSheetForScene(game, 'ready');
+    const heroImg = heroName ? art()[heroName] : undefined;
+    if (heroImg) {
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.imageSmoothingEnabled = false;
+      const box = containRect(heroImg.naturalWidth, heroImg.naturalHeight, 24, 28, CANVAS_W - 48, 110);
+      ctx.drawImage(heroImg, box.x, box.y, box.w, box.h);
+      ctx.imageSmoothingEnabled = true;
+      ctx.restore();
+    }
+    if (blink(ms)) px(ctx, t('phase.ready'), cx, 100, 16, PAL.yellow, 'center');
+  }
   if (phase === 'roundOver') px(ctx, t('phase.clear'), cx, 100, 16, PAL.cyan, 'center');
   if (phase === 'gameOver') {
     px(ctx, t('phase.gameOver'), cx, 90, 16, PAL.red, 'center');
@@ -701,7 +718,16 @@ function renderSplash(ms: number): void {
     ctx.fillStyle = PAL.black;
     ctx.fillRect(lx + sway - 4, 24, 9, 1);
   }
-  drawWordmark(60, 26);
+  const logo = art()['splash-logo.png'];
+  if (splashWordmarkKind(!!logo) === 'art' && logo) {
+    ctx.imageSmoothingEnabled = false;
+    const box = containRect(logo.naturalWidth, logo.naturalHeight, 28, 34, CANVAS_W - 56, 72);
+    ctx.drawImage(logo, box.x, box.y, box.w, box.h);
+    ctx.imageSmoothingEnabled = true;
+    px(ctx, `— ${t('app.year')} —`, cx, box.y + box.h + 2, 8, PAL.orange, 'center');
+  } else {
+    drawWordmark(60, 26);
+  }
   px(ctx, t('splash.welcome'), cx, 124, 9, PAL.yellow, 'center');
   // boot lines: kept, because they are charming — just quiet and warm now
   px(ctx, 'BIOS 1982.6 ...... OK', cx, 148, 8, PAL.lime, 'center');
@@ -820,17 +846,19 @@ function renderCabinet(
   const screenW = w - 12;
   const screenH = Math.round(screenW * 0.75);
 
-  // body
+  // body — R57.53: landed bezel stays visible; skip the dark wash that used to cover it
   const bezel = art()['cabinet-bezel.png'];
   if (bezel) {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(bezel, x, y, w, slot.h);
     ctx.imageSmoothingEnabled = true;
   }
-  ctx.fillStyle = 'rgba(24,26,38,0.75)';
-  ctx.fillRect(x, y, w, slot.h);
-  ctx.fillStyle = selected ? PAL.navy : '#10121c';
-  ctx.fillRect(x + 2, y + 2, w - 4, slot.h - 4);
+  if (!skipCabinetBodyWash(!!bezel)) {
+    ctx.fillStyle = 'rgba(24,26,38,0.75)';
+    ctx.fillRect(x, y, w, slot.h);
+    ctx.fillStyle = selected ? PAL.navy : '#10121c';
+    ctx.fillRect(x + 2, y + 2, w - 4, slot.h - 4);
+  }
 
   // marquee with light chase
   const marqueeColors = [PAL.red, PAL.magenta, PAL.cyan, PAL.lime, PAL.yellow, PAL.orange];
@@ -1238,15 +1266,28 @@ function renderTitle(ms: number): void {
   const idx = Math.floor(ms / 2200) % GAME_IDS.length;
   const g = GAME_IDS[idx]!;
   const flavorLang = attractLang(ms, 3000);
+  const heroName = heroSheetForScene(g, 'title');
+  const heroImg = heroName ? art()[heroName] : undefined;
+  const spotY = heroImg ? 78 : 96;
+  const spotH = heroImg ? 80 : 52;
   ctx.fillStyle = 'rgba(255,163,0,0.06)';
-  ctx.fillRect(cx - 92, 96, 184, 52);
+  ctx.fillRect(cx - 92, spotY, 184, spotH);
   ctx.strokeStyle = '#3a2530';
-  ctx.strokeRect(cx - 92.5, 96.5, 185, 51);
+  ctx.strokeRect(cx - 92.5, spotY + 0.5, 185, spotH - 1);
   ctx.fillStyle = cabAccent(g); // the game's own color announces the next cabinet
-  ctx.fillRect(cx - 92, 96, 3, 52);
-  ctx.fillRect(cx + 89, 96, 3, 52);
-  px(ctx, translate(flavorLang, `game.${g}` as never), cx, 108, 12, PAL.white, 'center');
-  px(ctx, t(`game.${g}.tag` as never), cx, 132, 8, PAL.cyan, 'center');
+  ctx.fillRect(cx - 92, spotY, 3, spotH);
+  ctx.fillRect(cx + 89, spotY, 3, spotH);
+  if (heroImg) {
+    ctx.imageSmoothingEnabled = false;
+    const box = containRect(heroImg.naturalWidth, heroImg.naturalHeight, cx - 86, spotY + 2, 172, 50);
+    ctx.drawImage(heroImg, box.x, box.y, box.w, box.h);
+    ctx.imageSmoothingEnabled = true;
+    px(ctx, translate(flavorLang, `game.${g}` as never), cx, spotY + 56, 10, PAL.white, 'center');
+    px(ctx, t(`game.${g}.tag` as never), cx, spotY + 68, 7, PAL.cyan, 'center');
+  } else {
+    px(ctx, translate(flavorLang, `game.${g}` as never), cx, 108, 12, PAL.white, 'center');
+    px(ctx, t(`game.${g}.tag` as never), cx, 132, 8, PAL.cyan, 'center');
+  }
 
   if (blink(ms)) px(ctx, t('hall.insertCoin'), cx, 168, 12, PAL.yellow, 'center');
   px(ctx, t('hall.pressStart'), cx, 190, 8, PAL.gray, 'center');

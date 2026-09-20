@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (518 tests, incl. real-WebSocket E2E for 2- and)
+  `npm test` green (524 tests, incl. real-WebSocket E2E for 2- and)
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
@@ -424,11 +424,10 @@ change R8.1–R8.5.
 - R38.2 Style: 1982 Tokyo arcade / CRT, limited palette, pixel feel
   that survives 320x240 upscale. Own art / GPL-compatible — no
   copyrighted sprites from commercial games.
-- R38.3 First batch (placeholders until Cursor drops real PNGs with
-  the same filenames): `hall-floor.png`, `cabinet-bezel.png`,
+- R38.3 First batch: `hall-floor.png`, `cabinet-bezel.png`,
   `coast-lo-castle.png`, `splash-logo.png`. Catalog IDs R57.1, R57.2,
-  R57.40, R57.3 — hall/splash chrome still 16×16 stubs (ignored by
-  the P1-6 loader); Wave 1 already landed `coast-lo-castle.png`.
+  R57.40, R57.3. Hall/splash chrome R57.1–R57.3 is landed paletted PNG
+  (R57.53). Wave 1 already landed `coast-lo-castle.png` (R57.40 / R56).
 - R38.4 Client loads assets async; renderers `drawImage` where they
   fit. Missing/failed load falls back to the existing procedural
   drawing (never a crash). Tests mock Image or cover only the
@@ -511,10 +510,9 @@ change R8.1–R8.5.
 ## R46 — Art pack 2 (manifest + placeholders)
 
 - R46.1 The R38 manifest gains `marquee-neon.png`, `coin-slot.png`,
-  `credit-panel.png`, `wait-badge.png`, with tiny palette
-  placeholders (<1 KB) until Cursor drops real 16-32 KB PNGs under
-  the same filenames. Catalog IDs R57.4–R57.7 — Wave 3 inventory:
-  still 16×16 stubs, not landed.
+  `credit-panel.png`, `wait-badge.png`. Catalog IDs R57.4–R57.7 —
+  landed paletted PNG chrome (R57.53). `drawImage` is wired; a
+  missing or sub-64 px file still falls back to procedural drawing.
 - R46.2 drawImage is wired where they fit (marquee strip, coin slot
   chrome, credit-strip backdrop, wait badge); procedural fallbacks
   stay. Core never touches Image/DOM/fetch. AGENTS lists the new
@@ -701,35 +699,37 @@ magic, ≥64 px on at least one axis (P1-6), typically 16–32 KB
 A 16×16 stub is never landed. Credits provenance stays
 `PROCEDURAL UNTIL ART LANDS` until at least one ID below is landed;
 once six-cabinet plates land, the wall names those plates and keeps
-hall chrome / Coast honest as still procedural (R57.51).
+hall chrome / Coast honest as still procedural (R57.51). After hall
+chrome lands (R57.53), the wall names hall chrome + six cabinets and
+keeps Coast procedural.
 
-As of Wave 3 art drop, **twelve** six-cabinet marquee/attract plates
-are landed (R57.52). Hall chrome and hero sheets remain TODO. Coast
-landmarks R57.40–R57.45 already landed with Wave 1 (R56). R55 is Circuit
+As of Wave 3 leftover, hall chrome R57.1–7 and **eighteen**
+six-cabinet plates (marquee + attract + hero) are landed
+(R57.52–R57.54). Coast landmarks R57.40–R57.45 already landed with
+Wave 1 (R56). Coast marquee/attract/hero stay TODO. R55 is Circuit
 d’Or (queued, no gameplay).
 
-### Hall / splash chrome (drop zone files exist; all stubs)
+### Hall / splash chrome (landed paletted PNG)
 
 | ID | File | Role | Status |
 |----|------|------|--------|
-| R57.1 | `hall-floor.png` | Hall carpet tile | **TODO** — 16×16 stub (110 B); loader ignores; procedural floor + piping |
-| R57.2 | `cabinet-bezel.png` | Cabinet body chrome | **TODO** — 16×16 stub (109 B); loader ignores; procedural cabinet fill |
-| R57.3 | `splash-logo.png` | Splash / credits wordmark art | **TODO** — 16×16 stub (136 B); splash uses procedural `drawWordmark`, never `drawImage` |
-| R57.4 | `marquee-neon.png` | Hall neon marquee strip | **TODO** — 16×16 stub (113 B); loader ignores; procedural scroll text |
-| R57.5 | `coin-slot.png` | Coin-insert slot chrome | **TODO** — 16×16 stub (116 B); loader ignores; procedural slot |
-| R57.6 | `credit-panel.png` | Credit-digit strip backdrop | **TODO** — 16×16 stub (112 B); loader ignores; procedural badge |
-| R57.7 | `wait-badge.png` | Join-queue wait badge | **TODO** — 16×16 stub (132 B); loader ignores; procedural WAIT dots |
+| R57.1 | `hall-floor.png` | Hall carpet tile | **landed** paletted; hall `createPattern` |
+| R57.2 | `cabinet-bezel.png` | Cabinet body chrome | **landed** paletted; dark body wash skipped (R57.53) |
+| R57.3 | `splash-logo.png` | Splash wordmark art | **landed** paletted; `drawImage` when loaded, else `drawWordmark` |
+| R57.4 | `marquee-neon.png` | Hall neon marquee strip | **landed** paletted; tiled behind i18n scroll |
+| R57.5 | `coin-slot.png` | Coin-insert slot chrome | **landed** paletted; coin-insert scene |
+| R57.6 | `credit-panel.png` | Credit-digit strip backdrop | **landed** paletted; cabinet credit badge |
+| R57.7 | `wait-badge.png` | Join-queue wait badge | **landed** paletted; NOW PLAYING wait dots |
 
-- R57.8 Six-cabinet marquee/attract filenames (R57.11/12, .14/15, .17/18,
-  .20/21, .23/24, .26/27) are in `ART_FILES` and landed. Hero sheets
-  (R57.10, .13, .16, .19, .22, .25) and Coast plates (R57.28–.30) stay
+- R57.8 Six-cabinet marquee/attract/hero filenames (R57.10–.27 except
+  Coast) are in `ART_FILES` and landed. Coast plates (R57.28–.30) stay
   off the manifest. Do not drop 16×16 placeholders for unwired IDs.
 - R57.9 JPEG Imagine pilots are already off the static serve path
   (`packages/client/art-pilots/*.jpg`, P2-C). Wave 3 does not move
   them again. They are 1280×720 JPEG reference stills, not pixel art,
   and must never be renamed `.png` under `static/`.
 
-### Per-cabinet hero / marquee / attract (none on disk)
+### Per-cabinet hero / marquee / attract
 
 Live attract demos (R8) stay: bots + the procedural renderer. These
 PNGs are chrome around that — a hero skin, a marquee plate, an idle
@@ -737,27 +737,27 @@ mini-screen card — not a replacement for the demo.
 
 | ID | File | Cabinet | Slot | Current hero visual | Status |
 |----|------|---------|------|---------------------|--------|
-| R57.10 | `snake-hero.png` | snake | in-cabinet hero | procedural grid snakes + food | **TODO** (unwired) |
+| R57.10 | `snake-hero.png` | snake | in-cabinet hero | paletted sprite sheet; title spotlight + ready overlay | **landed** |
 | R57.11 | `snake-marquee.png` | snake | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
 | R57.12 | `snake-attract.png` | snake | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
-| R57.13 | `puck-hero.png` | puck | in-cabinet hero | procedural maze / dots / ghosts | **TODO** (unwired) |
+| R57.13 | `puck-hero.png` | puck | in-cabinet hero | paletted hockey-puck + magenta diamond sheet; title + ready | **landed** |
 | R57.14 | `puck-marquee.png` | puck | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
 | R57.15 | `puck-attract.png` | puck | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
-| R57.16 | `block-hero.png` | block | in-cabinet hero | procedural bricks / paddles / ball | **TODO** (unwired) |
+| R57.16 | `block-hero.png` | block | in-cabinet hero | paletted bricks / paddle / ball sheet; title + ready | **landed** |
 | R57.17 | `block-marquee.png` | block | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
 | R57.18 | `block-attract.png` | block | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
-| R57.19 | `galaxy-hero.png` | galaxy | in-cabinet hero | procedural starfield / aliens / ship | **TODO** (unwired) |
+| R57.19 | `galaxy-hero.png` | galaxy | in-cabinet hero | paletted ship / aliens sheet; title spotlight + ready overlay | **landed** |
 | R57.20 | `galaxy-marquee.png` | galaxy | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
 | R57.21 | `galaxy-attract.png` | galaxy | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
-| R57.22 | `river-hero.png` | river | in-cabinet hero | procedural lanes / frog | **TODO** (unwired) |
+| R57.22 | `river-hero.png` | river | in-cabinet hero | paletted frog / log / cars sheet; title + ready | **landed** |
 | R57.23 | `river-marquee.png` | river | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
 | R57.24 | `river-attract.png` | river | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
-| R57.25 | `myriad-hero.png` | myriad | in-cabinet hero | procedural mushrooms / segments | **TODO** (unwired) |
+| R57.25 | `myriad-hero.png` | myriad | in-cabinet hero | paletted millipede / mushroom sheet; title + ready | **landed** |
 | R57.26 | `myriad-marquee.png` | myriad | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
 | R57.27 | `myriad-attract.png` | myriad | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
-| R57.28 | `coast-hero.png` | coast | in-cabinet hero | procedural pseudo-3D road | **TODO** (unwired) |
-| R57.29 | `coast-marquee.png` | coast | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) |
-| R57.30 | `coast-attract.png` | coast | hall idle card | `cabThumb` road + castle glyph | **TODO** (unwired) |
+| R57.28 | `coast-hero.png` | coast | in-cabinet hero | procedural pseudo-3D road | **TODO** (unwired) — PR #8 |
+| R57.29 | `coast-marquee.png` | coast | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) — PR #8 |
+| R57.30 | `coast-attract.png` | coast | hall idle card | `cabThumb` road + castle glyph | **TODO** (unwired) — PR #8 |
 
 ### Coast landmarks (Wave 1 owns the PNG drops)
 
@@ -772,16 +772,31 @@ mini-screen card — not a replacement for the demo.
 
 - R57.50 Do not invent fake “real” 16×16 stubs. A drop that is not ≥64 px
   does not land; procedural drawing keeps precedence.
-- R57.51 Provenance (R13 / P2-8): the credits wall names Coast PNGs
-  (Wave 1) and six-cabinet plates (R57.52), watermark-check, and keeps
-  hall chrome procedural until R57.53. It must not claim a full
-  original art set.
+- R57.51 Provenance (R13 / P2-8): after hall chrome, six-cabinet plates,
+  and Coast landmarks land, the credits wall names hall chrome + six
+  cabinets + Coast PNGs and watermark-check. Coast marquee/attract/hero
+  stay unwired. It must not claim Circuit art.
 - R57.52 Wave 3 drop (not Coast, not Circuit): paletted PNG
   marquee + attract plates for snake, puck, block, galaxy, river,
   myriad (R57.11/12, .14/15, .17/18, .20/21, .23/24, .26/27). Each
   file is PNG magic, color-type 3, ≥64 px, 16–32 KB. `cabinetArtFile`
   returns null for Coast. Hall drawImage uses the plates; live attract
-  demos (R8) still win over idle cards. Hero sheets stay unwired.
+  demos (R8) still win over idle cards.
+- R57.53 Wave 3 hall chrome drop (not Coast, not Circuit): paletted
+  PNG for R57.1–7 (`hall-floor`, `cabinet-bezel`, `splash-logo`,
+  `marquee-neon`, `coin-slot`, `credit-panel`, `wait-badge`). Each
+  file is PNG magic, color-type 3, ≥64 px, 16–32 KB — never a 16×16
+  stub. Hall `drawImage` uses them. When a bezel is present the dark
+  body wash is skipped so the wood frame stays visible. Splash uses
+  `splash-logo.png` via `drawImage` when loaded, else `drawWordmark`.
+  Wave 1 already landed `coast-lo-castle.png` (R57.40 / R56).
+- R57.54 Wave 3 hero sheets (not Coast, not Circuit): paletted PNG
+  for R57.10, .13, .16, .19, .22, .25 (`snake|puck|block|galaxy|river|myriad-hero.png`).
+  Each file is PNG magic, color-type 3, ≥64 px, 16–32 KB. Title
+  spotlight and ready-phase overlay use `cabinetArtFile(..., 'hero')`.
+  Never Coast. Never a replacement for live gameplay (R8 attract
+  demos and in-cabinet `step()` stay). Puck sheet is a hockey puck,
+  not a maze ghost.
 
 ## Constraints for R57
 

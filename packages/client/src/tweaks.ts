@@ -404,16 +404,17 @@ export function escapeClearsFullscreenOnly(isFullscreen: boolean): boolean {
  * READY call, operator volume/mute applied, fail-closed silent when a file
  * is missing, never touched by core). Pixel art is original work, checked
  * for watermarks *when* it lands in static/art/. Wave 1 landed Coast
- * landmark PNGs (R56); Wave 3 landed six-cabinet marquee/attract plates
- * (R57.52). Hall chrome stays procedural until R57.53. The wall must not
- * claim a full original set.
+ * landmark PNGs (R56). Wave 3 landed hall chrome (R57.53) and six-cabinet
+ * plates + hero sheets (R57.52/54). The wall names all three; it must not
+ * claim Circuit art or coast-hero plates.
  */
 export const provenanceLines = (): string[] => [
   'SFX SYNTHESIZED LIVE - CHIPTUNE ONLY',
   'ATTRACT TRACK: LATE NIGHT CABINET (LYRIA 3.5)',
   'READY CALL: COAST YOSEN START JA (LYRIA 3.5)',
-  'PIXEL ART: COAST PNGS + SIX CABINET PLATES',
-  'WATERMARK-CHECKED; HALL CHROME PROCEDURAL',
+  'PIXEL ART: HALL CHROME + SIX CABS + COAST',
+  'WATERMARK-CHECKED',
+];
 ];
 
 /**
