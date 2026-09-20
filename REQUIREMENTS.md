@@ -513,7 +513,7 @@ change R8.1–R8.5.
 - R46.1 The R38 manifest gains `marquee-neon.png`, `coin-slot.png`,
   `credit-panel.png`, `wait-badge.png`, with tiny palette
   placeholders (<1 KB) until Cursor drops real 16-32 KB PNGs under
-  the same filenames. Catalog IDs R55.4–R55.7 — Wave 3 inventory:
+  the same filenames. Catalog IDs R57.4–R57.7 — Wave 3 inventory:
   still 16×16 stubs, not landed.
 - R46.2 drawImage is wired where they fit (marquee strip, coin slot
   chrome, credit-strip backdrop, wait badge); procedural fallbacks
@@ -688,9 +688,8 @@ new game.
 
 ## R57 — Art ID catalog (Wave 3)
 
-R55 is Circuit d’Or (document-only, separate hygiene PR — this catalog
-does not implement gameplay). R56 is reserved for Coast Pole Position
-look (Wave 1). Art IDs live here as **R57**.
+R55 is Circuit d’Or (queued, no gameplay). R56 is the Coast Pole
+Position look (Wave 1, already on this stack). Art IDs live here as **R57**.
 
 Stable IDs for Imagine PNG drops. Inventory, stub vs real vs missing,
 and per-cabinet hero status: [`ART.md`](ART.md). Player-facing brand
