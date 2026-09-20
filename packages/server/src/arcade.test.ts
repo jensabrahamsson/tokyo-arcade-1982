@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Arcade, CREDIT_RECONNECT_GRACE, type Conn } from './arcade';
+import { Arcade, CREDIT_RECONNECT_GRACE, liveTablePausesDemo, type Conn } from './arcade';
 import { HighScoreStore } from './highscores';
 import { ServiceStore } from './service';
 import type { ServerMessage, RosterMsg, SnapshotMsg } from '@arkad/core';
@@ -665,6 +665,53 @@ describe('Arcade', () => {
     const cab = hallMsgs('c1').at(-1)?.cabinets.find((c) => c.game === 'snake');
     expect(cab?.demo).toBe(true);
     expect(cab?.data).not.toBeNull();
+  });
+
+  it('liveTablePausesDemo is true only when a live table of that game exists (P2-D)', () => {
+    expect(liveTablePausesDemo('snake', [{ game: 'snake', demo: true }])).toBe(false);
+    expect(liveTablePausesDemo('snake', [
+      { game: 'snake', demo: true },
+      { game: 'snake', demo: false },
+    ])).toBe(true);
+    expect(liveTablePausesDemo('snake', [
+      { game: 'snake', demo: true },
+      { game: 'coast', demo: false },
+    ])).toBe(false);
+  });
+
+  it('a live versus table pauses that game attract demo tick (P2-D)', () => {
+    arcade.handleMessage('c3', { type: 'hall', watch: true });
+    for (let i = 0; i < 24; i++) arcade.tick();
+    const beforeHall = hallMsgs('c3').at(-1)!;
+    const snake0 = beforeHall.cabinets.find((c) => c.game === 'snake')!.data as {
+      snakes: { demo: { body: { x: number; y: number }[] } };
+    };
+    const coast0 = JSON.stringify(beforeHall.cabinets.find((c) => c.game === 'coast')!.data);
+
+    arcade.handleMessage('c1', { type: 'start', game: 'snake', mode: 'versus' });
+    arcade.handleMessage('c2', { type: 'start', game: 'snake', mode: 'versus' });
+    for (let i = 0; i < 90; i++) arcade.tick();
+    const mid = hallMsgs('c3').at(-1)!;
+    const coastMid = JSON.stringify(mid.cabinets.find((c) => c.game === 'coast')!.data);
+    expect(coastMid).not.toBe(coast0); // other cabinets keep humming
+
+    arcade.handleMessage('c1', { type: 'back' });
+    arcade.handleMessage('c2', { type: 'back' });
+    net.take('c3');
+    let head1: { x: number; y: number } | null = null;
+    for (let i = 0; i < 12; i++) {
+      arcade.tick();
+      const row = hallMsgs('c3').at(-1)?.cabinets.find((c) => c.game === 'snake');
+      if (row?.demo && row.data) {
+        head1 = (row.data as typeof snake0).snakes.demo.body[0]!;
+        break;
+      }
+    }
+    expect(head1).not.toBeNull();
+    const head0 = snake0.snakes.demo.body[0]!;
+    // at most one resume step (moveInterval 10, ≤12 ticks after back); 90 live
+    // ticks would have walked ~9 cells if the demo had kept running
+    expect(Math.abs(head1!.x - head0.x) + Math.abs(head1!.y - head0.y)).toBeLessThanOrEqual(1);
   });
 });
 

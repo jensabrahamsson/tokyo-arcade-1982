@@ -47,6 +47,9 @@ palette, small files (16-32 KB each). Current roster: `hall-floor`,
 `coin-slot`, `credit-panel`, `wait-badge` (all `.png`). OpenCode
 never draws art — it writes the manifest/loader/wiring only. Core must never touch
 Image/DOM/fetch; missing files fall back to procedural drawing.
+JPEG reference stills for Imagine (Coast billboard pilots) live in
+`packages/client/art-pilots/*.jpg` — not under `static/`, not served,
+never named `.png` (HTTP would otherwise claim `image/png`).
 
 ## Audio pipeline (R54)
 
@@ -108,7 +111,7 @@ packages/client   main.ts, net.ts, input.ts, namepad.ts, audio/, renderers/, sta
 ```
 
 ```sh
-npm test                # vitest run (432 tests, incl. real-socket E2E)
+npm test                # vitest run (451 tests, incl. real-socket E2E)
 npx vitest run <path>   # one file while iterating
 npm run typecheck       # tsc -b
 node build.mjs          # esbuild bundles into dist/

@@ -36,11 +36,12 @@ describe('i18n', () => {
     expect(t('en', 'nope.nothing' as never)).toBe('nope.nothing');
   });
 
-  // P2-3: the JA table must read like a Japanese cabinet, not like a
-  // transliteration of somebody else's cabinet
-  it('brand titles stay ASCII in both languages', () => {
+  // P2-F: previous lock required ASCII `app.title` in BOTH languages, which
+  // froze the JA splash as 'TOKYO ARCADE' and blocked a native title.
+  // English stays the Latin wordmark; Japanese is written Japanese.
+  it('English brand title stays ASCII; Japanese title is native', () => {
     expect(EN['app.title']).toMatch(/^[A-Z0-9 ]+$/);
-    expect(JA['app.title']).toMatch(/^[A-Z0-9 ]+$/);
+    expect(JA['app.title']).toMatch(/[\u3040-\u30ff\u4e00-\u9fff]/);
   });
 
   it('the year uses 年, never the katakana ネン', () => {
@@ -71,5 +72,15 @@ describe('i18n', () => {
     expect(JA['marquee.3']).not.toContain('リーゼ');
     expect(JA['game.coast.tag']).not.toContain('リーゼ');
     expect(JA['marquee.3']).toContain('アンゼン ウンテン');
+  });
+
+  it('coast speed in Japanese is metric, not miles (P2-F)', () => {
+    expect(JA['coast.mph']).toMatch(/キロ|km\/h/i);
+    expect(JA['coast.mph']).not.toContain('マイル');
+  });
+
+  it('coin-mode chrome has an i18n string in both languages (P2-E)', () => {
+    expect(EN['hall.coinMode']).toBe('COIN 1C');
+    expect(JA['hall.coinMode']).toMatch(/[\u3040-\u30ff\u4e00-\u9fff]/);
   });
 });

@@ -29,6 +29,12 @@ describe('coast roadside billboards (R54.7 data)', () => {
     // the LO-borgen beat stays the last landmark, never a billboard at the gate
     expect(COAST_BILLBOARDS[COAST_BILLBOARDS.length - 1]!.d).toBeLessThan(TRACK_LEN - 100);
   });
+
+  it('Havana board is spelled HAVANNA, not HABANNA (P2-F)', () => {
+    const texts = COAST_BILLBOARDS.map((b) => b.text).join('\n');
+    expect(texts).toContain('HAVANNA');
+    expect(texts).not.toContain('HABANNA');
+  });
 });
 
 describe('coast create', () => {

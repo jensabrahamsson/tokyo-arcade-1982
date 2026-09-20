@@ -67,6 +67,18 @@ export const COIN_WINDOW_TICKS = 60;
 export const CREDIT_RECONNECT_GRACE = 3600;
 export const MAX_PARKED_WALLETS = 32;
 
+/** P2-D: a live (!demo) table of the same game pauses that cabinet's attract
+ *  bot so we don't pay CPU for a demo the hall already hid. */
+export function liveTablePausesDemo(
+  game: GameId,
+  tables: Iterable<{ game: GameId; demo: boolean }>,
+): boolean {
+  for (const t of tables) {
+    if (t.game === game && !t.demo) return true;
+  }
+  return false;
+}
+
 export interface CoinRateWindow {
   sinceTick: number;
   count: number;
@@ -479,7 +491,8 @@ export class Arcade {
     this.tickCount++;
     for (const table of [...this.tables.values()]) {
       if (table.demo) {
-        if (!this.opts.service.snapshot().outOfOrder.includes(table.game)) this.tickDemo(table);
+        const ooo = this.opts.service.snapshot().outOfOrder.includes(table.game);
+        if (!ooo && !liveTablePausesDemo(table.game, this.tables.values())) this.tickDemo(table);
         continue;
       }
       const session = table.session;

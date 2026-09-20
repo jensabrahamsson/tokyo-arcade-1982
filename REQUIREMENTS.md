@@ -71,8 +71,10 @@ defines done. Each item is verified by a test, a live check, or both.
 
 ## R6 — Sound
 
-- R6.1 1982 chiptune only: square/triangle/noise via Web Audio; no audio
-  files.
+- R6.1 Gameplay is 1982 chiptune only: square/triangle/noise via Web
+  Audio. Cabinet SFX never load audio files. The sole exception is R54:
+  the hall attract loop (`Late_Night_Cabinet.mp3`) and the Coast READY
+  stinger (`coast_yosen_start_ja.mp3`).
 - R6.2 Every gameplay event has a sound: eat, power, die, shoot, hit,
   bounce, hop, goal, level up, coin, start jingle.
 - R6.3 Events must actually reach the client (sfx are batched into
@@ -83,7 +85,7 @@ defines done. Each item is verified by a test, a live check, or both.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (432 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (451 tests, incl. real-WebSocket E2E for 2- and
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
@@ -158,7 +160,7 @@ not change R8.1–R8.5.
 
 - R14.1 Opening the high-score board plays a chiptune jingle, and the
   hall's score display gets a matching musical sting — synthesized via
-  the existing core note tables; zero audio files.
+  the existing core note tables. High-score music is not an R54 sample.
 
 ## R15 — Polish within the frame
 

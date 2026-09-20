@@ -15,6 +15,7 @@ import {
   hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect,
   escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue,
   escapeClearsFullscreenOnly, provenanceLines, guardRender,
+  hallCoinBadge, countedChrome, HALL_CHROME, reconnectStart, escapeSendsBack,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -626,7 +627,7 @@ describe('escape vs fullscreen (P2-9)', () => {
 });
 
 describe('credits provenance (P2-8/P2-10)', () => {
-  it('names the Lyria exception and the art watermark check', () => {
+  it('names the Lyria exception and does not claim watermark-checked originals while the drop zone is stubs', () => {
     const lines = provenanceLines();
     expect(lines.length).toBeGreaterThanOrEqual(3);
     const all = lines.join('\n');
@@ -634,6 +635,8 @@ describe('credits provenance (P2-8/P2-10)', () => {
     expect(all).toContain('LATE NIGHT CABINET');
     expect(all).toContain('COAST YOSEN START');
     expect(all).toContain('WATERMARK');
+    expect(all).toContain('PROCEDURAL UNTIL ART LANDS');
+    expect(all).not.toContain('ORIGINALS, CHECKED FOR WATERMARKS');
     for (const line of lines) expect(line.length).toBeLessThanOrEqual(46);
   });
 });
@@ -655,5 +658,50 @@ describe('render guard (P1-7)', () => {
 
   it('default logger swallows silently', () => {
     expect(() => guardRender('cab myriad', () => { throw new Error('hush'); })).not.toThrow();
+  });
+});
+
+describe('hall chrome labels (P2-E)', () => {
+  it('FREE PLAY / COIN 1C pick the i18n strings, not a hardcoded pair', () => {
+    expect(hallCoinBadge(true, 'FREE PLAY', 'COIN 1C')).toBe('FREE PLAY');
+    expect(hallCoinBadge(false, 'フリープレイ', 'コイン1枚')).toBe('コイン1枚');
+  });
+
+  it('JOIN n and READY n keep the translated word', () => {
+    expect(countedChrome('JOIN', 3)).toBe('JOIN 3');
+    expect(countedChrome('ヨーイ', 2)).toBe('ヨーイ 2');
+    expect(countedChrome('ニンイリョウ', 1)).toBe('ニンイリョウ 1');
+  });
+});
+
+describe('hall header chrome row (P2-G)', () => {
+  it('stacks left and right chrome on two rows so F-hint never covers the player count', () => {
+    expect(HALL_CHROME.leftY).not.toBe(HALL_CHROME.leftY2);
+    expect(HALL_CHROME.rightY).not.toBe(HALL_CHROME.rightY2);
+    expect(HALL_CHROME.leftY).toBe(HALL_CHROME.rightY);
+    expect(HALL_CHROME.leftY2).toBe(HALL_CHROME.rightY2);
+    expect(HALL_CHROME.leftY2).toBeLessThan(40); // still above the 4×2 cabinet row
+  });
+});
+
+describe('reconnect start payload (P2-H)', () => {
+  it('replays lastStart game+mode instead of falling back to versus', () => {
+    expect(reconnectStart({ game: 'coast', mode: 'solo' }, 'snake')).toEqual({ game: 'coast', mode: 'solo' });
+    expect(reconnectStart({ game: 'block', mode: 'versus' }, 'snake')).toEqual({ game: 'block', mode: 'versus' });
+  });
+
+  it('versus fallback is only for a cold seat with no lastStart', () => {
+    expect(reconnectStart(null, 'galaxy')).toEqual({ game: 'galaxy', mode: 'versus' });
+  });
+});
+
+describe('Escape from table sends back (P2-H)', () => {
+  it('windowed Escape from a joined table goes home via back', () => {
+    expect(escapeSendsBack('table', true, false)).toBe(true);
+    expect(escapeSendsBack('coinInsert', true, false)).toBe(true);
+  });
+
+  it('fullscreen spends the first Escape leaving FS, not back', () => {
+    expect(escapeSendsBack('table', true, true)).toBe(false);
   });
 });
