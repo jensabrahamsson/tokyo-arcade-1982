@@ -6,6 +6,7 @@ import { parseClientMessage, serialize } from '@arkad/core';
 import { Arcade, type Conn } from './arcade';
 import { HighScoreStore } from './highscores';
 import { ServiceStore } from './service';
+import { jevSelfPlayFromEnv } from './jevPolicy';
 
 export interface GameServerHandle {
   port: number;
@@ -26,6 +27,7 @@ export function createArcade(dataDir: string, send: (id: string, msg: unknown) =
     send: send as never,
     store: new HighScoreStore(join(dataDir, 'scores.json')),
     service: new ServiceStore(join(dataDir, 'service.json')),
+    jev: jevSelfPlayFromEnv(),
   });
 }
 
@@ -48,6 +50,8 @@ export async function createGameServer(opts: { port: number; dataDir: string; pu
   const publicDir = resolve(opts.publicDir ?? join(__dirname, '..', 'public'));
   const sockets = new Map<string, WebSocket>();
   let seq = 0;
+  const jev = jevSelfPlayFromEnv();
+  if (jev) safeLog('[arkad] Jev snake self-play on (fail-closed without TYPESAFE_API_KEY)');
   const arcade = new Arcade({
     send: (connId, msg) => {
       const ws = sockets.get(connId);
@@ -55,6 +59,7 @@ export async function createGameServer(opts: { port: number; dataDir: string; pu
     },
     store: new HighScoreStore(join(opts.dataDir, 'scores.json')),
     service: new ServiceStore(join(opts.dataDir, 'service.json')),
+    jev,
   });
   arcade.start();
 

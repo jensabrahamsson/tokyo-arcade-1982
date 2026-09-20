@@ -17,6 +17,9 @@ Open the printed address in any browser — on the host machine or any device
 on `192.168.50.x` / `10.x`. No installation on the clients.
 
 Env: `ARKAD_PORT` (default 8442), `ARKAD_DATA` (default `./data`).
+Optional snake attract self-play: `ARKAD_JEV_SELFPLAY=1` plus
+`TYPESAFE_API_KEY` (TypeSafe Jev; unset key fail-closes to the built-in
+demo bot). Live one-shot: `npm run jev:smoke` (skips if the key is unset).
 
 ## Cabinets
 
@@ -98,7 +101,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 382 tests across engine, games, server, client
+npm test          # vitest: 406 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```

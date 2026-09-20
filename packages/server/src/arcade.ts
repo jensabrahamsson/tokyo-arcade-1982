@@ -13,10 +13,12 @@ import {
   type GameStateBase,
   type TableView,
   type SfxEvent,
+  NO_INPUT,
 } from '@arkad/core';
 import { Session } from './session';
 import type { HighScoreStore } from './highscores';
 import type { ServiceStore } from './service';
+import type { DemoInputPolicy } from './jevPolicy';
 
 export interface Conn {
   id: string;
@@ -92,6 +94,8 @@ export interface ArcadeOptions {
   send: (connId: string, msg: ServerMessage) => void;
   store: HighScoreStore;
   service: ServiceStore;
+  /** optional attract self-play (Jev); missing/throwing policy fail-closed to spec.demo */
+  jev?: DemoInputPolicy;
 }
 
 const GAME_LIST = GAME_IDS.map((id) => ({
@@ -550,7 +554,17 @@ export class Arcade {
       return;
     }
     const spec = REGISTRY[table.game] as AnyGameSpec;
-    if (spec.demo) session.setInput(DEMO_PLAYER, spec.demo(session.state, this.tickCount));
+    const demoInput = spec.demo ? spec.demo(session.state, this.tickCount) : NO_INPUT;
+    let input = demoInput;
+    const jev = this.opts.jev;
+    if (jev?.covers(table.game)) {
+      try {
+        input = jev.inputFor(table.game, session.state, this.tickCount, demoInput);
+      } catch {
+        input = demoInput;
+      }
+    }
+    session.setInput(DEMO_PLAYER, input);
     try {
       session.tick();
     } catch (err) {
