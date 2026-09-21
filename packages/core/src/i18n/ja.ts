@@ -17,7 +17,7 @@ export const JA: Record<keyof typeof EN, string> = {
   'menu.map': '館内図',
   'service.title': 'サービス モード',
   'menu.credits': 'クレジット',
-  'hall.attract': 'デモ チュウ',
+  'hall.attract': 'デモ中',
   'name.title': 'ネームを入れてください',
   'name.select': '決定',
   'name.cancel': 'やめる',
