@@ -56,7 +56,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, hallMarqueeClip, hallMarqueeNeonDest, MARQUEE_NEON_TILE_W, FULLSCREEN_HINT, FULLSCREEN_HINT_SIZE, reconnectStart, coastQualifyingOverlay, coastHeroOverlay, splashAdvance, SPLASH_SKIP_KEYS, titleStartTarget, cabinetScreenData, hallWaitCueVisible, tableShowsWaitingPanel, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, hallMarqueeClip, hallMarqueeNeonDest, MARQUEE_NEON_TILE_W, FULLSCREEN_HINT, FULLSCREEN_HINT_SIZE, reconnectStart, coastQualifyingOverlay, coastHeroOverlay, splashAdvance, SPLASH_SKIP_KEYS, titleStartTarget, cabinetScreenData, hallWaitCueVisible, tableShowsWaitingPanel, HALL_WAIT_INK, hallWaitCuePlate, hallWaitGlyphCells, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -1037,14 +1037,19 @@ function renderCabinet(
   // R43: WAIT sits on the mini whenever we stand at a NOW PLAYING cabinet —
   // including 1P join-wait, when hallTables.data is still null so `live` is not.
   if (hallWaitCueVisible(selected, lamp)) {
+    const plate = hallWaitCuePlate({ x: screenX, y: screenY, w: screenW, h: screenH });
+    ctx.fillStyle = PAL.dim;
+    ctx.fillRect(plate.x, plate.y, plate.w, plate.h);
+    ctx.fillStyle = HALL_WAIT_INK;
+    for (const cell of hallWaitGlyphCells(t('hall.wait'), plate.x + 1, plate.y + 3)) {
+      ctx.fillRect(cell.x, cell.y, 1, 1);
+    }
     const badge = art()['wait-badge.png'];
     if (badge) {
       ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(badge, screenX + 2, screenY + 2, 12, 12);
+      ctx.drawImage(badge, plate.x + plate.w - 10, plate.y + 1, 8, 8);
       ctx.imageSmoothingEnabled = true;
     }
-    const dots = '.'.repeat(1 + waitDots(Math.floor(ms / 300), 4));
-    px(ctx, `${t('hall.wait')}${dots}`, screenX + 16, screenY + 5, 7, PAL.yellow);
   }
   // R40 power LED: OOO > playing > idle, red pulses
   const led = powerLed(ledState({ live: lamp === 'now-playing', ooo: isOoo(slot.game) }));
