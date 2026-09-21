@@ -1,13 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ART_FILES, artPath, loadArt, artGet } from './art';
+import {
+  ART_FILES, artPath, loadArt, artGet, cabinetArtFile, WAVE3_CABINET_GAMES, HALL_CHROME_FILES,
+  skipCabinetBodyWash, splashWordmarkKind, heroSheetForScene, containRect,
+} from './art';
 
 const fakeImg = (src: string, w = 128, h = 128) =>
   ({ src, ok: true, naturalWidth: w, naturalHeight: h }) as unknown as HTMLImageElement;
 
 describe('art manifest (R38)', () => {
   it('lists the manifest with stable names (first batch + R54 coast landmarks)', () => {
+    // Old expectation was first-batch + R54 coast only. Wave 3 (R57) adds
+    // six-cabinet marquee/attract/hero plates; Coast landmark names are
+    // unchanged (PR #8 owns coast-*.png drops).
     expect([...ART_FILES].sort()).toEqual(
       [
         'cabinet-bezel.png', 'coast-lo-castle.png', 'hall-floor.png', 'splash-logo.png',
@@ -15,6 +21,12 @@ describe('art manifest (R38)', () => {
         // R54 additions: Coast roadside landmark billboards (Imagine PNG drop zone)
         'coast-centerpartiet.png', 'coast-harpsund.png', 'coast-bommersvik.png',
         'coast-valdebatt76.png', 'coast-castro-visit.png',
+        'snake-marquee.png', 'snake-attract.png', 'snake-hero.png',
+        'puck-marquee.png', 'puck-attract.png', 'puck-hero.png',
+        'block-marquee.png', 'block-attract.png', 'block-hero.png',
+        'galaxy-marquee.png', 'galaxy-attract.png', 'galaxy-hero.png',
+        'river-marquee.png', 'river-attract.png', 'river-hero.png',
+        'myriad-marquee.png', 'myriad-attract.png', 'myriad-hero.png',
       ].sort(),
     );
   });
@@ -105,5 +117,110 @@ describe('art manifest (R38)', () => {
       const head = readFileSync(p).subarray(0, 8);
       expect(head.equals(pngMagic), p).toBe(true);
     }
+  });
+});
+
+const pngIhdr = (buf: Buffer) => ({
+  width: buf.readUInt32BE(16),
+  height: buf.readUInt32BE(20),
+  bitDepth: buf[24]!,
+  colorType: buf[25]!,
+});
+
+describe('Wave 3 six-cabinet plates (R57)', () => {
+  const artDir = join(__dirname, '..', 'static', 'art');
+
+  it('maps marquee/attract/hero for the six cabinets and never Coast (PR #8)', () => {
+    for (const g of WAVE3_CABINET_GAMES) {
+      expect(cabinetArtFile(g, 'marquee')).toBe(`${g}-marquee.png`);
+      expect(cabinetArtFile(g, 'attract')).toBe(`${g}-attract.png`);
+      expect(cabinetArtFile(g, 'hero')).toBe(`${g}-hero.png`);
+    }
+    expect(cabinetArtFile('coast', 'marquee')).toBeNull();
+    expect(cabinetArtFile('coast', 'attract')).toBeNull();
+    expect(cabinetArtFile('coast', 'hero')).toBeNull();
+  });
+
+  it('lands paletted ≥64 px PNG plates at 16–32 KB (no 16×16 stubs, no JPEG)', () => {
+    const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    for (const g of WAVE3_CABINET_GAMES) {
+      for (const slot of ['marquee', 'attract'] as const) {
+        const name = `${g}-${slot}.png`;
+        const p = join(artDir, name);
+        expect(existsSync(p), name).toBe(true);
+        const buf = readFileSync(p);
+        expect(buf.subarray(0, 8).equals(pngMagic), name).toBe(true);
+        const { width, height, colorType } = pngIhdr(buf);
+        expect(Math.max(width, height), name).toBeGreaterThanOrEqual(64);
+        expect(colorType, `${name} indexed palette`).toBe(3);
+        expect(buf.byteLength, name).toBeGreaterThanOrEqual(16 * 1024);
+        expect(buf.byteLength, name).toBeLessThanOrEqual(32 * 1024);
+      }
+    }
+  });
+
+  it('leaves Coast marquee/attract/hero unwired; Wave 1 already landed landmark PNGs', () => {
+    const castle = readFileSync(join(artDir, 'coast-lo-castle.png'));
+    const { width, height } = pngIhdr(castle);
+    expect(Math.max(width, height)).toBeGreaterThanOrEqual(64);
+    expect(existsSync(join(artDir, 'coast-marquee.png'))).toBe(false);
+    expect(existsSync(join(artDir, 'coast-attract.png'))).toBe(false);
+    expect(existsSync(join(artDir, 'coast-hero.png'))).toBe(false);
+  });
+
+  const expectLandedPlate = (name: string) => {
+    const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const p = join(artDir, name);
+    expect(existsSync(p), name).toBe(true);
+    const buf = readFileSync(p);
+    expect(buf.subarray(0, 8).equals(pngMagic), name).toBe(true);
+    const { width, height, colorType } = pngIhdr(buf);
+    expect(Math.max(width, height), name).toBeGreaterThanOrEqual(64);
+    expect(colorType, `${name} indexed palette`).toBe(3);
+    expect(buf.byteLength, name).toBeGreaterThanOrEqual(16 * 1024);
+    expect(buf.byteLength, name).toBeLessThanOrEqual(32 * 1024);
+  };
+
+  it('lands paletted hall chrome R57.1–7 (no 16×16 stubs, no JPEG)', () => {
+    expect([...HALL_CHROME_FILES]).toEqual([
+      'hall-floor.png', 'cabinet-bezel.png', 'splash-logo.png', 'marquee-neon.png',
+      'coin-slot.png', 'credit-panel.png', 'wait-badge.png',
+    ]);
+    for (const name of HALL_CHROME_FILES) expectLandedPlate(name);
+  });
+
+  it('lands paletted hero sheets for the six cabinets (R57.54), never coast-hero', () => {
+    for (const g of WAVE3_CABINET_GAMES) expectLandedPlate(`${g}-hero.png`);
+  });
+
+  it('skips the cabinet body wash when a bezel is present (R57.53)', () => {
+    expect(skipCabinetBodyWash(true)).toBe(true);
+    expect(skipCabinetBodyWash(false)).toBe(false);
+  });
+
+  it('uses splash-logo art when loaded, else the procedural wordmark (R57.53)', () => {
+    expect(splashWordmarkKind(true)).toBe('art');
+    expect(splashWordmarkKind(false)).toBe('procedural');
+  });
+
+  it('shows hero sheets on title and ready only, never Coast or playing (R57.54)', () => {
+    for (const g of WAVE3_CABINET_GAMES) {
+      expect(heroSheetForScene(g, 'title')).toBe(`${g}-hero.png`);
+      expect(heroSheetForScene(g, 'ready')).toBe(`${g}-hero.png`);
+      expect(heroSheetForScene(g, 'playing')).toBeNull();
+      expect(heroSheetForScene(g, 'hall')).toBeNull();
+      expect(heroSheetForScene(g, 'attract')).toBeNull();
+    }
+    expect(heroSheetForScene('coast', 'title')).toBeNull();
+    expect(heroSheetForScene('coast', 'ready')).toBeNull();
+    expect(heroSheetForScene('coast', 'playing')).toBeNull();
+  });
+
+  it('containRect letterboxes a sheet inside a dest box', () => {
+    const box = containRect(200, 100, 0, 0, 100, 100);
+    expect(box.w).toBe(100);
+    expect(box.h).toBe(50);
+    expect(box.x).toBe(0);
+    expect(box.y).toBe(25);
   });
 });
