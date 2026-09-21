@@ -275,6 +275,29 @@ export function waitDots(tick: number, period: number): number {
   return Math.floor((t / period) * 4);
 }
 
+/**
+ * R43 WAIT / 待機 on the hall mini: the standing player is on a NOW PLAYING
+ * tile. Independent of whether hallTables has render data — a 1P versus
+ * table is live (`!demo && players>0`) before the session deals.
+ */
+export function hallWaitCueVisible(selected: boolean, lamp: LampMode): boolean {
+  return selected && lamp === 'now-playing';
+}
+
+/**
+ * Wave 2 waiting panel (WAITING FOR PLAYERS + empty second seat).
+ * No snapshot yet, or versus still gathering (data null). A full table's
+ * READY window (`readyAt`) is renderGame chrome, not this panel.
+ */
+export function tableShowsWaitingPanel(snap: {
+  data: unknown;
+  table: { readyAt?: number | null };
+} | null): boolean {
+  if (!snap) return true;
+  if (snap.data !== null && snap.data !== undefined) return false;
+  return snap.table.readyAt == null;
+}
+
 /** linear-decay envelope for the coin-slot thunk; silent outside the window (R44) */
 export function thunkEnvelope(tMs: number, durMs: number): number {
   if (durMs <= 0 || tMs < 0 || tMs >= durMs) return 0;
