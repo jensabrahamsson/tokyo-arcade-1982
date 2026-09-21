@@ -7,6 +7,8 @@ export const ART_FILES = [
   'cabinet-bezel.png',
   'coast-lo-castle.png',
   'splash-logo.png',
+  // R12.1 / R57.3: attract backdrop for splash and title. No baked words.
+  'splash-marquee.png',
   'marquee-neon.png',
   'coin-slot.png',
   'credit-panel.png',
@@ -71,8 +73,12 @@ export function skipCabinetBodyWash(hasBezel: boolean): boolean {
   return hasBezel;
 }
 
-/** R57.3 / R57.53: splash uses the wordmark plate when the loader kept it. */
-export function splashWordmarkKind(hasLogo: boolean): 'art' | 'procedural' {
+/**
+ * R57.3 / R57.53: EN splash uses the Latin wordmark plate when the loader
+ * kept it. JA paints the i18n title — the plate bakes TOKYO ARCADE.
+ */
+export function splashWordmarkKind(hasLogo: boolean, lang: 'en' | 'ja' = 'en'): 'art' | 'procedural' {
+  if (lang === 'ja') return 'procedural';
   return hasLogo ? 'art' : 'procedural';
 }
 

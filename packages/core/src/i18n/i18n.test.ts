@@ -114,9 +114,10 @@ describe('i18n', () => {
   // R58: 1982 Tokyo cabinet Japanese — mixed kanji/kana, not machine katakana.
   // EN values stay put; only JA strings in this table change. coast.* HUD
   // (beyond the kept qualifying line) is Wave 1's job.
+  // splash.enter left this freeze for the R12.1 / R54.1 attract.
+  // Old JA was 'スペースキーで 入場' — a keymap sentence, not press-start.
   const WAVE6_NATIVE_JA = {
     'splash.welcome': 'ようこそ —— どうぞ お入りください',
-    'splash.enter': 'スペースキーで 入場',
     'hall.insertCoin': 'コインを入れてね',
     'toast.insertCoin': 'コインを入れてください',
     'marquee.2': '100円投入 —— レジェンドをめざせ',
@@ -145,9 +146,10 @@ describe('i18n', () => {
     'hall.attract': 'デモ中',
   } as const;
 
+  // splash.enter left this freeze for the R12.1 / R54.1 attract.
+  // Old EN was 'PRESS SPACE TO COME IN' — a keymap sentence, not press-start.
   const WAVE6_EN_UNCHANGED = {
     'splash.welcome': 'WELCOME - COME ON IN',
-    'splash.enter': 'PRESS SPACE TO COME IN',
     'hall.insertCoin': 'INSERT COIN',
     'toast.insertCoin': 'INSERT COIN FIRST',
     'marquee.2': 'INSERT COIN - BECOME A LEGEND - NO DIAGONALS IN SNAKE',
@@ -175,6 +177,13 @@ describe('i18n', () => {
     'game.myriad.tag': 'DONT TOUCH THE BUG',
     'hall.attract': 'ATTRACT',
   } as const;
+
+  it('splash enter invites play in both languages (R12.1 / R54.1)', () => {
+    expect(EN['splash.enter']).toBe('PRESS START');
+    expect(JA['splash.enter']).toBe('スタート！');
+    expect(EN['splash.welcome']).toBe('WELCOME - COME ON IN');
+    expect(JA['splash.welcome']).toBe('ようこそ —— どうぞ お入りください');
+  });
 
   it('Wave 6 JA strings are native cabinet copy (R58)', () => {
     for (const [key, value] of Object.entries(WAVE6_NATIVE_JA)) {
