@@ -40,8 +40,26 @@ export function pressKey(pad: NamePad, key: string): NamePad {
   if (pad.done) return pad;
   if (key === 'OK') return pad.text.length > 0 ? { ...pad, done: true } : pad;
   if (key === '<') return { ...pad, text: pad.text.slice(0, -1) };
+  if (key === ' ' && pad.text.length === 0) return pad;
   if (key.length === 1 && VALID.test(key) && pad.text.length < pad.max) {
     return { ...pad, text: pad.text + key };
   }
+  return pad;
+}
+
+/** Z / Enter on the on-screen pad — activates the cell under the cursor. */
+export function pressNamePadSelect(pad: NamePad): NamePad {
+  return pressKey(pad, keyAt(pad, pad.cursor));
+}
+
+/**
+ * Physical Space on the name pad: only the on-screen space cell inserts a
+ * space. Otherwise Space is ignored so title→namepad carry-over cannot
+ * stamp Q (default cursor) before AKIRA-style entry (Wave 0 CDP).
+ */
+export function pressNamePadSpace(pad: NamePad): NamePad {
+  const key = keyAt(pad, pad.cursor);
+  if (key === ' ') return pressKey(pad, ' ');
+  if (key === 'OK' || key === '<') return pressKey(pad, key);
   return pad;
 }
