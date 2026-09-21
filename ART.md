@@ -1,6 +1,7 @@
 # ART — Tokyo Arcade 1982 pixel-art catalog (R57)
 
-R55 is Circuit d’Or (document-only, other PR). R56 is Coast Pole
+R55 is Circuit d’Or (playable; title CIRCUIT D'OR / サーキット・ドール;
+art still procedural). R56 is Coast Pole
 Position look (Wave 1). This file is the **R57** art catalog.
 
 Wave 3 inventory + IDs. Imagine / Cursor drops real PNGs into
@@ -19,7 +20,7 @@ seven-cabinet marquee/attract/hero plates are landed (R57.52–R57.54),
 including Coast (R57.28–.30). Coast landmark PNGs landed with Wave 1 (R56).
 
 Credits provenance names hall chrome + seven cabinets + Coast PNGs
-(R57.51). Do not claim Circuit art.
+(R57.51). Circuit d'Or has no plate yet — do not claim Circuit art.
 
 ## Drop-zone files (`packages/client/static/art/`)
 

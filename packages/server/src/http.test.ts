@@ -120,7 +120,8 @@ describe('game server (real websockets)', () => {
       type: 'hallTables';
       cabinets: { game: string; demo: boolean; data: unknown }[];
     }>('hallTables');
-    expect(hall.cabinets).toHaveLength(7);
+    // R55: eight cabinets. The old assert was 7, from before Circuit d'Or opened.
+    expect(hall.cabinets).toHaveLength(8);
     expect(hall.cabinets.every((c) => c.demo && c.data !== null)).toBe(true);
     const snake = hall.cabinets.find((c) => c.game === 'snake')!;
     await new Promise((r) => setTimeout(r, 150));
@@ -272,7 +273,7 @@ describe('game server (real websockets)', () => {
     expect(typeof frozen[0]!.credits).toBe('number');
   }, 20000);
 
-  it('free-play smoke: 7-cab hall, Coast, back, snake versus on the hall, pause, lang (wave 0)', async () => {
+  it('free-play smoke: 8-cab hall, Coast, back, snake versus on the hall, pause, lang (wave 0)', async () => {
     dir = mkdtempSync(join(tmpdir(), 'arkad-w0-'));
     handle = await createGameServer({ port: 0, dataDir: dir });
     const url = `ws://127.0.0.1:${handle.port}/ws`;
@@ -297,7 +298,8 @@ describe('game server (real websockets)', () => {
       freePlay: boolean;
     }>('hallTables');
     expect(hall0.freePlay).toBe(true);
-    expect(hall0.cabinets).toHaveLength(7);
+    // R55: the wave-0 hall was 7 (R22). Circuit d'Or sits beside the other seven.
+    expect(hall0.cabinets).toHaveLength(8);
 
     a.ws.send(JSON.stringify({ type: 'start', game: 'coast', mode: 'solo' }));
     const coast = await waitPhase(a, 'playing');

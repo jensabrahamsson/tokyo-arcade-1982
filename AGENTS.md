@@ -66,7 +66,7 @@ no audio for these.
 
 ## Jev self-play (optional autotest, all cabinets)
 
-`ARKAD_JEV_SELFPLAY=1` lets the attract demos of all seven cabinets
+`ARKAD_JEV_SELFPLAY=1` lets the attract demos of all eight cabinets
 (snake, puck, block, galaxy, river, myriad, coast) consult TypeSafe Jev
 (`POST https://api.typesafe.ai/v1/systemone`, model `jev-latest`) at
 ~8 Hz. Compact JSON state only (no images); per-cabinet adapters live
@@ -105,7 +105,7 @@ npx vitest run packages/client/src/showFloorSmoke.test.ts \
   packages/server/src/arcade.test.ts packages/server/src/http.test.ts
 ```
 
-Covers splash → title → namepad → 7-cab hall → Coast qualifying overlay
+Covers splash → title → namepad → 8-cab hall → Coast qualifying overlay
 (~3 s) + stinger-due when the MP3 is present → Escape/KeyB home → snake
 versus on the hall mini → pause keeps credits → L language toggle.
 P1-A/B (Coast overlay independent of phase; reconnect without re-debit)
@@ -117,7 +117,7 @@ stay in the same suite.
 ARKAD_JEV_AUTOPLAY_SECONDS=60 npm run jev:autoplay
 ```
 
-~7 min, all seven cabinets, compact JSON only (no images). Missing key
+~8 min, all eight cabinets, compact JSON only (no images). Missing key
 or HTTP failure fail-closes to `spec.demo` and still exits 0. One-shot:
 `npm run jev:smoke` (skips if `TYPESAFE_API_KEY` is unset).
 
@@ -163,13 +163,13 @@ If Chrome is missing, skip CDP; `npm test` is the required smoke.
 ## Layout & commands
 
 ```
-packages/core     engine/, games/<7>/, protocol/, i18n/, audio/, difficulty/
+packages/core     engine/, games/<8>/, protocol/, i18n/, audio/, difficulty/
 packages/server   http.ts, arcade.ts, session.ts, highscores.ts, jevPolicy.ts
 packages/client   main.ts, net.ts, input.ts, namepad.ts, audio/, renderers/, static/
 ```
 
 ```sh
-npm test                # vitest run (591 tests, incl. real-socket E2E)
+npm test                # vitest run (613 tests, incl. real-socket E2E)
 npx vitest run <path>   # one file while iterating
 npm run typecheck       # tsc -b
 node build.mjs          # esbuild bundles into dist/
