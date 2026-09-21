@@ -15,7 +15,8 @@
     "build": "npm run typecheck && node build.mjs",
     "start": "node dist/server/index.cjs",
     "jev:smoke": "node scripts/jev-smoke.mjs",
-    "jev:autoplay": "node build.mjs && node dist/jev-autoplay.mjs"
+    "jev:autoplay": "node build.mjs && node dist/jev-autoplay.mjs",
+    "jev:soak": "node build.mjs && node dist/jev-soak.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

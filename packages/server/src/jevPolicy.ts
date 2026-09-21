@@ -1,21 +1,24 @@
 /**
- * TypeSafe Jev self-play for the snake attract cabinet.
- * Lives on the server (fetch/I/O). Core stays pure: missing key or HTTP
- * failure fail-closed to spec.demo. No images — compact JSON state only.
+ * TypeSafe Jev self-play for all seven attract cabinets.
+ * Lives on the server (fetch/I/O). Core stays pure: missing key, low
+ * confidence, or HTTP failure (one retry on flaky network) fail-closed
+ * to spec.demo. No images — compact JSON state only.
  *
  * Local key file: repo-root `.env.typesafe` (gitignored). Never log the value.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  BLOCK_H,
+  BLOCK_W,
   DIRS,
   MAZE,
   MAZE_H,
   MAZE_W,
-  NO_INPUT,
+  MYRIAD_H,
+  MYRIAD_W,
   RIVER_W,
   SNAKE_GRID,
-  coastSpec,
   snakeSpec,
   type BlockState,
   type CoastState,
@@ -34,8 +37,14 @@ export const JEV_MODEL = 'jev-latest';
 /** 8 Hz sits in the requested 5–10 Hz band; the 60 Hz tick reuses the last stick. */
 export const JEV_MIN_INTERVAL_MS = 125;
 export const JEV_CONFIDENCE_MIN = 0.35;
+export const JEV_CONFIDENCE_MAX = 1;
 export const JEV_TIMEOUT_MS = 1500;
 export const JEV_GAME = 'snake';
+/** Drop Block stay when |predicted land − paddle| exceeds this (cells). */
+export const BLOCK_STAY_ALIGN = 0.7;
+/** Coast hit-box used by the sim (`abs(playerX − o.x) < 0.45`). */
+export const COAST_LINE_SLOP = 0.45;
+export const COAST_LOOKAHEAD = 40;
 
 export type SnakeAction = 'up' | 'down' | 'left' | 'right';
 
@@ -95,6 +104,31 @@ export function rateLimitAllows(
 ): boolean {
   if (lastCallMs === null) return true;
   return nowMs - lastCallMs >= minIntervalMs;
+}
+
+/** Finite confidence in [floor, 1]. NaN / inf / >1 fail-closed. */
+export function confidenceAcceptable(confidence: number, floor = JEV_CONFIDENCE_MIN): boolean {
+  return Number.isFinite(confidence) && confidence >= floor && confidence <= JEV_CONFIDENCE_MAX;
+}
+
+/** 408/429/5xx and transport errors retry once; 4xx auth/validation does not. */
+export function jevReasonRetryable(reason: string): boolean {
+  if (reason === 'network') return true;
+  const m = /^http_(\d+)$/.exec(reason);
+  if (!m) return false;
+  const status = Number(m[1]);
+  return status === 408 || status === 429 || (status >= 500 && status <= 599);
+}
+
+/** Strip Bearer tokens, TYPESAFE_API_KEY= assignments, and known secret strings. */
+export function redactSecrets(text: string, secrets: readonly string[] = []): string {
+  let out = String(text);
+  for (const s of secrets) {
+    if (s.trim().length >= 8) out = out.split(s).join('[redacted]');
+  }
+  out = out.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]');
+  out = out.replace(/TYPESAFE_API_KEY\s*[=:]\s*\S+/gi, 'TYPESAFE_API_KEY=[redacted]');
+  return out;
 }
 
 export function legalSnakeActions(state: SnakeState, playerId?: string): SnakeAction[] {
@@ -213,15 +247,15 @@ export function mapJevToInput(
   const action = readChoice(answers, 'action');
   if (!action) return fallback;
   if (!(legal as readonly string[]).includes(action.choice)) return fallback;
-  if (!Number.isFinite(action.confidence) || action.confidence < confidenceMin) return fallback;
+  if (!confidenceAcceptable(action.confidence, confidenceMin)) return fallback;
   const dir = ACTION_DIRS[action.choice as SnakeAction];
   if (!dir) return fallback;
   return { dir: { dx: dir.dx, dy: dir.dy }, button: false, seq: tick };
 }
 
 export type AskJevResult =
-  | { ok: true; body: { model: string; answers: Record<string, unknown> } }
-  | { ok: false; reason: string };
+  | { ok: true; body: { model: string; answers: Record<string, unknown> }; attempts: number }
+  | { ok: false; reason: string; attempts: number };
 
 function isJevBody(raw: unknown): raw is { model: string; answers: Record<string, unknown> } {
   if (typeof raw !== 'object' || raw === null) return false;
@@ -229,7 +263,7 @@ function isJevBody(raw: unknown): raw is { model: string; answers: Record<string
   return typeof o.model === 'string' && typeof o.answers === 'object' && o.answers !== null;
 }
 
-export async function askJev(opts: {
+async function askJevOnce(opts: {
   apiKey: string;
   state: unknown;
   questions: Record<string, unknown>;
@@ -237,7 +271,7 @@ export async function askJev(opts: {
   timeoutMs?: number;
 }): Promise<AskJevResult> {
   const key = opts.apiKey.trim();
-  if (!key) return { ok: false, reason: 'missing_key' };
+  if (!key) return { ok: false, reason: 'missing_key', attempts: 1 };
   try {
     const timeoutMs = opts.timeoutMs ?? JEV_TIMEOUT_MS;
     const ac = new AbortController();
@@ -260,13 +294,26 @@ export async function askJev(opts: {
     } finally {
       clearTimeout(timer);
     }
-    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
+    if (!res.ok) return { ok: false, reason: `http_${res.status}`, attempts: 1 };
     const body: unknown = await res.json();
-    if (!isJevBody(body)) return { ok: false, reason: 'bad_body' };
-    return { ok: true, body };
+    if (!isJevBody(body)) return { ok: false, reason: 'bad_body', attempts: 1 };
+    return { ok: true, body, attempts: 1 };
   } catch {
-    return { ok: false, reason: 'network' };
+    return { ok: false, reason: 'network', attempts: 1 };
   }
+}
+
+export async function askJev(opts: {
+  apiKey: string;
+  state: unknown;
+  questions: Record<string, unknown>;
+  fetchImpl: typeof fetch;
+  timeoutMs?: number;
+}): Promise<AskJevResult> {
+  const first = await askJevOnce(opts);
+  if (first.ok || !jevReasonRetryable(first.reason)) return first;
+  const retry = await askJevOnce(opts);
+  return { ...retry, attempts: first.attempts + retry.attempts };
 }
 
 
@@ -374,16 +421,159 @@ export const puckAdapter: GameJevAdapter = (raw) => {
   };
 };
 
+export function predictBlockLandX(
+  ball: { x: number; y: number; dx: number; dy: number },
+  paddleY: number,
+  maxTicks = 800,
+): number | null {
+  if (!Number.isFinite(ball.x + ball.y + ball.dx + ball.dy)) return null;
+  if (ball.dx === 0 && ball.dy === 0) return null;
+  let x = ball.x;
+  let y = ball.y;
+  let dx = ball.dx;
+  let dy = ball.dy;
+  for (let i = 0; i < maxTicks; i++) {
+    x += dx;
+    y += dy;
+    if (x < 0.5) {
+      x = 0.5;
+      dx = Math.abs(dx);
+    } else if (x > BLOCK_W - 0.5) {
+      x = BLOCK_W - 0.5;
+      dx = -Math.abs(dx);
+    }
+    if (y < 0.5 && dy < 0) {
+      y = 0.5;
+      dy = Math.abs(dy);
+    }
+    if (y > BLOCK_H + 2 && dy > 0) return null;
+    if (dy > 0 && y >= paddleY) return Math.max(0.5, Math.min(BLOCK_W - 0.5, x));
+  }
+  return null;
+}
+
+export interface BlockIntercept {
+  paddleCenter: number;
+  landX: number | null;
+  error: number | null;
+  dySign: -1 | 0 | 1;
+  canLeft: boolean;
+  canRight: boolean;
+}
+
+export function blockIntercept(s: BlockState): BlockIntercept | null {
+  const id = Object.keys(s.paddles)[0];
+  if (!id) return null;
+  const pad = s.paddles[id]!;
+  const paddleCenter = Math.round((pad.x + pad.span / 2) * 10) / 10;
+  const landRaw = predictBlockLandX(s.ball, pad.y);
+  const landX = landRaw === null ? null : Math.round(landRaw * 10) / 10;
+  const error = landX === null ? null : Math.round((landX - paddleCenter) * 10) / 10;
+  const dySign: -1 | 0 | 1 = s.ball.dy > 0 ? 1 : s.ball.dy < 0 ? -1 : 0;
+  return {
+    paddleCenter,
+    landX,
+    error,
+    dySign,
+    canLeft: pad.x > 1,
+    canRight: pad.x + pad.span < BLOCK_W - 1,
+  };
+}
+
+export function blockLegal(i: BlockIntercept): string[] {
+  const legal: string[] = [];
+  if (i.canLeft) legal.push('left');
+  if (i.canRight) legal.push('right');
+  const aligned = i.error === null || Math.abs(i.error) <= BLOCK_STAY_ALIGN;
+  if (aligned) legal.push('stay');
+  return legal;
+}
+
+export function galaxyAlienAbove(s: GalaxyState, slop = 0.9): boolean {
+  return s.aliens.some((a) => a.y < s.player.y && Math.abs(a.x - s.player.x) < slop);
+}
+
+export interface MyriadGeometry {
+  nearest: { dx: number; dy: number; manhattan: number } | null;
+  inColumn: boolean;
+  mushroomInColumn: boolean;
+  fireWouldHit: boolean;
+}
+
+export function myriadGeometry(s: MyriadState): MyriadGeometry {
+  let nearest: MyriadGeometry['nearest'] = null;
+  let fireWouldHit = false;
+  for (const seg of s.segments) {
+    const dx = seg.x - s.player.x;
+    const dy = seg.y - s.player.y;
+    const manhattan = Math.abs(dx) + Math.abs(dy);
+    if (nearest === null || manhattan < nearest.manhattan) nearest = { dx, dy, manhattan };
+    if (seg.y >= 0 && seg.y < s.player.y && Math.abs(dx) < 0.8) fireWouldHit = true;
+  }
+  const col = Math.floor(s.player.x + 0.5);
+  let mushroomInColumn = false;
+  for (const k of Object.keys(s.mushrooms)) {
+    const comma = k.indexOf(',');
+    if (comma <= 0) continue;
+    const x = Number(k.slice(0, comma));
+    const y = Number(k.slice(comma + 1));
+    if (x === col && y >= 0 && y < s.player.y) {
+      mushroomInColumn = true;
+      break;
+    }
+  }
+  if (mushroomInColumn) fireWouldHit = true;
+  const inColumn = nearest !== null && Math.abs(nearest.dx) < 0.8;
+  return { nearest, inColumn, mushroomInColumn, fireWouldHit };
+}
+
+export function myriadLegal(s: MyriadState, geom: MyriadGeometry): string[] {
+  const legal: string[] = [];
+  if (s.player.x > 0) legal.push('left');
+  if (s.player.x < MYRIAD_W - 1) legal.push('right');
+  const rowDanger = geom.nearest !== null && Math.abs(geom.nearest.dy) < 2;
+  if (rowDanger) {
+    if (s.player.y > 19) legal.push('up');
+    if (s.player.y < MYRIAD_H - 1) legal.push('down');
+  }
+  if (geom.fireWouldHit || geom.inColumn || geom.mushroomInColumn) legal.unshift('fire');
+  return legal;
+}
+
+export function coastObstacleOnLine(s: CoastState): { x: number; ahead: number } | null {
+  let best: { x: number; ahead: number } | null = null;
+  for (const o of s.obstacles) {
+    if (o.hit) continue;
+    const ahead = o.d - s.dist;
+    if (ahead <= 0 || ahead >= COAST_LOOKAHEAD) continue;
+    if (Math.abs(o.x - s.playerX) >= COAST_LINE_SLOP) continue;
+    if (!best || ahead < best.ahead) best = { x: o.x, ahead };
+  }
+  return best;
+}
+
+export function coastLegal(s: CoastState, on: { x: number; ahead: number } | null): string[] {
+  if (!on) return ['left', 'straight', 'right'];
+  const legal: string[] = [];
+  if (s.playerX > -1.6) legal.push('left');
+  if (s.playerX < 1.6) legal.push('right');
+  return legal.length > 0 ? legal : ['straight'];
+}
+
 export const blockAdapter: GameJevAdapter = (raw) => {
   const s = raw as BlockState;
   const id = Object.keys(s.paddles)[0];
   if (!id) return null;
-  const pad = s.paddles[id]!;
-  const center = pad.x + pad.span / 2;
-  const legal = center <= 0.5 ? ['stay', 'right'] : center >= 29.5 ? ['stay', 'left'] : ['stay', 'left', 'right'];
+  const intercept = blockIntercept(s);
+  if (!intercept) return null;
+  const legal = blockLegal(intercept);
+  if (legal.length === 0) return null;
   const payload = {
     game: 'block',
-    paddleCenter: Math.round(center * 10) / 10,
+    paddleCenter: intercept.paddleCenter,
+    landX: intercept.landX,
+    error: intercept.error,
+    dySign: intercept.dySign,
     ball: { x: Math.round(s.ball.x * 10) / 10, y: Math.round(s.ball.y * 10) / 10, dx: s.ball.dx, dy: s.ball.dy },
     bricksLeft: Object.keys(s.bricks).length,
     score: s.scores[id] ?? 0,
@@ -394,9 +584,13 @@ export const blockAdapter: GameJevAdapter = (raw) => {
     legal,
     questions: () => ({
       ...choiceQ(
-        'Move the paddle to keep the ball in play; line up angled hits when safe.',
+        'Line the paddle up under the predicted landing x. Survival first; angled hits only when aligned.',
         legal,
-        { left: 'Move paddle left.', right: 'Move paddle right.', stay: 'Hold position; the ball is aligned.' },
+        {
+          left: 'Slide left toward the predicted landing.',
+          right: 'Slide right toward the predicted landing.',
+          stay: 'Hold; the paddle is aligned with the predicted landing.',
+        },
       ),
       ...DANGER('the ball', 'The ball is falling toward an edge the paddle cannot reach', 'The ball is catchable'),
     }),
@@ -413,10 +607,15 @@ export const blockAdapter: GameJevAdapter = (raw) => {
 
 export const galaxyAdapter: GameJevAdapter = (raw) => {
   const s = raw as GalaxyState;
-  const legal = ['stay', 'left', 'right', 'fire'];
+  const alienAbove = galaxyAlienAbove(s);
+  const legal: string[] = ['stay'];
+  if (s.player.x > 1) legal.push('left');
+  if (s.player.x < 23) legal.push('right');
+  if (alienAbove) legal.push('fire');
   const payload = {
     game: 'galaxy',
     player: { x: Math.round(s.player.x * 10) / 10 },
+    alienAbove,
     aliens: s.aliens.slice(0, 8).map((a) => ({ x: Math.round(a.x), y: Math.round(a.y) })),
     aliensLeft: s.aliens.length,
     bullets: s.bullets.length,
@@ -428,9 +627,11 @@ export const galaxyAdapter: GameJevAdapter = (raw) => {
     legal,
     questions: () => ({
       ...choiceQ(
-        'Defend the sky: line up with the lowest alien and shoot; dodge descending aliens.',
+        alienAbove
+          ? 'An alien is in the gun column: line up and fire, or dodge a diver.'
+          : 'Empty sky above the ship: slide under a target. Do not fire into empty space.',
         legal,
-        { left: 'Move left.', right: 'Move right.', stay: 'Hold course.', fire: 'Fire now (aligned with a target).' },
+        { left: 'Move left.', right: 'Move right.', stay: 'Hold course.', fire: 'Fire now (alien in column).' },
       ),
       ...DANGER('the ship', 'An alien is close overhead or descending onto the player column', 'The column above is clear'),
     }),
@@ -476,10 +677,16 @@ export const riverAdapter: GameJevAdapter = (raw) => {
 
 export const myriadAdapter: GameJevAdapter = (raw) => {
   const s = raw as MyriadState;
-  const legal = ['up', 'down', 'left', 'right', 'fire'];
+  const geom = myriadGeometry(s);
+  const legal = myriadLegal(s, geom);
+  if (legal.length === 0) return null;
   const payload = {
     game: 'myriad',
     player: { x: Math.round(s.player.x), y: Math.round(s.player.y) },
+    nearest: geom.nearest,
+    inColumn: geom.inColumn,
+    mushroomInColumn: geom.mushroomInColumn,
+    fireWouldHit: geom.fireWouldHit,
     segments: s.segments.slice(0, 8).map((p) => ({ x: p.x, y: p.y })),
     mushrooms: Object.keys(s.mushrooms).length,
     score: s.scores[Object.keys(s.scores)[0] ?? ''] ?? 0,
@@ -488,16 +695,22 @@ export const myriadAdapter: GameJevAdapter = (raw) => {
     game: 'myriad',
     payload,
     legal,
-    // 5-choice questions cap Jev confidence near 0.4; 0.25 stays well above uniform (0.2)
+    // 3–4 choices still cap Jev near argmax; 0.25 stays above uniform-of-five (0.2)
     confidenceMin: 0.25,
     questions: () => ({
-      ...choiceQ('Blast the bug chain bottom-up; dodge segments, shoot mushrooms in the way.', legal, {
-        up: 'Move up.',
-        down: 'Move down.',
-        left: 'Move left.',
-        right: 'Move right.',
-        fire: 'Shoot straight up.',
-      }),
+      ...choiceQ(
+        geom.fireWouldHit
+          ? 'A bug is in-column: shoot. Sidestep only if a segment is about to hit you.'
+          : 'Dodge toward the nearest segment, then line up a column shot. Do not spray into empty sky.',
+        legal,
+        {
+          up: 'Move up.',
+          down: 'Move down.',
+          left: 'Move left toward/away from the bug.',
+          right: 'Move right toward/away from the bug.',
+          fire: 'Shoot straight up — the column is occupied.',
+        },
+      ),
       ...DANGER('the player', 'A bug segment is close in the current column or row', 'The neighbourhood is clear'),
     }),
     toInput: (c, t) => {
@@ -509,7 +722,8 @@ export const myriadAdapter: GameJevAdapter = (raw) => {
 
 export const coastAdapter: GameJevAdapter = (raw) => {
   const s = raw as CoastState;
-  const legal = ['left', 'straight', 'right'];
+  const on = coastObstacleOnLine(s);
+  const legal = coastLegal(s, on);
   const payload = {
     game: 'coast',
     playerX: Math.round(s.playerX * 100) / 100,
@@ -517,8 +731,10 @@ export const coastAdapter: GameJevAdapter = (raw) => {
     dist: Math.round(s.dist),
     timeLeft: s.timeLeft,
     checkpoints: s.checkpoints,
+    onLine: on !== null,
+    dodge: on ? (on.x >= s.playerX ? 'left' : 'right') : null,
     nextObstacles: s.obstacles
-      .filter((o) => !o.hit && o.d > s.dist && o.d - s.dist < 40)
+      .filter((o) => !o.hit && o.d > s.dist && o.d - s.dist < COAST_LOOKAHEAD)
       .map((o) => ({ ahead: Math.round(o.d - s.dist), x: Math.round(o.x * 10) / 10 })),
   };
   return {
@@ -526,11 +742,17 @@ export const coastAdapter: GameJevAdapter = (raw) => {
     payload,
     legal,
     questions: () => ({
-      ...choiceQ('Coast toward LO Castle on full throttle; steer around roadside obstacles and stay on the road.', legal, {
-        left: 'Steer left.',
-        straight: 'Hold the line (full throttle).',
-        right: 'Steer right.',
-      }),
+      ...choiceQ(
+        on
+          ? 'Obstacle on the current line — steer off it at full throttle. Do not hold straight.'
+          : 'Coast toward LO Castle on full throttle; steer around roadside obstacles and stay on the road.',
+        legal,
+        {
+          left: on ? 'Obstacle on the line — steer left to dodge.' : 'Steer left.',
+          straight: 'Hold the line (full throttle); the lane ahead is clear.',
+          right: on ? 'Obstacle on the line — steer right to dodge.' : 'Steer right.',
+        },
+      ),
       ...DANGER('the car', 'An obstacle or the road edge is right ahead on the current line', 'The lane ahead is clear'),
     }),
     toInput: (c, t) => {
@@ -568,7 +790,7 @@ export function mapChoiceToInput(
   if (!action) return fallback;
   if (!jev.legal.includes(action.choice)) return fallback;
   const floor = jev.confidenceMin ?? confidenceMin;
-  if (!Number.isFinite(action.confidence) || action.confidence < floor) return fallback;
+  if (!confidenceAcceptable(action.confidence, floor)) return fallback;
   return jev.toInput(action.choice, tick) ?? fallback;
 }
 
@@ -579,6 +801,7 @@ export interface JevSelfPlayOpts {
   minIntervalMs?: number;
   confidenceMin?: number;
   timeoutMs?: number;
+  log?: (line: string) => void;
 }
 
 export class JevSelfPlay implements DemoInputPolicy {
@@ -588,11 +811,21 @@ export class JevSelfPlay implements DemoInputPolicy {
   private readonly minIntervalMs: number;
   private readonly confidenceMin: number;
   private readonly timeoutMs: number;
-  private cached = new Map<string, PlayerInput>();
+  private readonly logFn: ((line: string) => void) | undefined;
+  /** cached Jev choice word per game (not a stick — fire vs coast-straight share button-only) */
+  private cached = new Map<string, string>();
   private lastCallMs: number | null = null;
   private inflight = false;
   /** observability for the autoplay harness: counters since construction */
-  readonly stats = { calls: 0, ok: 0, failed: 0, confSum: 0, confN: 0, choices: {} as Record<string, number> };
+  readonly stats = {
+    calls: 0,
+    ok: 0,
+    failed: 0,
+    retries: 0,
+    confSum: 0,
+    confN: 0,
+    choices: {} as Record<string, number>,
+  };
 
   constructor(opts: JevSelfPlayOpts) {
     this.apiKey = opts.apiKey.trim();
@@ -601,6 +834,7 @@ export class JevSelfPlay implements DemoInputPolicy {
     this.minIntervalMs = opts.minIntervalMs ?? JEV_MIN_INTERVAL_MS;
     this.confidenceMin = opts.confidenceMin ?? JEV_CONFIDENCE_MIN;
     this.timeoutMs = opts.timeoutMs ?? JEV_TIMEOUT_MS;
+    this.logFn = opts.log;
   }
 
   covers(game: string): boolean {
@@ -615,17 +849,23 @@ export class JevSelfPlay implements DemoInputPolicy {
       if (!jev || jev.legal.length === 0) return fallback;
       if (jev.legal.length === 1) return jev.toInput(jev.legal[0]!, tick) ?? fallback;
       this.maybeRefresh(jev);
-      const cached = this.cached.get(game);
-      if (cached) {
-        const choice = choiceFromInput(cached);
-        if (choice && jev.legal.includes(choice)) {
-          const fresh = jev.toInput(choice, tick);
-          if (fresh) return fresh;
-        }
+      const choice = this.cached.get(game);
+      if (choice && jev.legal.includes(choice)) {
+        const fresh = jev.toInput(choice, tick);
+        if (fresh) return fresh;
       }
       return fallback;
     } catch {
       return fallback;
+    }
+  }
+
+  private logSafe(line: string): void {
+    if (!this.logFn) return;
+    try {
+      this.logFn(redactSecrets(line, this.apiKey.length >= 8 ? [this.apiKey] : []));
+    } catch {
+      /* never throw into the tick */
     }
   }
 
@@ -655,41 +895,27 @@ export class JevSelfPlay implements DemoInputPolicy {
       fetchImpl,
       timeoutMs: this.timeoutMs,
     });
+    this.stats.retries += Math.max(0, got.attempts - 1);
     if (!got.ok) {
       this.stats.failed += 1;
       this.cached.delete(jev.game);
+      this.logSafe(`jev ${jev.game}: fail-closed (${got.reason})`);
       return;
     }
     const action = readChoice(got.body.answers, 'action');
     const floor = jev.confidenceMin ?? this.confidenceMin;
-    if (
-      action &&
-      Number.isFinite(action.confidence) &&
-      action.confidence >= floor &&
-      jev.legal.includes(action.choice)
-    ) {
-      const mapped = jev.toInput(action.choice, 0);
+    if (action && confidenceAcceptable(action.confidence, floor) && jev.legal.includes(action.choice)) {
       this.stats.ok += 1;
       this.stats.confSum += action.confidence;
       this.stats.confN += 1;
       this.stats.choices[`${jev.game}:${action.choice}`] = (this.stats.choices[`${jev.game}:${action.choice}`] ?? 0) + 1;
-      if (mapped) this.cached.set(jev.game, mapped);
+      this.cached.set(jev.game, action.choice);
     } else {
       this.stats.failed += 1;
       this.cached.delete(jev.game);
+      this.logSafe(`jev ${jev.game}: fail-closed (low_confidence)`);
     }
   }
-}
-
-/** coarse action word for a mapped input, used to re-validate cached sticks */
-function choiceFromInput(input: PlayerInput): string | null {
-  if (input.button && !input.dir) return 'fire';
-  if (!input.dir) return input.button ? 'straight' : null;
-  if (input.dir.dx === -1) return 'left';
-  if (input.dir.dx === 1) return 'right';
-  if (input.dir.dy === -1) return 'up';
-  if (input.dir.dy === 1) return 'down';
-  return null;
 }
 
 export const TYPESAFE_ENV_FILENAME = '.env.typesafe';
@@ -784,8 +1010,11 @@ export async function runJevSmoke(opts: {
   log?: (line: string) => void;
 }): Promise<JevSmokeResult> {
   const env = opts.env ?? process.env;
-  const log = opts.log ?? ((line: string) => console.log(line));
+  const rawLog = opts.log ?? ((line: string) => console.log(line));
   const key = (env.TYPESAFE_API_KEY ?? '').trim();
+  const log = (line: string): void => {
+    rawLog(redactSecrets(line, key.length >= 8 ? [key] : []));
+  };
   if (!key) {
     const reason = 'TYPESAFE_API_KEY unset';
     log(`jev-smoke: skip (${reason})`);

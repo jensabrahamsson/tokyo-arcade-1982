@@ -25,6 +25,16 @@ await esbuild.build({
 });
 
 await esbuild.build({
+  entryPoints: ['packages/server/src/jevSoakMain.ts'],
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node20',
+  outfile: 'dist/jev-soak.mjs',
+  alias,
+});
+
+await esbuild.build({
   entryPoints: ['packages/client/src/main.ts'],
   bundle: true,
   platform: 'browser',
