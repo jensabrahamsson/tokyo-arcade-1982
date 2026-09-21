@@ -7,6 +7,7 @@ import { HALL_SLOTS } from './hall';
 import {
   splashAdvance, SPLASH_MS, titleStartTarget, isBackHomeKey,
   escapeBackTarget, coastQualifyingOverlay, COAST_QUALIFYING_MS,
+  coastHeroOverlay, COAST_HERO_MS,
   readyStingerDue, cabinetScreenData, marqueeLamp,
 } from './tweaks';
 import { operatorIntent } from './serviceChord';
@@ -43,6 +44,9 @@ describe('show-floor free-play smoke (wave 0)', () => {
     expect(coastQualifyingOverlay({ ...coast, nowMs: 1_000 })).toBe(true);
     expect(coastQualifyingOverlay({ ...coast, nowMs: 1_000 + COAST_QUALIFYING_MS - 1 })).toBe(true);
     expect(coastQualifyingOverlay({ ...coast, nowMs: 1_000 + COAST_QUALIFYING_MS })).toBe(false);
+    expect(coastHeroOverlay({ ...coast, nowMs: 1_000 })).toBe(true);
+    expect(coastHeroOverlay({ ...coast, nowMs: 1_000 + COAST_HERO_MS - 1 })).toBe(true);
+    expect(coastHeroOverlay({ ...coast, nowMs: 1_000 + COAST_HERO_MS })).toBe(false);
     expect(t('en', 'coast.qualifying')).toBe('QUALIFYING START!');
     expect(t('ja', 'coast.qualifying')).toBe('予選スタート！');
 

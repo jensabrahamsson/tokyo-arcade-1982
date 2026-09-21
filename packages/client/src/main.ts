@@ -53,7 +53,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, hallMarqueeClip, hallMarqueeNeonDest, MARQUEE_NEON_TILE_W, FULLSCREEN_HINT, FULLSCREEN_HINT_SIZE, reconnectStart, coastQualifyingOverlay, splashAdvance, SPLASH_SKIP_KEYS, titleStartTarget, cabinetScreenData, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, hallMarqueeClip, hallMarqueeNeonDest, MARQUEE_NEON_TILE_W, FULLSCREEN_HINT, FULLSCREEN_HINT_SIZE, reconnectStart, coastQualifyingOverlay, coastHeroOverlay, splashAdvance, SPLASH_SKIP_KEYS, titleStartTarget, cabinetScreenData, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -617,8 +617,18 @@ function renderGame(ms: number): void {
 
   const phase = snap.table.phase;
   const cx = CANVAS_W / 2;
-  // R57.54: hero sheet is ready-phase chrome, never a gameplay replacement
-  if (phase === 'ready') {
+  const iAmSeated = snap.table.players.some((p) => p.id === world.myId);
+  // R57.54: hero sheet is ready chrome, never a gameplay replacement.
+  // Coast leftover: solo begin() jumps to playing, so also show the plate
+  // for N seconds after the first seated snapshot (same exception as P1-A).
+  if (phase === 'ready' || coastHeroOverlay({
+    game,
+    tableId: snap.table.id,
+    seated: iAmSeated,
+    announcedFor: coastAnnouncedFor,
+    announcedAtMs: coastAnnouncedAt,
+    nowMs: ms,
+  })) {
     const heroName = heroSheetForScene(game, 'ready');
     const heroImg = heroName ? art()[heroName] : undefined;
     if (heroImg) {
@@ -630,7 +640,7 @@ function renderGame(ms: number): void {
       ctx.imageSmoothingEnabled = true;
       ctx.restore();
     }
-    if (blink(ms)) px(ctx, t('phase.ready'), cx, 100, 16, PAL.yellow, 'center');
+    if (phase === 'ready' && blink(ms)) px(ctx, t('phase.ready'), cx, 100, 16, PAL.yellow, 'center');
   }
   if (phase === 'roundOver') px(ctx, t('phase.clear'), cx, 100, 16, PAL.cyan, 'center');
   if (phase === 'gameOver') {
@@ -644,7 +654,6 @@ function renderGame(ms: number): void {
     const p = snap.table.players.find((pl) => pl.id === snap.table.turn);
     if (p) px(ctx, `${t('hud.turn')}: ${p.name}`, cx, 230, 8, PAL.orange, 'center');
   }
-  const iAmSeated = snap.table.players.some((p) => p.id === world.myId);
   if (!iAmSeated) px(ctx, t('misc.spectate'), 8, 230, 8, PAL.gray);
   const crowd = visibleSpectators(snap.table.spectators ?? 0);
   if (crowd !== null) px(ctx, `${t('hall.watching')} ${crowd}`, CANVAS_W - 6, 230, 8, PAL.cyan, 'right');
