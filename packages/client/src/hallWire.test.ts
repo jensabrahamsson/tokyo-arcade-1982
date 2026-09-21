@@ -51,4 +51,10 @@ describe('operator Shift+S on the hall (R16.1 leftover)', () => {
     expect(chord).toBeGreaterThanOrEqual(0);
     expect(hall.slice(0, chord)).not.toContain("'KeyS'");
   });
+
+  it('frame paints renderService so Shift+S is not a black canvas', () => {
+    const start = MAIN.indexOf('function frame');
+    const frame = MAIN.slice(start, MAIN.indexOf('requestAnimationFrame(frame)', start));
+    expect(frame).toMatch(/scene === 'service'[\s\S]{0,80}renderService/);
+  });
 });
