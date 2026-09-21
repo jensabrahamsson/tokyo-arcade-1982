@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { OBSTACLE_KINDS, coastSpec } from '@arkad/core';
 import {
   coastLodStride, CASTLE_DRAW, CAR_DRAW, obstacleSprite, coastHudCopy, COAST_SPEED_SCALE,
   SKY_TOP, SKY_BOT, GRASS_A, ROAD_A, ROAD_WIDTH_K, ROADSIDE_POST_STEP, ROADSIDE_TREE_STEP,
-  luma, renderCoast,
+  luma, renderCoast, drawCoastQualifyingBanner, coastCastleRect, coastQualifyingOverlayY,
+  coastQualifyingClearOfCastle, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER,
 } from './coast';
 
 describe('coast mini LOD (P1-8)', () => {
@@ -19,6 +23,55 @@ describe('coast mini LOD (P1-8)', () => {
     // the grass/road band period is 4 distance units, so a stride of 4
     // samples exactly one band per strip and cannot shift the layout
     expect(4 % 4).toBe(0);
+  });
+});
+
+describe('Coast qualifying overlay gutter (R56.5)', () => {
+  it('LO-borgen screen rect matches drawCastle math at course start', () => {
+    const r = coastCastleRect(0);
+    expect(r.top).toBe(37);
+    expect(r.bottom).toBe(93);
+    expect(r.left).toBe(84);
+    expect(r.right).toBe(236);
+  });
+
+  it('the legacy y=78 band collided with the castle on 320×240', () => {
+    expect(coastQualifyingClearOfCastle(78, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER, 0)).toBe(false);
+  });
+
+  it('places t(coast.qualifying) below the keep with a readable gutter', () => {
+    const y = coastQualifyingOverlayY();
+    expect(y).toBe(101);
+    expect(y).toBeGreaterThan(coastCastleRect(0).bottom);
+    expect(coastQualifyingClearOfCastle(y, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER, 0)).toBe(true);
+    expect(y + COAST_QUALIFYING_FONT).toBeLessThan(120);
+  });
+
+  it('drawCoastQualifyingBanner uses the guttered y (px textBaseline top)', () => {
+    const calls: { y: number; text: string }[] = [];
+    const ctx = {
+      font: '',
+      fillStyle: '',
+      textAlign: 'left' as CanvasTextAlign,
+      textBaseline: 'top' as CanvasTextBaseline,
+      fillText(text: string, _x: number, y: number) {
+        calls.push({ y, text });
+      },
+    };
+    drawCoastQualifyingBanner(ctx as unknown as CanvasRenderingContext2D, '予選スタート！', 0);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.text).toBe('予選スタート！');
+    expect(calls[0]!.y).toBe(coastQualifyingOverlayY());
+    expect(coastQualifyingClearOfCastle(calls[0]!.y, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER, 0)).toBe(true);
+  });
+});
+
+describe('Coast qualifying chrome wiring (R56.5)', () => {
+  it('main.ts calls drawCoastQualifyingBanner under coastQualifyingOverlay, not y=78 px', () => {
+    const mainPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'main.ts');
+    const src = readFileSync(mainPath, 'utf8');
+    expect(src).toContain('drawCoastQualifyingBanner(ctx, t(\'coast.qualifying\'), ms)');
+    expect(src).not.toMatch(/px\(ctx,\s*t\(['"]coast\.qualifying['"]\),\s*cx,\s*78,/);
   });
 });
 
