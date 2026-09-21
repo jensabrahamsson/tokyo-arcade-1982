@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (581 tests, incl. real-WebSocket E2E for 2- and)
+  `npm test` green (584 tests, incl. real-WebSocket E2E for 2- and)
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7). The integer is this checkout; bump it here, in
   README, and in AGENTS in the same commit. Do not copy unmerged PR counts.
@@ -677,14 +677,22 @@ Japanese arcade racing**, never a dark sparse C64 Night Driver / Night
 Rider tunnel. Visual bar on top of R22 / R54 — not a new camera, not a
 new game.
 
-- R56.1 Sky is a bright daytime or clear-dusk band (saturated arcade
-  RGB, high contrast against the road). Navy/black void fills are a
-  spec fail. Unit-tested via luma of the palette constants.
-- R56.2 The road is a vanishing-point trapezoid with grass shoulders,
-  striped rumble, and a dashed center line. It must not paint a
-  full-width gray slab that eats the grass at the horizon.
-- R56.3 The player car is a chunky rear-view sprite (Pole Position
-  weight — body ≥64 px wide on the 320×240 playfield), not a speck.
+- R56.1 Sky is a night arcade band: indigo zenith over a warm
+  moon/sodium horizon (saturated arcade RGB, high contrast against
+  the lit road). A flat navy/black void is a spec fail. Unit-tested
+  via luma: zenith stays above a void floor and below the horizon,
+  horizon luma stays bright. The old daytime zenith `[88,148,228]`
+  read as a flat cartoon afternoon.
+- R56.2 The road is a vanishing-point trapezoid with striped grass
+  shoulders, striped rumble, white edge lines, and a dashed center
+  line. Headlight asphalt stays lighter than the night shoulder. It
+  must not paint a full-width gray slab that eats the grass at the
+  horizon, and it must not collapse into a black tunnel.
+- R56.3 The player car is a chunky rear-view orange sedan (Datsun-like,
+  Pole Position weight — body ≥64 px wide on the 320×240 playfield),
+  not a speck and not the old flat red wedge `#e03c2f`.
+  `coast-datsun.png` (R57.46) draws when loaded; a missing file falls
+  back to the procedural sedan.
 - R56.4 Roadside rhythm: striped posts and trees at a fixed scroll
   step so the shoulder reads at speed. Presentation only; core
   obstacles stay data (`kind` + position). Swedish billboards (R54.7)
@@ -721,7 +729,9 @@ wall names hall chrome + seven cabinets + Coast PNGs.
 As of Wave 3 leftover, hall chrome R57.1–7 and **21**
 seven-cabinet plates (marquee + attract + hero) are landed
 (R57.52–R57.54), including Coast (R57.28–.30). Coast landmarks
-R57.40–R57.45 already landed with Wave 1 (R56). R55 is Circuit
+R57.40–R57.45 already landed with Wave 1 (R56). R57.46 is the
+rear-view player car (`coast-datsun.png`); a missing file keeps the
+procedural sedan. R55 is Circuit
 d’Or (queued, no gameplay).
 
 ### Hall / splash chrome (landed paletted PNG)
@@ -783,6 +793,7 @@ mini-screen card — not a replacement for the demo.
 | R57.43 | `coast-bommersvik.png` | Billboard BOMMERSVIK 1982 | **landed** paletted PNG (Wave 1 / R56) |
 | R57.44 | `coast-valdebatt76.png` | Billboard VALDEBATT 76 | **landed** paletted PNG (Wave 1 / R56) |
 | R57.45 | `coast-castro-visit.png` | Billboard PALME I HAVANNA | **landed** paletted PNG (Wave 1 / R56) |
+| R57.46 | `coast-datsun.png` | Player car, rear-view orange sedan | **landed** paletted PNG (R56.3). Missing file keeps the procedural sedan |
 
 - R57.50 Do not invent fake “real” 16×16 stubs. A drop that is not ≥64 px
   does not land; procedural drawing keeps precedence.
