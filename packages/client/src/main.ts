@@ -1437,6 +1437,8 @@ function frame(ms: number): void {
     else if (scene === 'title') renderTitle(ms);
     else if (scene === 'name') renderNamePad(ms);
     else if (scene === 'hall') renderHall(ms);
+    else if (scene === 'service') renderService(ms);
+    else if (scene === 'note') renderNamePad(ms);
     else if (scene === 'map') renderMap(ms);
     else if (scene === 'credits') renderCredits(ms);
     else if (scene === 'table') {
