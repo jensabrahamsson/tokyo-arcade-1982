@@ -169,7 +169,7 @@ packages/client   main.ts, net.ts, input.ts, namepad.ts, audio/, renderers/, sta
 ```
 
 ```sh
-npm test                # vitest run (529 tests, incl. real-socket E2E)
+npm test                # vitest run (539 tests, incl. real-socket E2E)
 npx vitest run <path>   # one file while iterating
 npm run typecheck       # tsc -b
 node build.mjs          # esbuild bundles into dist/
@@ -203,3 +203,30 @@ npm run jev:smoke            # one live Snake Jev decision; skip if no key
 server + `ws` script for anything socket-facing) · every requirement ID
 touched by the change verified or downgraded with a note · no
 requirement in `REQUIREMENTS.md` violated · author check passes.
+
+## Operator LAN runbook (Wave 7)
+
+Player-facing demo steps and the LinkedIn shot list live in `README.md`.
+How-to at the keyboard:
+
+- Demo hall: `npm start` → hold `Shift+S` → `F` (FREE PLAY). `V`/`M`
+  volume/mute. Attract `Late_Night_Cabinet.mp3` only on splash/hall.
+- Do not expose the port. `ooo` / `freePlay` / `note` are open on the
+  wire (trusted LAN, no PIN).
+- Jev: `.env.typesafe` / `TYPESAFE_API_KEY`; `ARKAD_JEV_SELFPLAY=1`;
+  `npm run jev:smoke`; `ARKAD_JEV_AUTOPLAY_SECONDS=60 npm run jev:autoplay`.
+  Fail-closed without a key.
+- Coin reconnect: same name+lang within 60 s, wallet `name|lang`.
+
+### Muted CDP (keep Wave 0)
+
+Optional extra — `npm test` is the required smoke. Chrome DevTools
+Protocol against **this process's localhost** only:
+
+- Launch with `--mute-audio` (operator mute R23 still applies).
+- Headless or windowed. Do not `--start-fullscreen` or `--kiosk`.
+- Do not attach to a remote Mac display or steal a coworker's desktop.
+
+Wave 0 may add a fuller recipe (debug port, key sequence) earlier in
+this file. Do not delete it; this section is the floor so those notes
+survive either merge order.
