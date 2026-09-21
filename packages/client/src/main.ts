@@ -27,7 +27,7 @@ import { renderBlock } from './renderers/block';
 import { renderGalaxy } from './renderers/galaxy';
 import { renderRiver } from './renderers/river';
 import { renderMyriad } from './renderers/myriad';
-import { renderCoast } from './renderers/coast';
+import { renderCoast, drawCoastQualifyingBanner } from './renderers/coast';
 import {
   createNamePad,
   moveCursor,
@@ -672,7 +672,7 @@ function renderGame(ms: number): void {
     announcedAtMs: coastAnnouncedAt,
     nowMs: ms,
   })) {
-    px(ctx, t('coast.qualifying'), cx, 78, 12, blink(ms, 420) ? PAL.white : PAL.magenta, 'center');
+    drawCoastQualifyingBanner(ctx, t('coast.qualifying'), ms);
   }
   const left = joinCountdown(snap.table.joinDeadline ?? null, snap.tick ?? 0);
   if (left !== null) {
