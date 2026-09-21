@@ -631,9 +631,12 @@ describe('escape vs fullscreen (P2-9)', () => {
 });
 
 describe('credits provenance (P2-8/P2-10)', () => {
-  it('names the Lyria exception and landed hall chrome, six cabinets, and Coast PNGs', () => {
-    // Wave 1 landed Coast landmarks; R57.52–54 landed hall chrome + six
-    // cabinets. The wall must name all three and not claim Circuit art.
+  it('names the Lyria exception and landed hall chrome, seven cabinets, and Coast PNGs', () => {
+    // Commented correction: the old `SIX CABS` lock was honest while Coast
+    // plates (R57.28–.30) were TODO. After #16 those plates landed, so SIX
+    // CABS contradicts R57.51 (hall chrome + seven cabinets + Coast PNGs).
+    // This is not a weakened assert — it is the wall matching the catalog.
+    // `SEVEN CABINETS` is 47 chars on the PIXEL ART line; `SEVEN CABS` is 43.
     const lines = provenanceLines();
     expect(lines.length).toBeGreaterThanOrEqual(3);
     const all = lines.join('\n');
@@ -642,7 +645,7 @@ describe('credits provenance (P2-8/P2-10)', () => {
     expect(all).toContain('COAST YOSEN START');
     expect(all).toContain('WATERMARK');
     expect(all).toContain('HALL CHROME');
-    expect(all).toContain('SIX CABS');
+    expect(all).toContain('SEVEN CABS');
     expect(all).toContain('COAST');
     expect(all).not.toContain('PROCEDURAL UNTIL ART LANDS');
     expect(all).not.toContain('ORIGINALS, CHECKED FOR WATERMARKS');
