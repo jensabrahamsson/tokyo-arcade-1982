@@ -3,12 +3,15 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { OBSTACLE_KINDS, coastSpec } from '@arkad/core';
+import { COAST_BILLBOARDS } from '@arkad/core';
+import { FONT, PAL } from '../ui';
 import {
   coastLodStride, CASTLE_DRAW, CAR_DRAW, CAR_BODY, obstacleSprite, coastHudCopy, COAST_SPEED_SCALE,
   SKY_TOP, SKY_BOT, GRASS_A, GRASS_B, ROAD_A, ROAD_WIDTH_K, ROADSIDE_POST_STEP, ROADSIDE_TREE_STEP,
   luma, renderCoast, drawCoastQualifyingBanner, coastCastleRect, coastQualifyingOverlayY,
-  coastQualifyingClearOfCastle, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER,
-  coastCarSprite, drawCoastCar,
+  coastQualifyingClearOfCastle, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER, COAST_QUALIFYING_LINE_GAP,
+  coastCarSprite, drawCoastCar, coastCarScreenRect, coastHudSlots, COAST_HUD_BAR, COAST_HUD_PLATE, COAST_MOON,
+  coastBillboardScreen, COAST_BOARD_SKIN,
 } from './coast';
 
 describe('coast mini LOD (P1-8)', () => {
@@ -143,6 +146,134 @@ describe('coast roadside props (Wave 1)', () => {
   });
 });
 
+describe('Coast HUD plates (R56.6, not a muddy overlay)', () => {
+  const copy = coastHudCopy('en', {
+    timeLeft: 3600, speed: 150, dist: 0, playerX: 0, phase: 'playing',
+  });
+
+  it('TIME, GATE and speed sit on a dark bar clear of the moon', () => {
+    const { bar, slots } = coastHudSlots(copy);
+    expect(bar.w).toBe(320);
+    expect(bar.h).toBeGreaterThanOrEqual(14);
+    expect(bar.y + bar.h).toBeLessThanOrEqual(COAST_MOON.y - COAST_MOON.r);
+    expect(COAST_MOON.y + COAST_MOON.r).toBeLessThan(88);
+    const time = slots.find((s) => s.text.startsWith('TIME'));
+    const speed = slots.find((s) => /KM\/H/.test(s.text));
+    const gate = slots.find((s) => s.text.startsWith('GATE'));
+    expect(time?.size).toBeGreaterThanOrEqual(10);
+    expect(speed?.size).toBeGreaterThanOrEqual(10);
+    expect(gate?.size).toBeGreaterThanOrEqual(10);
+    expect(gate?.color).toBe(PAL.yellow);
+    expect(gate?.color).not.toBe(PAL.gray);
+    for (const s of [time, speed, gate]) {
+      expect(s!.y).toBeGreaterThanOrEqual(bar.y);
+      expect(s!.y + s!.size).toBeLessThanOrEqual(bar.y + bar.h);
+    }
+  });
+
+  it('OFF ROAD is a chunky banner above the roof, not gray type on the trunk', () => {
+    const off = coastHudSlots(coastHudCopy('en', {
+      timeLeft: 3600, speed: 150, dist: 40, playerX: 1.4, phase: 'playing',
+    }));
+    const banner = off.slots.find((s) => s.text === 'OFF ROAD!');
+    expect(banner).toBeTruthy();
+    expect(banner!.size).toBeGreaterThanOrEqual(10);
+    expect(banner!.color).not.toBe(PAL.gray);
+    const car = coastCarScreenRect(0, 0);
+    expect(banner!.y + banner!.size).toBeLessThanOrEqual(car.y);
+  });
+
+  it('renderCoast paints the bar with the arcade font, not bare monospace', () => {
+    const fonts: string[] = [];
+    const texts: { text: string; fill: string }[] = [];
+    let plate = false;
+    const ctx = {
+      fillStyle: '#000000' as string | { addColorStop: () => void },
+      strokeStyle: '#000',
+      lineWidth: 1,
+      font: '',
+      textAlign: 'left' as CanvasTextAlign,
+      textBaseline: 'alphabetic' as CanvasTextBaseline,
+      imageSmoothingEnabled: true,
+      createLinearGradient: () => ({ addColorStop() { /* band */ } }),
+      createRadialGradient: () => ({ addColorStop() { /* halo */ } }),
+      fillRect(x: number, y: number, w: number, h: number) {
+        const fill = typeof ctx.fillStyle === 'string' ? ctx.fillStyle : '';
+        if (fill === COAST_HUD_PLATE && x === COAST_HUD_BAR.x && w === COAST_HUD_BAR.w && h === COAST_HUD_BAR.h) {
+          plate = true;
+        }
+      },
+      strokeRect() { /* board */ },
+      beginPath() { /* sun */ },
+      moveTo() { /* keep */ },
+      lineTo() { /* keep */ },
+      arc() { /* sun */ },
+      fill() { /* sun */ },
+      save() { /* car */ },
+      restore() { /* car */ },
+      translate() { /* car */ },
+      transform() { /* steer */ },
+      drawImage() { /* no art in unit tests */ },
+      fillText(text: string) {
+        fonts.push(ctx.font);
+        const fill = typeof ctx.fillStyle === 'string' ? ctx.fillStyle : '';
+        texts.push({ text, fill });
+      },
+    };
+    const s = coastSpec.create({ mode: 'solo', playerIds: ['p1'], seed: 7 });
+    renderCoast(ctx as unknown as CanvasRenderingContext2D, { ...s, phase: 'playing', dist: 40, speed: 80 }, 0, 'en', false);
+    expect(plate).toBe(true);
+    expect(fonts.some((f) => f.includes('monospace') && !f.includes(FONT))).toBe(false);
+    expect(fonts.some((f) => f.includes('Hiragino'))).toBe(true);
+    expect(texts.some((t) => t.text.startsWith('GATE') && t.fill === PAL.yellow)).toBe(true);
+    expect(texts.some((t) => t.text.startsWith('GATE') && t.fill === PAL.gray)).toBe(false);
+    expect(texts.some((t) => t.text.startsWith('TIME') && t.fill === PAL.yellow)).toBe(true);
+    renderCoast(ctx as unknown as CanvasRenderingContext2D, { ...s, phase: 'playing' }, 0, 'ja', false);
+    expect(texts.some((t) => t.text.startsWith('タイム'))).toBe(true);
+    expect(fonts.filter((f) => f.includes('Hiragino')).length).toBeGreaterThan(1);
+  });
+});
+
+describe('Swedish billboards stay on the glass (R54.7)', () => {
+  it('keeps the five homage plates wired in drive order', () => {
+    expect(COAST_BOARD_SKIN.map((b) => b.art)).toEqual([
+      'coast-centerpartiet.png',
+      'coast-harpsund.png',
+      'coast-bommersvik.png',
+      'coast-valdebatt76.png',
+      'coast-castro-visit.png',
+    ]);
+    expect(COAST_BILLBOARDS.map((b) => b.text)).toEqual([
+      'CENTRUM TRADPLAN',
+      'HARPSUND - EKAN',
+      'BOMMERSVIK 1982',
+      'VALDEBATT 76',
+      'PALME I HAVANNA',
+    ]);
+  });
+
+  it('a drive-past board is wide enough to read and stays on the 320 glass', () => {
+    // The old offset (roadW * 0.7) shoved a close board off the right edge,
+    // so CENTERPARTIET survived only as a sliver. The moment is on-screen.
+    const board = COAST_BILLBOARDS[0]!;
+    const cam = board.d - 56;
+    const box = coastBillboardScreen(board.d, cam, board.side, 0);
+    expect(box).not.toBeNull();
+    expect(box!.w).toBeGreaterThanOrEqual(80);
+    const left = box!.x - box!.w / 2;
+    const right = left + box!.w;
+    const visible = Math.min(320, right) - Math.max(0, left);
+    expect(visible / box!.w).toBeGreaterThanOrEqual(0.9);
+    expect(box!.top + box!.h).toBeGreaterThan(88);
+  });
+
+  it('does not pin a speck to the vanishing point or the bumper', () => {
+    const board = COAST_BILLBOARDS[2]!;
+    expect(coastBillboardScreen(board.d, board.d - 130, board.side, 0)).toBeNull();
+    expect(coastBillboardScreen(board.d, board.d - 8, board.side, 0)).toBeNull();
+  });
+});
+
 describe('coast HUD copy (Wave 1)', () => {
   const off = {
     timeLeft: 3600, speed: 150, dist: 0, playerX: 1.4, phase: 'playing' as const,
@@ -220,6 +351,47 @@ describe('Coast Pole Position silhouette (R56, not C64 Night Rider)', () => {
     expect(rec.used).toContain('#ff004d'); // rumble / tail
     expect(rec.texts.some((t) => t.startsWith('TIME'))).toBe(true);
     expect(rec.texts.some((t) => /KM\/H/.test(t))).toBe(true);
+  });
+
+  it('the seated sedan is a third of the glass, tires on the road, clear of qualifying (R56.3)', () => {
+    // 80×52 read as a sticker on the asphalt. Pole Position weight is ≥112 wide
+    // on the 320 playfield, and the roof stays under the qualifying stack.
+    expect(CAR_DRAW.w).toBeGreaterThanOrEqual(112);
+    expect(CAR_DRAW.h).toBeGreaterThanOrEqual(72);
+    expect(Math.abs(CAR_DRAW.w / CAR_DRAW.h - 160 / 105)).toBeLessThan(0.06);
+    const body = coastCarSprite().filter((p) => p.role === 'body');
+    expect(Math.max(...body.map((p) => p.w))).toBeGreaterThanOrEqual(Math.round(CAR_DRAW.w * 0.75));
+    const car = coastCarScreenRect(0, 0);
+    expect(car.w).toBe(CAR_DRAW.w);
+    expect(car.x).toBeGreaterThanOrEqual(0);
+    expect(car.x + car.w).toBeLessThanOrEqual(320);
+    expect(car.y + car.h).toBeLessThanOrEqual(240);
+    expect(car.y + car.h).toBeGreaterThanOrEqual(240 - 8);
+    const qBottom = coastQualifyingOverlayY()
+      + 2 * COAST_QUALIFYING_FONT
+      + COAST_QUALIFYING_LINE_GAP;
+    expect(car.y).toBeGreaterThanOrEqual(qBottom + 8);
+    const calls: unknown[][] = [];
+    const ctx = {
+      fillStyle: '',
+      imageSmoothingEnabled: true,
+      save() { /* car */ },
+      restore() { /* car */ },
+      translate() { /* car */ },
+      transform() { /* steer */ },
+      fillRect() { /* shadow */ },
+      drawImage(...args: unknown[]) { calls.push(args); },
+    };
+    const img = { tag: 'datsun' };
+    drawCoastCar(ctx as unknown as CanvasRenderingContext2D, {
+      img: img as unknown as CanvasImageSource,
+      steer: 0,
+      tMs: 0,
+      speed: 0,
+    });
+    expect(calls[0]?.[0]).toBe(img);
+    expect(calls[0]?.[3]).toBe(CAR_DRAW.w);
+    expect(calls[0]?.[4]).toBe(CAR_DRAW.h);
   });
 
   it('draws the Datsun plate when it loaded, else the orange sedan (R57.46)', () => {
