@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { OBSTACLE_KINDS, coastSpec } from '@arkad/core';
 import {
   coastLodStride, CASTLE_DRAW, CAR_DRAW, obstacleSprite, coastHudCopy, COAST_SPEED_SCALE,
@@ -60,6 +63,15 @@ describe('Coast qualifying overlay gutter (R56.5)', () => {
     expect(calls[0]!.text).toBe('予選スタート！');
     expect(calls[0]!.y).toBe(coastQualifyingOverlayY());
     expect(coastQualifyingClearOfCastle(calls[0]!.y, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER, 0)).toBe(true);
+  });
+});
+
+describe('Coast qualifying chrome wiring (R56.5)', () => {
+  it('main.ts calls drawCoastQualifyingBanner under coastQualifyingOverlay, not y=78 px', () => {
+    const mainPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'main.ts');
+    const src = readFileSync(mainPath, 'utf8');
+    expect(src).toContain('drawCoastQualifyingBanner(ctx, t(\'coast.qualifying\'), ms)');
+    expect(src).not.toMatch(/px\(ctx,\s*t\(['"]coast\.qualifying['"]\),\s*cx,\s*78,/);
   });
 });
 
