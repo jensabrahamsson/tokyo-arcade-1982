@@ -13,7 +13,7 @@ describe('art manifest (R38)', () => {
   it('lists the manifest with stable names (first batch + R54 coast landmarks)', () => {
     // Old expectation was first-batch + R54 coast only. Wave 3 (R57) adds
     // six-cabinet marquee/attract/hero plates; Coast landmark names are
-    // unchanged (PR #8 owns coast-*.png drops).
+    // Coast landmark + R57.28–.30 plate names share the coast- prefix.
     expect([...ART_FILES].sort()).toEqual(
       [
         'cabinet-bezel.png', 'coast-lo-castle.png', 'hall-floor.png', 'splash-logo.png',
@@ -27,6 +27,7 @@ describe('art manifest (R38)', () => {
         'galaxy-marquee.png', 'galaxy-attract.png', 'galaxy-hero.png',
         'river-marquee.png', 'river-attract.png', 'river-hero.png',
         'myriad-marquee.png', 'myriad-attract.png', 'myriad-hero.png',
+        'coast-marquee.png', 'coast-attract.png', 'coast-hero.png',
       ].sort(),
     );
   });
@@ -81,7 +82,7 @@ describe('art manifest (R38)', () => {
       'coast-lo-castle.png', 'coast-centerpartiet.png', 'coast-harpsund.png',
       'coast-bommersvik.png', 'coast-valdebatt76.png', 'coast-castro-visit.png',
     ]));
-    expect(coastArt.length).toBe(6);
+    expect(coastArt.length).toBe(9);
     for (const name of coastArt) {
       const p = join(artDir, name);
       expect(existsSync(p), name).toBe(true);
@@ -130,15 +131,12 @@ const pngIhdr = (buf: Buffer) => ({
 describe('Wave 3 six-cabinet plates (R57)', () => {
   const artDir = join(__dirname, '..', 'static', 'art');
 
-  it('maps marquee/attract/hero for the six cabinets and never Coast (PR #8)', () => {
+  it('maps marquee/attract/hero for all seven cabinets (R57.28–.30 Coast)', () => {
     for (const g of WAVE3_CABINET_GAMES) {
       expect(cabinetArtFile(g, 'marquee')).toBe(`${g}-marquee.png`);
       expect(cabinetArtFile(g, 'attract')).toBe(`${g}-attract.png`);
       expect(cabinetArtFile(g, 'hero')).toBe(`${g}-hero.png`);
     }
-    expect(cabinetArtFile('coast', 'marquee')).toBeNull();
-    expect(cabinetArtFile('coast', 'attract')).toBeNull();
-    expect(cabinetArtFile('coast', 'hero')).toBeNull();
   });
 
   it('lands paletted ≥64 px PNG plates at 16–32 KB (no 16×16 stubs, no JPEG)', () => {
@@ -159,13 +157,13 @@ describe('Wave 3 six-cabinet plates (R57)', () => {
     }
   });
 
-  it('leaves Coast marquee/attract/hero unwired; Wave 1 already landed landmark PNGs', () => {
+  it('lands Coast marquee/attract/hero plates (R57.28–.30) plus Wave 1 landmarks', () => {
     const castle = readFileSync(join(artDir, 'coast-lo-castle.png'));
     const { width, height } = pngIhdr(castle);
     expect(Math.max(width, height)).toBeGreaterThanOrEqual(64);
-    expect(existsSync(join(artDir, 'coast-marquee.png'))).toBe(false);
-    expect(existsSync(join(artDir, 'coast-attract.png'))).toBe(false);
-    expect(existsSync(join(artDir, 'coast-hero.png'))).toBe(false);
+    for (const slot of ['marquee', 'attract', 'hero'] as const) {
+      expectLandedPlate(`coast-${slot}.png`);
+    }
   });
 
   const expectLandedPlate = (name: string) => {
@@ -189,7 +187,7 @@ describe('Wave 3 six-cabinet plates (R57)', () => {
     for (const name of HALL_CHROME_FILES) expectLandedPlate(name);
   });
 
-  it('lands paletted hero sheets for the six cabinets (R57.54), never coast-hero', () => {
+  it('lands paletted hero sheets for all seven cabinets (R57.54 incl. Coast)', () => {
     for (const g of WAVE3_CABINET_GAMES) expectLandedPlate(`${g}-hero.png`);
   });
 
@@ -203,7 +201,7 @@ describe('Wave 3 six-cabinet plates (R57)', () => {
     expect(splashWordmarkKind(false)).toBe('procedural');
   });
 
-  it('shows hero sheets on title and ready only, never Coast or playing (R57.54)', () => {
+  it('shows hero sheets on title and ready only, not during play (R57.54)', () => {
     for (const g of WAVE3_CABINET_GAMES) {
       expect(heroSheetForScene(g, 'title')).toBe(`${g}-hero.png`);
       expect(heroSheetForScene(g, 'ready')).toBe(`${g}-hero.png`);
@@ -211,9 +209,6 @@ describe('Wave 3 six-cabinet plates (R57)', () => {
       expect(heroSheetForScene(g, 'hall')).toBeNull();
       expect(heroSheetForScene(g, 'attract')).toBeNull();
     }
-    expect(heroSheetForScene('coast', 'title')).toBeNull();
-    expect(heroSheetForScene('coast', 'ready')).toBeNull();
-    expect(heroSheetForScene('coast', 'playing')).toBeNull();
   });
 
   it('containRect letterboxes a sheet inside a dest box', () => {

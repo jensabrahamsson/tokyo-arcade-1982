@@ -15,12 +15,11 @@ This catalog does **not** drop Coast billboard or LO-borgen PNGs
 **Landed** = PNG magic, ≥64 px on at least one axis, typically 16–32 KB
 (R7.4 / R38.5), original / GPL-compatible, no commercial sprites.
 A 16×16 stub is never landed. Hall chrome R57.1–7 and **eighteen**
-six-cabinet marquee/attract/hero plates are landed (R57.52–R57.54).
-Coast landmark PNGs already landed with Wave 1 (R56). Coast
-marquee/attract/hero stay unwired.
+seven-cabinet marquee/attract/hero plates are landed (R57.52–R57.54),
+including Coast (R57.28–.30). Coast landmark PNGs landed with Wave 1 (R56).
 
-Credits provenance names hall chrome + six cabinets + Coast PNGs
-(R57.51). Do not claim Circuit art or coast-hero plates.
+Credits provenance names hall chrome + seven cabinets + Coast PNGs
+(R57.51). Do not claim Circuit art.
 
 ## Drop-zone files (`packages/client/static/art/`)
 
@@ -99,11 +98,7 @@ the title spotlight and the ready-phase overlay — not during play.
 | galaxy | **landed** sheet; title + ready | **landed** plate + i18n title | landed idle card / live demo | R57.19–.21 |
 | river | **landed** sheet; title + ready | **landed** plate + i18n title | landed idle card / live demo | R57.22–.24 |
 | myriad | **landed** sheet; title + ready | **landed** plate + i18n title | landed idle card / live demo | R57.25–.27 |
-| coast | procedural pseudo-3D road; LO-borgen procedural; billboards procedural | i18n title + accent (PR #8) | `cabThumb` / live demo (PR #8) | R57.28–.30 + R57.40–.45 |
-
-Reserved drop names still unwired (do not add 16×16 placeholders):
-
-`coast-hero.png` `coast-marquee.png` `coast-attract.png`
+| coast | **landed** sheet; title + ready | **landed** plate + i18n title | landed idle card / live demo | R57.28–.30 + R57.40–.45 |
 
 Live attract demos stay (R8). Attract PNGs are idle mini-screen cards,
 not a replacement for the bots. Hero sheets never replace gameplay.

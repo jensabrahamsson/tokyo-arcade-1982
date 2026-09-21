@@ -722,9 +722,8 @@ d’Or (queued, no gameplay).
 | R57.6 | `credit-panel.png` | Credit-digit strip backdrop | **landed** paletted; cabinet credit badge |
 | R57.7 | `wait-badge.png` | Join-queue wait badge | **landed** paletted; NOW PLAYING wait dots |
 
-- R57.8 Six-cabinet marquee/attract/hero filenames (R57.10–.27 except
-  Coast) are in `ART_FILES` and landed. Coast plates (R57.28–.30) stay
-  off the manifest. Do not drop 16×16 placeholders for unwired IDs.
+- R57.8 Seven-cabinet marquee/attract/hero filenames (R57.10–.30) are in
+  `ART_FILES` and landed. Do not drop 16×16 placeholders for unwired IDs.
 - R57.9 JPEG Imagine pilots are already off the static serve path
   (`packages/client/art-pilots/*.jpg`, P2-C). Wave 3 does not move
   them again. They are 1280×720 JPEG reference stills, not pixel art,
@@ -756,9 +755,9 @@ mini-screen card — not a replacement for the demo.
 | R57.25 | `myriad-hero.png` | myriad | in-cabinet hero | paletted millipede / mushroom sheet; title + ready | **landed** |
 | R57.26 | `myriad-marquee.png` | myriad | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
 | R57.27 | `myriad-attract.png` | myriad | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
-| R57.28 | `coast-hero.png` | coast | in-cabinet hero | procedural pseudo-3D road | **TODO** (unwired) — PR #8 |
-| R57.29 | `coast-marquee.png` | coast | cabinet marquee plate | i18n title on accent fill | **TODO** (unwired) — PR #8 |
-| R57.30 | `coast-attract.png` | coast | hall idle card | `cabThumb` road + castle glyph | **TODO** (unwired) — PR #8 |
+| R57.28 | `coast-hero.png` | coast | in-cabinet hero | paletted road / castle sheet; title + ready | **landed** |
+| R57.29 | `coast-marquee.png` | coast | cabinet marquee plate | paletted PNG plate behind i18n title | **landed** |
+| R57.30 | `coast-attract.png` | coast | hall idle card | paletted PNG; live demo (R8) still wins | **landed** |
 
 ### Coast landmarks (Wave 1 owns the PNG drops)
 
@@ -773,16 +772,13 @@ mini-screen card — not a replacement for the demo.
 
 - R57.50 Do not invent fake “real” 16×16 stubs. A drop that is not ≥64 px
   does not land; procedural drawing keeps precedence.
-- R57.51 Provenance (R13 / P2-8): after hall chrome, six-cabinet plates,
-  and Coast landmarks land, the credits wall names hall chrome + six
-  cabinets + Coast PNGs and watermark-check. Coast marquee/attract/hero
-  stay unwired. It must not claim Circuit art.
-- R57.52 Wave 3 drop (not Coast, not Circuit): paletted PNG
-  marquee + attract plates for snake, puck, block, galaxy, river,
-  myriad (R57.11/12, .14/15, .17/18, .20/21, .23/24, .26/27). Each
-  file is PNG magic, color-type 3, ≥64 px, 16–32 KB. `cabinetArtFile`
-  returns null for Coast. Hall drawImage uses the plates; live attract
-  demos (R8) still win over idle cards.
+- R57.51 Provenance (R13 / P2-8): after hall chrome, seven-cabinet plates,
+  and Coast landmarks land, the credits wall names hall chrome + seven
+  cabinets + Coast PNGs and watermark-check. It must not claim Circuit art.
+- R57.52 Wave 3 drop (not Circuit): paletted PNG marquee + attract plates
+  for all seven cabinets (R57.11/12 through R57.29/30). Each file is PNG
+  magic, color-type 3, ≥64 px, 16–32 KB. Hall drawImage uses the plates;
+  live attract demos (R8) still win over idle cards.
 - R57.53 Wave 3 hall chrome drop (not Coast, not Circuit): paletted
   PNG for R57.1–7 (`hall-floor`, `cabinet-bezel`, `splash-logo`,
   `marquee-neon`, `coin-slot`, `credit-panel`, `wait-badge`). Each
