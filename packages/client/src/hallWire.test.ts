@@ -34,6 +34,24 @@ describe('Wave 2 hall chrome wiring (main.ts)', () => {
     expect(MAIN).not.toMatch(/\$\{t\('hall\.insertCoin'\)\} \+ Z:/);
   });
 
+  it('WAITING FOR PLAYERS panel wins over READY while versus data is still null', () => {
+    expect(MAIN).toContain('tableShowsWaitingPanel(');
+    const frame = MAIN.slice(MAIN.indexOf('function frame'));
+    const waitCall = frame.search(/tableShowsWaitingPanel\(/);
+    const waitPaint = frame.search(/renderTableWaiting\(/);
+    expect(waitCall).toBeGreaterThanOrEqual(0);
+    expect(waitPaint).toBeGreaterThan(waitCall);
+  });
+
+  it('hall WAIT cue is not trapped inside the live mini render (1P join wait has data:null)', () => {
+    expect(MAIN).toContain('hallWaitCueVisible(');
+    const cabThumb = MAIN.lastIndexOf('cabThumb(');
+    const cue = MAIN.indexOf('hallWaitCueVisible(');
+    expect(cabThumb).toBeGreaterThan(0);
+    expect(cue).toBeGreaterThan(cabThumb);
+    expect(MAIN).toContain("art()['wait-badge.png']");
+  });
+
   it('Late Night Cabinet loop still lives in applyPresentation, not moved', () => {
     expect(MAIN).toContain("ATTRACT_TRACK = 'audio/Late_Night_Cabinet.mp3'");
     expect(MAIN).toContain('attractMusicActive(scene)');

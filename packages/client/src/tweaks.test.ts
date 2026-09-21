@@ -20,7 +20,7 @@ import {
   rectsOverlap, reconnectStart, escapeSendsBack,
   coastQualifyingOverlay, COAST_QUALIFYING_MS, splashAdvance, SPLASH_MS, SPLASH_SKIP_KEYS,
   titleStartTarget, isBackHomeKey, cabinetScreenData,
-  coastHeroOverlay, COAST_HERO_MS,
+  coastHeroOverlay, COAST_HERO_MS, hallWaitCueVisible, tableShowsWaitingPanel,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 import { heroSheetForScene } from './art';
@@ -379,6 +379,27 @@ describe('join-queue waiting dots (R43)', () => {
     expect(waitDots(-5, 40)).toBe(waitDots(35, 40));
     expect(waitDots(7, 0)).toBe(0);
     for (let t = 0; t < 120; t++) expect(waitDots(t, 40)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('WAIT cue is standing-at-NOW-PLAYING, even when the mini has no live data (1P join wait)', () => {
+    expect(hallWaitCueVisible(true, 'now-playing')).toBe(true);
+    expect(hallWaitCueVisible(false, 'now-playing')).toBe(false);
+    expect(hallWaitCueVisible(true, 'idle')).toBe(false);
+    expect(hallWaitCueVisible(true, 'out-of-order')).toBe(false);
+    // lamp already encodes !demo && players>0; a null snapshot must not hide the cue
+    expect(marqueeLamp({ demo: false, players: 1 })).toBe('now-playing');
+    expect(hallWaitCueVisible(true, marqueeLamp({ demo: false, players: 1 }))).toBe(true);
+    expect(cabinetScreenData([{ game: 'puck', demo: false, data: null }], 'puck')).toBeNull();
+  });
+});
+
+describe('versus waiting panel vs READY overlay', () => {
+  it('1P data-null versus stays on WAITING FOR PLAYERS; a full READY window does not', () => {
+    expect(tableShowsWaitingPanel(null)).toBe(true);
+    expect(tableShowsWaitingPanel({ data: null, table: { readyAt: null } })).toBe(true);
+    expect(tableShowsWaitingPanel({ data: null, table: {} })).toBe(true);
+    expect(tableShowsWaitingPanel({ data: null, table: { readyAt: 180 } })).toBe(false);
+    expect(tableShowsWaitingPanel({ data: { snakes: {} }, table: { readyAt: null } })).toBe(false);
   });
 });
 

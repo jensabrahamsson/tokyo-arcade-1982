@@ -56,7 +56,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, hallMarqueeClip, hallMarqueeNeonDest, MARQUEE_NEON_TILE_W, FULLSCREEN_HINT, FULLSCREEN_HINT_SIZE, reconnectStart, coastQualifyingOverlay, coastHeroOverlay, splashAdvance, SPLASH_SKIP_KEYS, titleStartTarget, cabinetScreenData, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, hallMarqueeClip, hallMarqueeNeonDest, MARQUEE_NEON_TILE_W, FULLSCREEN_HINT, FULLSCREEN_HINT_SIZE, reconnectStart, coastQualifyingOverlay, coastHeroOverlay, splashAdvance, SPLASH_SKIP_KEYS, titleStartTarget, cabinetScreenData, hallWaitCueVisible, tableShowsWaitingPanel, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -1006,16 +1006,6 @@ function renderCabinet(
     if (left !== null) {
       px(ctx, countedChrome(t('hud.joinWindow'), left), screenX + screenW - 2, screenY + screenH - 9, 7, blink(ms, 400) ? PAL.red : PAL.orange, 'right');
     }
-    if (selected && lamp === 'now-playing') {
-      const badge = art()['wait-badge.png'];
-      if (badge) {
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(badge, screenX + 2, screenY + 2, 12, 12);
-        ctx.imageSmoothingEnabled = true;
-      }
-      const dots = '.'.repeat(1 + waitDots(Math.floor(ms / 300), 4));
-      px(ctx, `${t('hall.wait')}${dots}`, screenX + 16, screenY + 5, 7, PAL.yellow);
-    }
     const crowd = visibleSpectators(cab?.spectators ?? 0);
     if (crowd !== null) {
       px(ctx, `${t('hall.watching')} ${crowd}`, screenX + 2, screenY + 2, 7, PAL.cyan);
@@ -1043,6 +1033,18 @@ function renderCabinet(
   } else {
     // UX shell: an idle cabinet shows what game lives inside it, not static
     cabThumb(slot.game, screenX, screenY, screenW, screenH, ms);
+  }
+  // R43: WAIT sits on the mini whenever we stand at a NOW PLAYING cabinet —
+  // including 1P join-wait, when hallTables.data is still null so `live` is not.
+  if (hallWaitCueVisible(selected, lamp)) {
+    const badge = art()['wait-badge.png'];
+    if (badge) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(badge, screenX + 2, screenY + 2, 12, 12);
+      ctx.imageSmoothingEnabled = true;
+    }
+    const dots = '.'.repeat(1 + waitDots(Math.floor(ms / 300), 4));
+    px(ctx, `${t('hall.wait')}${dots}`, screenX + 16, screenY + 5, 7, PAL.yellow);
   }
   // R40 power LED: OOO > playing > idle, red pulses
   const led = powerLed(ledState({ live: lamp === 'now-playing', ooo: isOoo(slot.game) }));
@@ -1496,8 +1498,8 @@ function frame(ms: number): void {
     else if (scene === 'map') renderMap(ms);
     else if (scene === 'credits') renderCredits(ms);
     else if (scene === 'table') {
-      if (world.snap) renderGame(ms);
-      else renderTableWaiting(ms); // P0 fix: the screen names its own way out
+      if (tableShowsWaitingPanel(world.snap)) renderTableWaiting(ms);
+      else renderGame(ms);
     } else if (scene === 'scores') renderScores(ms);
     const now = performance.now();
     if (
