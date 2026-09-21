@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (502 tests, incl. real-WebSocket E2E for 2- and)
+  `npm test` green (515 tests, incl. real-WebSocket E2E for 2- and)
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a

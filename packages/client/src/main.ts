@@ -27,6 +27,11 @@ import { renderMyriad } from './renderers/myriad';
 import { renderCoast } from './renderers/coast';
 import { createNamePad, moveCursor, pressKey, keyAt, type NamePad } from './namepad';
 import { HALL_SLOTS, MAP_SLOTS, FLOOR_Y, moveHallSel } from './hall';
+import { splashWordmark } from './splashLook';
+import {
+  cabinetMarquee, cabinetTitleKey, insertCoinVisible, insertCoinPlate,
+  waitingHintLine, waitingPanelCopy,
+} from './hallChrome';
 import {
   DEFAULT_KNOBS, cycleKnob, crtFilterCss, scanlineOpacity, nextAccess,
   loadKnobs, saveKnobs, loadAccess, saveAccess, attractLang, tournamentBanner,
@@ -661,14 +666,14 @@ function colorBar(y: number, h: number, ms: number): void {
 /** UX shell: the one wordmark — white body, a single deep-magenta offset
  * shadow, amber year below. Intentional, static, no rainbow churn. */
 function drawWordmark(y: number, size: number): void {
+  const mark = splashWordmark(t('app.title'), t('app.year'));
   const cx = CANVAS_W / 2;
-  const name = t('app.title');
   ctx.font = `${size}px ${FONT}`;
-  const w = ctx.measureText(name).width;
+  const w = ctx.measureText(mark.line1).width;
   const x = cx - w / 2;
-  px(ctx, name, x + 2, y + 2, size, '#5e1740');
-  px(ctx, name, x, y, size, PAL.white);
-  px(ctx, `— ${t('app.year')} —`, cx, y + size + 4, Math.max(8, Math.round(size / 3)), PAL.orange, 'center');
+  px(ctx, mark.line1, x + 2, y + 2, size, mark.shadowColor);
+  px(ctx, mark.line1, x, y, size, mark.bodyColor);
+  px(ctx, mark.line2, cx, y + size + 4, Math.max(8, Math.round(size / 3)), mark.yearColor, 'center');
 }
 
 function renderSplash(ms: number): void {
@@ -822,23 +827,42 @@ function renderCabinet(
   // marquee with light chase
   const marqueeColors = [PAL.red, PAL.magenta, PAL.cyan, PAL.lime, PAL.yellow, PAL.orange];
   const lit = Math.floor(ms / 300 + i) % 2 === 0;
-  // UX shell: the marquee band lights up in the cabinet's color and carries
-  // the game's real name in the hall's language — black on color, always legible
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x + 3, y + 2, w - 6, 12);
-  ctx.fillStyle = lit ? marqueeColors[i % marqueeColors.length]! : '#3a3a46';
-  ctx.fillRect(x + 3, y + 2, w - 6, 12);
-  px(ctx, t(`game.${slot.game}` as never), x + w / 2, y + 4, 7, PAL.black, 'center');
   const cab = world.hall?.cabinets.find((c) => c.game === slot.game);
   const lamp = marqueeLamp({ demo: cab?.demo ?? true, players: cab?.players ?? 0 }, isOoo(slot.game));
-  if (lamp === 'out-of-order') {
-    ctx.fillStyle = PAL.darkred;
-    ctx.fillRect(x + 3, y + 2, w - 6, 12);
-    px(ctx, t('cab.ooo'), x + w / 2, y + 4, 8, blink(ms, 400) ? PAL.yellow : PAL.red, 'center');
-  } else if (lamp === 'now-playing') {
-    ctx.fillStyle = PAL.lime;
-    ctx.fillRect(x + 4, y + 4, 4, 4);
-    px(ctx, t('hall.nowPlaying'), x + w - 4, y + 4, 7, blink(ms, 600) ? PAL.lime : PAL.green, 'right');
+  const mark = cabinetMarquee(
+    lamp,
+    t(cabinetTitleKey(slot.game)),
+    t('hall.nowPlaying'),
+    t('cab.ooo'),
+  );
+  // UX shell: the marquee band lights up in the cabinet's color and carries
+  // the game's real name — NOW PLAYING / OOO is a lamp, never the title
+  ctx.fillStyle = '#000';
+  ctx.fillRect(x + 3, y + 2, w - 6, 12);
+  ctx.fillStyle = lamp === 'out-of-order'
+    ? PAL.darkred
+    : (lit ? marqueeColors[i % marqueeColors.length]! : '#3a3a46');
+  ctx.fillRect(x + 3, y + 2, w - 6, 12);
+  const titleColor = lamp === 'out-of-order' ? PAL.yellow : PAL.black;
+  if (mark.lampLabel) {
+    if (lamp === 'now-playing') {
+      ctx.fillStyle = PAL.lime;
+      ctx.fillRect(x + 4, y + 4, 4, 4);
+    }
+    px(ctx, mark.title, x + 10, y + 4, 7, titleColor);
+    px(
+      ctx,
+      mark.lampLabel,
+      x + w - 4,
+      y + 4,
+      6,
+      lamp === 'out-of-order'
+        ? (blink(ms, 400) ? PAL.yellow : PAL.red)
+        : (blink(ms, 600) ? PAL.lime : PAL.green),
+      'right',
+    );
+  } else {
+    px(ctx, mark.title, x + w / 2, y + 4, 7, titleColor, 'center');
   }
 
   // screen
@@ -942,11 +966,20 @@ function renderCabinet(
     idleSince[slot.game] = ms;
   }
   // R37 attract INSERT COIN blink: idle cabinets only, OOO and live win first
-  if (lamp === 'idle' && !isOoo(slot.game) && !(world.hall?.freePlay ?? false)
+  if (insertCoinVisible(lamp, world.hall?.freePlay ?? false)
     && blinkOn(Math.floor(ms / 320), 6, 0.5)) {
     ctx.strokeStyle = PAL.orange;
     ctx.strokeRect(screenX + 0.5, screenY + 0.5, screenW - 1, screenH - 1);
-    px(ctx, t('hall.insertCoin'), screenX + screenW / 2, screenY + screenH / 2, 8, PAL.yellow, 'center');
+    const label = t('hall.insertCoin');
+    ctx.font = `8px ${FONT}`;
+    const textW = ctx.measureText(label).width;
+    const plate = insertCoinPlate(
+      { x: screenX, y: screenY, w: screenW, h: screenH },
+      textW, 8, CANVAS_W, CANVAS_H,
+    );
+    ctx.fillStyle = PAL.navy;
+    ctx.fillRect(plate.x, plate.y, plate.w, plate.h);
+    px(ctx, label, screenX + screenW / 2, screenY + screenH / 2, 8, PAL.yellow, 'center');
   }
 }
 
@@ -1266,8 +1299,16 @@ function renderTableWaiting(ms: number): void {
   ctx.fillRect(36, 56, 248, 128);
   ctx.strokeStyle = PAL.orange;
   ctx.strokeRect(36.5, 56.5, 247, 127);
-  px(ctx, t('app.title'), cx, 64, 8, PAL.gray, 'center');
-  px(ctx, `${t('lobby.waiting')}${'.'.repeat(1 + waitDots(Math.floor(ms / 400), 3))}`, cx, 80, 10, PAL.yellow, 'center');
+  const hint = waitingRetryHint(coinModeFor(world.hall), world.hall?.credits ?? 0);
+  const hintLine = waitingHintLine(hint, t('hall.insertCoin'), t('menu.solo'));
+  const lines = waitingPanelCopy({
+    title: t('app.title'),
+    waiting: `${t('lobby.waiting')}${'.'.repeat(1 + waitDots(Math.floor(ms / 400), 3))}`,
+    hintLine,
+    back: `ESC: ${t('menu.back')}`,
+  });
+  px(ctx, lines[0]!, cx, 64, 8, PAL.gray, 'center');
+  px(ctx, lines[1]!, cx, 80, 10, PAL.yellow, 'center');
   // two seats: yours is taken, the next one is being waited for
   ctx.fillStyle = PAL.lime;
   ctx.fillRect(cx - 40, 100, 14, 14);
@@ -1281,12 +1322,8 @@ function renderTableWaiting(ms: number): void {
     ctx.fillRect(cx + 26, 100, 14, 14);
   }
   px(ctx, t('splash.welcome'), cx, 132, 8, PAL.gray, 'center');
-  const hint = waitingRetryHint(coinModeFor(world.hall), world.hall?.credits ?? 0);
-  const line = hint === 'coin-then-start'
-    ? `${t('hall.insertCoin')} + Z: ${t('menu.solo')}`
-    : `Z: ${t('menu.solo')}`;
-  px(ctx, line, cx, 150, 9, blink(ms, 700) ? PAL.yellow : PAL.orange, 'center');
-  px(ctx, `ESC: ${t('menu.back')}`, cx, 166, 8, PAL.gray, 'center');
+  px(ctx, lines[2]!, cx, 150, 9, blink(ms, 700) ? PAL.yellow : PAL.orange, 'center');
+  px(ctx, lines[3]!, cx, 166, 8, PAL.gray, 'center');
   drawError();
 }
 
