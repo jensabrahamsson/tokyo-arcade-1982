@@ -58,3 +58,12 @@ describe('operator Shift+S on the hall (R16.1 leftover)', () => {
     expect(frame).toMatch(/scene === 'service'[\s\S]{0,80}renderService/);
   });
 });
+
+describe('Coast ready-hero wiring (R57.54 leftover)', () => {
+  it('draws heroSheetForScene ready chrome under coastHeroOverlay, not only phase===ready', () => {
+    expect(MAIN).toContain('coastHeroOverlay(');
+    expect(MAIN).toContain("heroSheetForScene(game, 'ready')");
+    expect(MAIN).not.toMatch(/heroSheetForScene\(game,\s*'playing'\)/);
+    expect(MAIN).toMatch(/phase === 'ready' \|\| coastHeroOverlay/);
+  });
+});
