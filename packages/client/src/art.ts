@@ -18,8 +18,7 @@ export const ART_FILES = [
   'coast-bommersvik.png',
   'coast-valdebatt76.png',
   'coast-castro-visit.png',
-  // R57 Wave 3: six-cabinet marquee + attract + hero plates. Coast plates
-  // are PR #8 (do not add coast-marquee/attract/hero here).
+  // R57 Wave 3: seven-cabinet marquee + attract + hero plates
   'snake-marquee.png',
   'snake-attract.png',
   'snake-hero.png',
@@ -38,12 +37,16 @@ export const ART_FILES = [
   'myriad-marquee.png',
   'myriad-attract.png',
   'myriad-hero.png',
+  // R57.28–.30: Coast hall marquee / attract / hero plates
+  'coast-marquee.png',
+  'coast-attract.png',
+  'coast-hero.png',
 ] as const;
 
 export type ArtFile = (typeof ART_FILES)[number];
 
-/** R57: marquee/attract/hero filenames for the six Wave 3 cabinets. Coast → null. */
-export const WAVE3_CABINET_GAMES = ['snake', 'puck', 'block', 'galaxy', 'river', 'myriad'] as const;
+/** R57: marquee/attract/hero filenames for all seven cabinets. */
+export const WAVE3_CABINET_GAMES = ['snake', 'puck', 'block', 'galaxy', 'river', 'myriad', 'coast'] as const;
 
 export const HALL_CHROME_FILES = [
   'hall-floor.png',
@@ -75,7 +78,7 @@ export function splashWordmarkKind(hasLogo: boolean): 'art' | 'procedural' {
 
 export type HeroSheetScene = 'title' | 'ready' | 'playing' | 'hall' | 'attract';
 
-/** R57.54: hero sheets are title spotlight + ready overlay; never gameplay, never Coast. */
+/** R57.54: hero sheets are title spotlight + ready overlay; never gameplay. */
 export function heroSheetForScene(game: GameId, scene: HeroSheetScene): ArtFile | null {
   if (scene !== 'title' && scene !== 'ready') return null;
   return cabinetArtFile(game, 'hero');
