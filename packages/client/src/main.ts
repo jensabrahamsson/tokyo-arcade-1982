@@ -45,7 +45,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, reconnectStart, coastQualifyingOverlay, splashAdvance, SPLASH_SKIP_KEYS, titleStartTarget, cabinetScreenData, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, hallMarqueeClip, reconnectStart, coastQualifyingOverlay, splashAdvance, SPLASH_SKIP_KEYS, titleStartTarget, cabinetScreenData, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -1039,23 +1039,24 @@ function renderHall(ms: number): void {
   ctx.fillRect(0, 34, CANVAS_W, 12);
   const attract = attractLang(ms);
   px(ctx, translate(attract, 'hall.name'), cx, 2, 8, PAL.gray, 'center');
-  // R27: neon marquee scroll along the back wall, EN/JA parity, presentation only
+  // R27 / R59: neon marquee scroll along the back wall; clip clears F-hint + clock
   {
     const flavorKey = MARQUEE_KEYS[Math.floor(ms / 9000) % MARQUEE_KEYS.length]!;
     const flavor = translate(attractLang(ms, 3000), flavorKey);
     const neon = art()['marquee-neon.png'];
+    const band = hallMarqueeClip(CANVAS_W);
     if (neon) {
       ctx.save();
       ctx.imageSmoothingEnabled = false;
-      for (let nx = 20; nx < CANVAS_W - 20; nx += 120) ctx.drawImage(neon, nx, 7, 120, 11);
+      for (let nx = band.x; nx < band.x + band.w; nx += 120) ctx.drawImage(neon, nx, band.y - 1, 120, 11);
       ctx.restore();
     }
     ctx.save();
     ctx.beginPath();
-    ctx.rect(20, 8, CANVAS_W - 40, 10);
+    ctx.rect(band.x, band.y, band.w, band.h);
     ctx.clip();
-    const off = marqueeOffset(ms, (CANVAS_W - 40) / 2 + 60, 7000);
-    px(ctx, flavor, cx + off, 12, 8, PAL.magenta, 'center');
+    const off = marqueeOffset(ms, band.w / 2 + 60, 7000);
+    px(ctx, flavor, band.x + band.w / 2 + off, HALL_CHROME.leftY2, 8, PAL.magenta, 'center');
     ctx.restore();
   }
   // R17.3 coin badge, delivered on the hall channel
@@ -1131,7 +1132,7 @@ function renderHall(ms: number): void {
   // R53 fix: the window counts from the first hall entry, not from boot —
   // splash + title + name pad routinely ate all 10 s before the hall showed
   if (hallEnteredAt !== null && fullscreenHintVisible(performance.now() - hallEnteredAt)) {
-    px(ctx, 'F: FULLSCREEN', 6, HALL_CHROME.leftY2, 8, blink(ms, 700) ? PAL.cyan : PAL.gray);
+    px(ctx, 'F: FULLSCREEN', HALL_CHROME.fHintX, HALL_CHROME.leftY2, 8, blink(ms, 700) ? PAL.cyan : PAL.gray);
   }
   const online = world.roster?.players.length ?? 0;
   px(ctx, `${t('lobby.players')}: ${online}`, 6, HALL_CHROME.leftY, 7, PAL.gray);
