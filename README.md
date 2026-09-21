@@ -29,6 +29,30 @@ self-play tuning. Soak: `ARKAD_JEV_SOAK_MINUTES=5 npm run jev:soak`
 human Mac, not fullscreen Chrome): `npm test` is the required path;
 optional muted headless CDP is in `AGENTS.md`.
 
+## Demo hall (operator)
+
+Trusted LAN only. Operator frames `ooo` / `freePlay` / `note` are open
+on the wire — there is no PIN. Do not expose the port to the internet.
+
+1. `npm install && npm run build && npm start`
+2. Hold `Shift+S` for SERVICE MODE, then `F` for FREE PLAY. (Outside
+   the service menu `F` is fullscreen, R53.)
+3. `V` / `M` in the service menu for volume / mute. Attract loop
+   `Late_Night_Cabinet.mp3` plays on splash/hall only; it goes silent
+   inside a cabinet.
+4. Jev without anyone at the stick: gitignored `.env.typesafe`
+   (`TYPESAFE_API_KEY`). Hall demos: `ARKAD_JEV_SELFPLAY=1` (missing
+   key fail-closes to the built-in bots). One cabinet:
+   `npm run jev:smoke`. One minute per cabinet:
+   `ARKAD_JEV_AUTOPLAY_SECONDS=60 npm run jev:autoplay`. Optional muted
+   CDP is in `AGENTS.md` — localhost, `--mute-audio`, never fullscreen
+   on someone else's Mac.
+
+Coin-mode reconnect: same name + language within 60 s returns to the
+same seat with no extra credit. The in-memory wallet is keyed
+`name|lang` (two players who pick the same AAA tag share coins). Never
+written to disk.
+
 ## Cabinets
 
 | Cabinet      | 1982 inspiration | Solo | VS. Duel |
@@ -114,10 +138,14 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 529 tests across engine, games, server, client
+npm test          # vitest: 539 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```
+
+The integer is this checkout's `npm test` total. Bump it here, in
+`AGENTS.md`, and in R7.2 in the same commit as the tests. Do not copy
+counts from unmerged PRs.
 
 Every feature was written test-first: a failing spec, then the code that
 makes it green.
@@ -130,9 +158,16 @@ single documented exception (R54): two Lyria 3.5 MP3s — `Late_Night_Cabinet`
 as the hall's attract/splash loop and `coast_yosen_start_ja` as the Coast
 READY call, played exactly once per Coast table. Operator volume/mute
 applies to them, a missing file fails closed to silence, and core never
-touches audio. The credits wall (press `C`) carries the provenance, pixel
-art included: hall chrome, six-cabinet plates, and Coast billboards /
-LO-borgen are watermark-checked PNGs (R56 / R57).
+touches audio. The credits wall (press `C`) carries the same provenance
+as the caps, pixel art included:
+`CHIPtune: LIVE WEB AUDIO` ·
+`ATTRACT TRACK: LATE NIGHT CABINET (LYRIA 3.5)` ·
+`READY CALL: COAST YOSEN START JA (LYRIA 3.5)` ·
+`PIXEL ART: HALL CHROME + SIX CABS + COAST` ·
+`LICENSE: GPL-3.0-ONLY`.
+Hall chrome, six-cabinet plates, and Coast landmarks already landed
+(R56 / R57); missing files still fall back to procedural drawing.
+No extra Lyria files.
 
 ## Pixel art (R38 / R46 / R54 / R57)
 
@@ -147,6 +182,20 @@ Wave 3 landed paletted hall chrome (R57.53) and marquee + attract +
 hero plates for snake, puck, block, galaxy, river, and myriad
 (R57.52 / R57.54). Coast landmark PNGs already landed with Wave 1 (R56).
 Coast marquee/attract/hero plates stay unwired.
+
+## LinkedIn shots (canvas, not OS chrome)
+
+1920-ish capture of the **canvas** — not browser chrome, not a coworker
+Mac, not fullscreen stolen from the cloud. English pass, then `L` for
+the JA pair. `jev:autoplay` or hall attract keeps the cabinets alive.
+
+1. Splash — two lines TOKYO ARCADE + amber 1982.
+2. Hall — seven live attract cabinets, one chrome row, title Tokyo Arcade 1982.
+3. Coast — 「予選スタート！」 ~3 s, then billboards + LO castle.
+4. Snake versus in the hall mini (NOW PLAYING).
+5. Puck / Block / Galaxy / River / Myriad — one hero frame each, not a 16×16 stub.
+6. Waiting / INSERT COIN under the CRT.
+7. Credits row: chiptune + Lyria attribution, honest pixel-art line.
 
 ## License
 
