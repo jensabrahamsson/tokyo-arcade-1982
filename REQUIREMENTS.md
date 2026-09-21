@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (539 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (542 tests, incl. real-WebSocket E2E for 2- and
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7). The integer is this checkout; bump it here, in
   README, and in AGENTS in the same commit. Do not copy unmerged PR counts.
@@ -816,7 +816,8 @@ values unchanged. Canvas-only (R1.3). Repo stays GPL-3.0-only.
 
 - R58.1 Splash invitation, coin prompts, marquee flavor (including the
   road to LO Castle as エルオー城), HUD labels (残機 / 観戦 / 時計 /
-  参加受付), lobby wait, net-lost, name-pad title, and reject toasts
+  参加受付), lobby wait, net-lost, name-pad title, reject toasts, and
+  hall attract (`デモ中`, never machine-katakana `デモ チュウ`)
   use native Japanese as pinned in `i18n.test.ts`.
 - R58.2 Kept as-is: `app.title` トウキョウ アーケード, `hall.freePlay`
   フリープレイ, `coast.qualifying` 予選スタート！, `coast.mph` キロ,
@@ -837,9 +838,11 @@ values unchanged. Canvas-only (R1.3). Repo stays GPL-3.0-only.
 The first-run `F: FULLSCREEN` hint (R53.2) and the neon marquee (R27)
 must never share pixels. A pure `hallMarqueeClip(canvasW)` reserves
 left/right gutters for the hint and the hall clock; tests prove
-`rectsOverlap` is false. Presentation only — no sim or protocol.
-Canvas-only. GPL-3.0-only. No Circuit d’Or (R55). No Coast look / art
-ID rewrite.
+`rectsOverlap` is false. The left gutter is at least the painted hint
+at full-em per glyph (plus pad); neon PNG tiles clip to the band so a
+120px step cannot overshoot the clock. Presentation only — no sim or
+protocol. Canvas-only. GPL-3.0-only. No Circuit d’Or (R55). No Coast
+look / art ID rewrite.
 
 ## Lab — Jev self-play & 1-minute autoplay (all cabinets)
 

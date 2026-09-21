@@ -45,7 +45,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, hallMarqueeClip, reconnectStart, coastQualifyingOverlay, splashAdvance, SPLASH_SKIP_KEYS, titleStartTarget, cabinetScreenData, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, hallMarqueeClip, hallMarqueeNeonDest, MARQUEE_NEON_TILE_W, FULLSCREEN_HINT, FULLSCREEN_HINT_SIZE, reconnectStart, coastQualifyingOverlay, splashAdvance, SPLASH_SKIP_KEYS, titleStartTarget, cabinetScreenData, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -1048,7 +1048,12 @@ function renderHall(ms: number): void {
     if (neon) {
       ctx.save();
       ctx.imageSmoothingEnabled = false;
-      for (let nx = band.x; nx < band.x + band.w; nx += 120) ctx.drawImage(neon, nx, band.y - 1, 120, 11);
+      ctx.beginPath();
+      ctx.rect(band.x, band.y - 1, band.w, 11);
+      ctx.clip();
+      for (const tile of hallMarqueeNeonDest(band, MARQUEE_NEON_TILE_W)) {
+        ctx.drawImage(neon, tile.x, band.y - 1, MARQUEE_NEON_TILE_W, 11);
+      }
       ctx.restore();
     }
     ctx.save();
@@ -1132,7 +1137,7 @@ function renderHall(ms: number): void {
   // R53 fix: the window counts from the first hall entry, not from boot —
   // splash + title + name pad routinely ate all 10 s before the hall showed
   if (hallEnteredAt !== null && fullscreenHintVisible(performance.now() - hallEnteredAt)) {
-    px(ctx, 'F: FULLSCREEN', HALL_CHROME.fHintX, HALL_CHROME.leftY2, 8, blink(ms, 700) ? PAL.cyan : PAL.gray);
+    px(ctx, FULLSCREEN_HINT, HALL_CHROME.fHintX, HALL_CHROME.leftY2, FULLSCREEN_HINT_SIZE, blink(ms, 700) ? PAL.cyan : PAL.gray);
   }
   const online = world.roster?.players.length ?? 0;
   px(ctx, `${t('lobby.players')}: ${online}`, 6, HALL_CHROME.leftY, 7, PAL.gray);
