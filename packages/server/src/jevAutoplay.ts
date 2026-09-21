@@ -129,7 +129,7 @@ export async function runAutoplayForAll(opts: AutoplayOptions): Promise<Autoplay
   return out;
 }
 
-/** N minutes × 7 cabinets; JSON report under data/ or a caller path (gitignored). */
+/** N minutes × every cabinet; JSON report under data/ or a caller path (gitignored). */
 export async function writeSoakReport(
   opts: AutoplayOptions & { reportPath: string; minutesPerGame: number },
 ): Promise<SoakReport> {

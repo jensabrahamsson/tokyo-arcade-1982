@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** N minutes × 7 cabinets; writes a JSON soak report under data/ (gitignored). */
+/** N minutes × every cabinet; writes a JSON soak report under data/ (gitignored). */
 import { join } from 'node:path';
 import { loadTypesafeEnvFile, redactSecrets } from './jevPolicy';
 import { writeSoakReport } from './jevAutoplay';

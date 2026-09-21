@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (591 tests, incl. real-WebSocket E2E for 2- and)
+  `npm test` green (613 tests, incl. real-WebSocket E2E for 2- and)
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7). The integer is this checkout; bump it here, in
   README, and in AGENTS in the same commit. Do not copy unmerged PR counts.
@@ -117,7 +117,7 @@ not a substitute — if it is not written here, it is not the contract.
 ### Optional: Jev attract self-play (not a hall R-feature)
 
 Operator/autotest flag, not a cabinet requirement. See **Lab — Jev
-self-play** (end of this file) for the seven-cabinet contract: fail-closed
+self-play** (end of this file) for the eight-cabinet contract: fail-closed
 to `spec.demo`, Block/Myriad MUST payload, Galaxy/Coast SHOULD. Does not
 change R8.1–R8.5.
 
@@ -132,7 +132,7 @@ change R8.1–R8.5.
 ## R10 — The hall, not a list
 
 - R10.1 The game select is a rendered arcade hall: floor, back wall,
-  six cabinets (seven since R22) with lit marquees and live mini-screens
+  six cabinets (seven since R22, eight since R55) with lit marquees and live mini-screens
   fed by the demo
   (or live) snapshots. No flat text list.
 - R10.2 A glowing "you are here" token stands at the selected cabinet;
@@ -646,28 +646,35 @@ paths/protocol keep `arkad`. EN/JA tables updated in lockstep.
   propaganda. Landmark *moments* — they must not clutter the vanishing
   point every frame (R56).
 
-## R55 — Circuit d’Or / サーキット・ドール / Guldvarvet (queued)
+## R55 — Circuit d’Or / サーキット・ドール / Guldvarvet (open)
 
-Eighth cabinet. This item is the canonical contract. **Do not implement
-gameplay until soak is done** (Monday 2026-09-21 ~06:00 CEST plus E2E)
-unless the owner says implement now. Childhood memory: Atari 1976
-circuit / endurance from an overview camera — a bright track you read
-at speed, not a Night Driver void and not Coast Runner’s (R22)
-behind-car camera.
+Eighth cabinet. The owner opened this item on 2026-09-21
+(“SPELET SKA HETA CIRCUIT D'OR”): implement it. The circuit subject is
+a 1976-flavored 24-hour endurance loop seen from an overview camera —
+a bright track you read at speed, not a Night Driver void and not
+Coast Runner’s (R22) behind-car camera. Do not restyle Coast, and do
+not move Coast’s Swedish billboards or LO-borgen onto this cabinet.
 
-Never ship the string “Le Mans” on marquees, UI, i18n, or filenames.
+The player-facing title is Circuit d’Or. It is not Le Mans, not Coast
+Runner, and not Arkad. Le Mans / Sarthe / 1976 may describe the circuit
+inside the game; they are not the marquee, the hall label, or any
+i18n title. Never ship the string “Le Mans” as the game title on
+marquees, UI, i18n, or filenames.
 
-- R55.1 Game id: `circuit` (or `or` if that collides). Titles, EN/JA
-  lockstep: Circuit d’Or · サーキット・ドール · optional SV Guldvarvet.
+- R55.1 Game id: `circuit`. Titles, EN/JA lockstep: CIRCUIT D'OR ·
+  サーキット・ドール. Optional SV Guldvarvet is not a third language.
 - R55.2 Same house rules as every cabinet: pure `packages/core`,
   server-authoritative, canvas renderer, chiptune, EN/JA. Hall presence
   like R22.5 (marquee, attract demo, high scores, map). Solo-first in
   v1; versus is out of scope until a later R.
-- R55.3 After soak the hall has **eight** cabinets. Until then the live
-  count stays seven (R2 + R22). This item is not a license to land
-  `games/circuit` now.
-- R55.4 Look: bright circuit, readable at speed. Not Night Driver. Not
-  the R22 Coast camera.
+- R55.3 The hall has **eight** cabinets. `games/circuit` is live.
+- R55.4 Look: bright overview of the whole circuit, readable at speed.
+  Fixed camera. Not Night Driver. Not the R22 Coast camera.
+- R55.5 Short solo drive: sit, steer, score, finish the scheduled laps
+  or run out of time / lives, game over, return to the hall. 60 Hz.
+  No traffic product, no gears, no radio.
+- R55.6 Art plates are not landed. The renderer is procedural and keeps
+  drawing when no `circuit-*.png` is present. No 16×16 stubs.
 
 ## R56 — Coast look: Pole Position / early OutRun (not Night Rider)
 
@@ -708,7 +715,7 @@ new game.
 
 ## R57 — Art ID catalog (Wave 3)
 
-R55 is Circuit d’Or (queued, no gameplay). R56 is the Coast Pole
+R55 is Circuit d’Or (open, playable, procedural art). R56 is the Coast Pole
 Position look (Wave 1, already on this stack). Art IDs live here as **R57**.
 
 Stable IDs for Imagine PNG drops. Inventory, stub vs real vs missing,
@@ -732,7 +739,7 @@ seven-cabinet plates (marquee + attract + hero) are landed
 R57.40–R57.45 already landed with Wave 1 (R56). R57.46 is the
 rear-view player car (`coast-datsun.png`); a missing file keeps the
 procedural sedan. R55 is Circuit
-d’Or (queued, no gameplay).
+d’Or (open, playable; plates not landed, renderer stays procedural).
 
 ### Hall / splash chrome (landed paletted PNG)
 
@@ -877,7 +884,7 @@ Adapters live in `packages/server/src/jevPolicy.ts`; core stays pure (no
 fetch). Notes: [`JEV.md`](JEV.md).
 
 - Enable: `ARKAD_JEV_SELFPLAY=1` + `TYPESAFE_API_KEY` (env or gitignored
-  `.env.typesafe`). Attract demos of ALL seven cabinets consult Jev at
+  `.env.typesafe`). Attract demos of ALL eight cabinets consult Jev at
   ~8 Hz with compact JSON state; missing key/HTTP/low-confidence
   fail-closed to `spec.demo`.
 - Harden: flaky network/408/429/5xx retry once then fail-closed; logs never

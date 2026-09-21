@@ -49,7 +49,7 @@ describe('hall layout (R10)', () => {
 
 describe('hall navigation (R9)', () => {
   it('arrows and WASD do the same thing', () => {
-    // R22: seven cabinets in a 4x2 grid
+    // R22 left seven cabinets in a 4-wide grid. R55 fills the last cell: eight cabinets.
     expect(moveHallSel(0, 'ArrowRight')).toBe(moveHallSel(0, 'KeyD'));
     expect(moveHallSel(3, 'ArrowUp')).toBe(moveHallSel(3, 'KeyW'));
     expect(moveHallSel(0, 'ArrowDown')).toBe(4);

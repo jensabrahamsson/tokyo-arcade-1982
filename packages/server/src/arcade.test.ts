@@ -444,7 +444,7 @@ describe('Arcade', () => {
     expect(halls.length).toBeGreaterThan(0);
     const latest = halls[halls.length - 1]!;
     expect(latest.cabinets.map((c) => c.game).sort()).toEqual(
-      ['block', 'coast', 'galaxy', 'myriad', 'puck', 'river', 'snake'].sort(),
+      ['block', 'circuit', 'coast', 'galaxy', 'myriad', 'puck', 'river', 'snake'].sort(),
     );
     expect(latest.cabinets.every((c) => c.demo)).toBe(true);
     expect(latest.cabinets.every((c) => c.data !== null)).toBe(true);
@@ -531,7 +531,7 @@ describe('Arcade', () => {
     for (let i = 0; i < 30; i++) arcade.tick();
     const latest = hallMsgs('c1').at(-1)!;
     expect(latest.cabinets.map((c) => c.game).sort()).toEqual(
-      ['block', 'coast', 'galaxy', 'myriad', 'puck', 'river', 'snake'].sort(),
+      ['block', 'circuit', 'coast', 'galaxy', 'myriad', 'puck', 'river', 'snake'].sort(),
     );
     expect(latest.cabinets.every((c) => c.demo)).toBe(true);
     expect(latest.cabinets.every((c) => c.data !== null)).toBe(true);
@@ -756,16 +756,17 @@ describe('Arcade', () => {
     expect(net.last<{ code: string }>('c9', 'error')?.code).toBe('insert-coin');
   });
 
-  it('free-play smoke: 7-cab hall, Coast, back, snake versus in hall, pause keeps credits, lang (wave 0)', () => {
+  it('free-play smoke: 8-cab hall, Coast, back, snake versus in hall, pause keeps credits, lang (wave 0)', () => {
     arcade.handleMessage('c1', { type: 'join', name: 'AKIRA', lang: 'en' });
     arcade.handleMessage('c1', { type: 'hall', watch: true });
     arcade.handleMessage('c3', { type: 'hall', watch: true });
     for (let i = 0; i < 20; i++) arcade.tick();
     const hall = hallMsgs('c1').at(-1)!;
     expect(hall.freePlay).toBe(true);
-    expect(hall.cabinets).toHaveLength(7);
+    // R55: the wave-0 hall was 7 (R22). Circuit d'Or is the eighth cabinet.
+    expect(hall.cabinets).toHaveLength(8);
     expect(hall.cabinets.map((c) => c.game).sort()).toEqual(
-      ['block', 'coast', 'galaxy', 'myriad', 'puck', 'river', 'snake'].sort(),
+      ['block', 'circuit', 'coast', 'galaxy', 'myriad', 'puck', 'river', 'snake'].sort(),
     );
     net.take('c3');
 
@@ -810,7 +811,7 @@ describe('Arcade smoke (all cabinets)', () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  for (const game of ['snake', 'puck', 'block', 'galaxy', 'river', 'myriad', 'coast'] as const) {
+  for (const game of ['snake', 'puck', 'block', 'galaxy', 'river', 'myriad', 'coast', 'circuit'] as const) {
     it(`${game}: runs 600 ticks without throwing and broadcasts snapshots`, () => {
       const net = new FakeNet();
       const arcade = new Arcade({

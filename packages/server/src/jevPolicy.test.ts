@@ -462,7 +462,7 @@ describe('parseDotEnv / .env.typesafe', () => {
   });
 });
 
-describe('jev adapters for all seven cabinets', () => {
+describe('jev adapters for every cabinet', () => {
   const playing = (id: string): GameStateBase => {
     const spec = REGISTRY[id as GameId]!;
     return { ...spec.create({ mode: 'solo', playerIds: ['demo'], seed: 1982 }), phase: 'playing' } as GameStateBase;
