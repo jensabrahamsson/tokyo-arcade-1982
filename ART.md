@@ -69,6 +69,7 @@ Manifest Coast landmarks (Wave 1 landed paletted PNG; loader uses them).
 | `coast-bommersvik.png` | **landed** paletted (Wave 1) | R57.43 |
 | `coast-valdebatt76.png` | **landed** paletted (Wave 1) | R57.44 |
 | `coast-castro-visit.png` | **landed** paletted (Wave 1) | R57.45 |
+| `coast-datsun.png` | **landed** paletted rear-view sedan (R56.3) | R57.46 |
 
 There is **no** `packages/client/static/art/pilots/` directory. P2-C
 already relocated the JPEG pilots (see below).

@@ -10,13 +10,15 @@ const CX = 160;
 
 const blend = (a: readonly number[]): string => `rgb(${a[0]!},${a[1]!},${a[2]!})`;
 
-/** Clear dusk — Pole Position sky + OutRun sun. Never a night-void. */
-export const SKY_TOP = [88, 148, 228] as const;
-export const SKY_BOT = [255, 176, 72] as const;
-export const GRASS_A = [48, 196, 56] as const;
-export const GRASS_B = [24, 156, 40] as const;
-export const ROAD_A = [176, 176, 184] as const;
-export const ROAD_B = [152, 152, 160] as const;
+/** Night arcade band — indigo zenith, sodium horizon. Never a black void.
+ *  Old daytime zenith was [88,148,228] (luma ~139). */
+export const SKY_TOP = [44, 32, 108] as const;
+export const SKY_BOT = [255, 164, 64] as const;
+export const GRASS_A = [18, 118, 58] as const;
+export const GRASS_B = [10, 78, 40] as const;
+/** Headlight asphalt: lighter than the night shoulder, not a noon gray slab. */
+export const ROAD_A = [118, 108, 132] as const;
+export const ROAD_B = [86, 78, 104] as const;
 const RUMBLE_A = [255, 48, 64] as const;
 const RUMBLE_B = [245, 245, 245] as const;
 const CENTER_LINE = '#fff46e';
@@ -151,8 +153,37 @@ export function drawCoastQualifyingBanner(ctx: CanvasRenderingContext2D, text: s
   });
 }
 
-/** Rear-view arcade car — Pole Position weight, not a C64 speck. */
-export const CAR_DRAW = { w: 76, h: 42 } as const;
+/** Rear-view arcade car — Pole Position weight, not a C64 speck.
+ *  Old body was the flat red wedge #e03c2f. */
+export const CAR_BODY = '#ff7a18';
+export const CAR_DRAW = { w: 80, h: 52 } as const;
+
+export type CoastCarRole = 'shadow' | 'wheel' | 'body' | 'glass' | 'lamp' | 'bumper' | 'plate';
+
+export interface CoastCarPart {
+  dx: number;
+  dy: number;
+  w: number;
+  h: number;
+  color: string;
+  role: CoastCarRole;
+}
+
+/** Procedural orange sedan used when `coast-datsun.png` is missing. */
+export function coastCarSprite(w = CAR_DRAW.w, h = CAR_DRAW.h): CoastCarPart[] {
+  return [
+    { role: 'shadow', dx: -w / 2 + 6, dy: -4, w: w - 12, h: 6, color: 'rgba(20,16,32,0.45)' },
+    { role: 'wheel', dx: -w / 2 - 1, dy: -h * 0.38, w: 12, h: h * 0.36, color: '#1c1c28' },
+    { role: 'wheel', dx: w / 2 - 11, dy: -h * 0.38, w: 12, h: h * 0.36, color: '#1c1c28' },
+    { role: 'body', dx: -32, dy: -h, w: 64, h: h * 0.62, color: CAR_BODY },
+    { role: 'body', dx: -22, dy: -h - 8, w: 44, h: 10, color: CAR_BODY },
+    { role: 'glass', dx: -18, dy: -h - 6, w: 36, h: 7, color: '#243056' },
+    { role: 'bumper', dx: -30, dy: -h * 0.2, w: 60, h: 5, color: '#c2c3c7' },
+    { role: 'lamp', dx: -28, dy: -h * 0.36, w: 10, h: 6, color: '#ff004d' },
+    { role: 'lamp', dx: 18, dy: -h * 0.36, w: 10, h: 6, color: '#ff004d' },
+    { role: 'plate', dx: -8, dy: -h * 0.46, w: 16, h: 6, color: '#f7e766' },
+  ];
+}
 
 export interface ObstaclePart {
   dx: number;
@@ -424,35 +455,39 @@ function drawRoadsideRhythm(
     const x = p.offX + side * (p.roadW * 0.95 + tw);
     ctx.fillStyle = '#6a3a18';
     ctx.fillRect(x - tw * 0.12, p.y - th * 0.45, tw * 0.24, th * 0.45);
-    ctx.fillStyle = '#1e9a38';
+    ctx.fillStyle = '#0e6e32';
     ctx.fillRect(x - tw / 2, p.y - th, tw, th * 0.62);
-    ctx.fillStyle = '#2ee66b';
+    ctx.fillStyle = '#1c9a44';
     ctx.fillRect(x - tw * 0.32, p.y - th * 0.88, tw * 0.64, th * 0.28);
   }
 }
 
-function drawCar(ctx: CanvasRenderingContext2D, steer: number, tMs: number, speed: number): void {
+/** Fixed night stars — presentation only, no Math.random. */
+const COAST_STARS: readonly (readonly [number, number])[] = [
+  [18, 14], [42, 28], [96, 12], [210, 18], [248, 32], [286, 16], [150, 22],
+];
+
+/** Orange sedan. Sprite when `coast-datsun.png` loaded, else coastCarSprite. */
+export function drawCoastCar(
+  ctx: CanvasRenderingContext2D,
+  opts: { img?: CanvasImageSource; steer: number; tMs: number; speed: number },
+): void {
   const { w, h } = CAR_DRAW;
+  const { img, steer, tMs, speed } = opts;
   ctx.save();
-  ctx.translate(CX, H - 6 + Math.sin(tMs / 55) * (speed / MAX_SPEED) * 1.5);
+  ctx.translate(CX, H - 4 + Math.sin(tMs / 55) * (speed / MAX_SPEED) * 1.5);
   ctx.transform(1, 0, -steer * 0.1, 1, 0, 0);
-  ctx.fillStyle = 'rgba(20,16,32,0.35)';
-  ctx.fillRect(-w / 2 + 6, -4, w - 12, 7);
-  ctx.fillStyle = '#1c1c28';
-  ctx.fillRect(-w / 2 - 1, -h * 0.4, 13, h * 0.36);
-  ctx.fillRect(w / 2 - 12, -h * 0.4, 13, h * 0.36);
-  ctx.fillStyle = '#e03c2f';
-  ctx.fillRect(-w / 2 + 6, -h, w - 12, h * 0.78);
-  ctx.fillRect(-w / 2 + 14, -h - 11, w - 28, 13);
-  ctx.fillStyle = '#8fd0ff';
-  ctx.fillRect(-w / 2 + 18, -h - 8, w - 36, 8);
-  ctx.fillStyle = '#7a1814';
-  ctx.fillRect(-w / 2 + 10, -h * 0.32, w - 20, 6);
-  ctx.fillStyle = '#ff004d';
-  ctx.fillRect(-w / 2 + 10, -h * 0.16, 9, 5);
-  ctx.fillRect(w / 2 - 19, -h * 0.16, 9, 5);
-  ctx.fillStyle = '#f7e766';
-  ctx.fillRect(-w / 2 + 12, -h * 0.52, w - 24, 3);
+  if (img) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, -w / 2, -h, w, h);
+    ctx.imageSmoothingEnabled = true;
+    ctx.restore();
+    return;
+  }
+  for (const part of coastCarSprite(w, h)) {
+    ctx.fillStyle = part.color;
+    ctx.fillRect(part.dx, part.dy, part.w, part.h);
+  }
   ctx.restore();
 }
 
@@ -462,9 +497,11 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
   sky.addColorStop(1, blend(SKY_BOT));
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, HORIZON);
-  ctx.fillStyle = '#ffce54';
+  ctx.fillStyle = '#fff6d0';
+  for (const [sx, sy] of COAST_STARS) ctx.fillRect(sx, sy, 2, 2);
+  ctx.fillStyle = '#f4e6a8';
   ctx.beginPath();
-  ctx.arc(CX + 58, HORIZON - 6, 18, Math.PI, 0);
+  ctx.arc(72, 26, 8, 0, Math.PI * 2);
   ctx.fill();
 
   const camCurve = curveAt(s.dist);
@@ -491,6 +528,10 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
     ctx.fillStyle = band ? blend(RUMBLE_A) : blend(RUMBLE_B);
     ctx.fillRect(p1.offX - p1.roadW / 2 - rumble, y, rumble, y2 - y);
     ctx.fillRect(p1.offX + p1.roadW / 2, y, rumble, y2 - y);
+    const edge = Math.max(1, p1.scale * 12);
+    ctx.fillStyle = '#fffff5';
+    ctx.fillRect(p1.offX - p1.roadW / 2, y, edge, y2 - y);
+    ctx.fillRect(p1.offX + p1.roadW / 2 - edge, y, edge, y2 - y);
     if (Math.floor((cam + d) / 6) % 2 === 0) {
       ctx.fillStyle = CENTER_LINE;
       ctx.fillRect(p1.offX - Math.max(1, p1.scale * 10), y, Math.max(1, p1.scale * 20), y2 - y);
@@ -516,7 +557,7 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
   }
 
   const steer = Math.max(-1, Math.min(1, (s.playerX % 1) * 0.4 + curveAt(s.dist) * 0.3));
-  drawCar(ctx, steer, tMs, s.speed);
+  drawCoastCar(ctx, { img: art()['coast-datsun.png'], steer, tMs, speed: s.speed });
 
   const hud = coastHudCopy(lang, s);
   ctx.font = '10px monospace';

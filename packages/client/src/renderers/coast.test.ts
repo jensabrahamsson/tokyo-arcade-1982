@@ -4,10 +4,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { OBSTACLE_KINDS, coastSpec } from '@arkad/core';
 import {
-  coastLodStride, CASTLE_DRAW, CAR_DRAW, obstacleSprite, coastHudCopy, COAST_SPEED_SCALE,
-  SKY_TOP, SKY_BOT, GRASS_A, ROAD_A, ROAD_WIDTH_K, ROADSIDE_POST_STEP, ROADSIDE_TREE_STEP,
+  coastLodStride, CASTLE_DRAW, CAR_DRAW, CAR_BODY, obstacleSprite, coastHudCopy, COAST_SPEED_SCALE,
+  SKY_TOP, SKY_BOT, GRASS_A, GRASS_B, ROAD_A, ROAD_WIDTH_K, ROADSIDE_POST_STEP, ROADSIDE_TREE_STEP,
   luma, renderCoast, drawCoastQualifyingBanner, coastCastleRect, coastQualifyingOverlayY,
   coastQualifyingClearOfCastle, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER,
+  coastCarSprite, drawCoastCar,
 } from './coast';
 
 describe('coast mini LOD (P1-8)', () => {
@@ -166,11 +167,18 @@ describe('coast HUD copy (Wave 1)', () => {
 });
 
 describe('Coast Pole Position silhouette (R56, not C64 Night Rider)', () => {
-  it('sky, grass and road are bright arcade bands, not a night void (R56.1–2)', () => {
-    expect(luma(SKY_TOP)).toBeGreaterThan(80);
+  it('night sky is a band with a warm horizon, not a black void (R56.1–2)', () => {
+    // Old bar (daytime blue [88,148,228], luma > 80, noon grass > 90) read as a
+    // flat cartoon afternoon. Night zenith stays above a void floor and well
+    // below the sodium horizon so the sky is a band, not a tunnel fill.
+    expect(luma(SKY_TOP)).toBeGreaterThan(30);
+    expect(luma(SKY_TOP)).toBeLessThan(70);
     expect(luma(SKY_BOT)).toBeGreaterThan(140);
-    expect(luma(GRASS_A)).toBeGreaterThan(90);
+    expect(luma(SKY_BOT) - luma(SKY_TOP)).toBeGreaterThan(80);
+    expect(luma(GRASS_A)).toBeGreaterThan(50);
+    expect(luma(GRASS_A) - luma(GRASS_B)).toBeGreaterThan(12);
     expect(luma(ROAD_A)).toBeGreaterThan(90);
+    expect(luma(ROAD_A)).toBeGreaterThan(luma(GRASS_A));
     // vanishing-point road, not a full-width gray tunnel
     expect(ROAD_WIDTH_K).toBeLessThan(800);
     expect(ROAD_WIDTH_K).toBeGreaterThan(280);
@@ -179,6 +187,21 @@ describe('Coast Pole Position silhouette (R56, not C64 Night Rider)', () => {
   it('the car has Pole Position rear-view weight (R56.3)', () => {
     expect(CAR_DRAW.w).toBeGreaterThanOrEqual(64);
     expect(CAR_DRAW.h).toBeGreaterThanOrEqual(32);
+    // Old body was the flat red wedge #e03c2f. The sedan is arcade orange.
+    expect(CAR_BODY).not.toBe('#e03c2f');
+    expect(CAR_BODY.toLowerCase()).toBe('#ff7a18');
+  });
+
+  it('the procedural fallback is an orange sedan, not one red rectangle (R56.3)', () => {
+    const parts = coastCarSprite();
+    const body = parts.filter((p) => p.role === 'body');
+    expect(body.length).toBeGreaterThan(0);
+    expect(Math.max(...body.map((p) => p.w))).toBeGreaterThanOrEqual(64);
+    expect(body.every((p) => p.color === CAR_BODY)).toBe(true);
+    expect(parts.filter((p) => p.role === 'lamp')).toHaveLength(2);
+    expect(parts.some((p) => p.role === 'glass')).toBe(true);
+    expect(parts.some((p) => p.role === 'bumper')).toBe(true);
+    expect(parts.some((p) => p.role === 'wheel')).toBe(true);
   });
 
   it('roadside posts and trees tick often enough to read as a rhythm (R56.4)', () => {
@@ -192,10 +215,62 @@ describe('Coast Pole Position silhouette (R56, not C64 Night Rider)', () => {
     expect(rec.rectCount).toBeGreaterThan(80);
     expect(rec.maxBodyW).toBeGreaterThanOrEqual(56);
     expect(rec.darkRatio).toBeLessThan(0.4);
-    expect(rec.used).toContain('#e03c2f'); // car body
+    expect(rec.used).toContain(CAR_BODY); // orange sedan, not the old red wedge
+    expect(rec.used).not.toContain('#e03c2f');
     expect(rec.used).toContain('#ff004d'); // rumble / tail
     expect(rec.texts.some((t) => t.startsWith('TIME'))).toBe(true);
     expect(rec.texts.some((t) => /KM\/H/.test(t))).toBe(true);
+  });
+
+  it('draws the Datsun plate when it loaded, else the orange sedan (R57.46)', () => {
+    const spriteCalls: unknown[] = [];
+    const spriteFills: string[] = [];
+    let smoothing = true;
+    const spriteCtx = {
+      fillStyle: '' as string,
+      imageSmoothingEnabled: true,
+      save() { /* car */ },
+      restore() { /* car */ },
+      translate() { /* car */ },
+      transform() { /* steer */ },
+      fillRect() { spriteFills.push(String(spriteCtx.fillStyle)); },
+      drawImage(...args: unknown[]) {
+        spriteCalls.push(args[0]);
+        smoothing = spriteCtx.imageSmoothingEnabled;
+      },
+    };
+    const img = { tag: 'datsun' };
+    drawCoastCar(spriteCtx as unknown as CanvasRenderingContext2D, {
+      img: img as unknown as CanvasImageSource,
+      steer: 0,
+      tMs: 0,
+      speed: 0,
+    });
+    expect(spriteCalls).toEqual([img]);
+    expect(smoothing).toBe(false);
+    expect(spriteFills).not.toContain(CAR_BODY);
+
+    const procFills: string[] = [];
+    let drew = false;
+    const procCtx = {
+      fillStyle: '' as string,
+      imageSmoothingEnabled: true,
+      save() { /* car */ },
+      restore() { /* car */ },
+      translate() { /* car */ },
+      transform() { /* steer */ },
+      fillRect() { procFills.push(String(procCtx.fillStyle)); },
+      drawImage() { drew = true; },
+    };
+    drawCoastCar(procCtx as unknown as CanvasRenderingContext2D, {
+      img: undefined,
+      steer: 0,
+      tMs: 0,
+      speed: 0,
+    });
+    expect(drew).toBe(false);
+    expect(procFills).toContain(CAR_BODY);
+    expect(procFills.filter((c) => c === '#ff004d').length).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -233,7 +308,7 @@ function recordCoastFrame(): { rectCount: number; maxBodyW: number; darkRatio: n
   renderCoast(ctx as unknown as CanvasRenderingContext2D, { ...s, phase: 'playing', dist: 40, speed: 80 }, 0, 'en', false);
   const used = rects.map((r) => r.fill);
   const dark = rects.filter((r) => r.fill === '#1c1c28' || r.fill === '#10131f' || r.fill === '#000000').length;
-  const body = rects.filter((r) => r.fill === '#e03c2f');
+  const body = rects.filter((r) => r.fill === CAR_BODY);
   return {
     rectCount: rects.length,
     maxBodyW: body.reduce((m, r) => Math.max(m, r.w), 0),
