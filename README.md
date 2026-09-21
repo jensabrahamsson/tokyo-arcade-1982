@@ -163,9 +163,9 @@ as the caps, pixel art included:
 `CHIPtune: LIVE WEB AUDIO` ·
 `ATTRACT TRACK: LATE NIGHT CABINET (LYRIA 3.5)` ·
 `READY CALL: COAST YOSEN START JA (LYRIA 3.5)` ·
-`PIXEL ART: HALL CHROME + SIX CABS + COAST` ·
+`PIXEL ART: HALL CHROME + SEVEN CABS + COAST` ·
 `LICENSE: GPL-3.0-ONLY`.
-Hall chrome, six-cabinet plates, and Coast landmarks already landed
+Hall chrome, seven-cabinet plates, and Coast landmarks already landed
 (R56 / R57); missing files still fall back to procedural drawing.
 No extra Lyria files.
 
@@ -179,9 +179,8 @@ drawing that already stands alone. JPEG Imagine pilots for Coast
 billboards live in `packages/client/art-pilots/*.jpg` — not served.
 
 Wave 3 landed paletted hall chrome (R57.53) and marquee + attract +
-hero plates for snake, puck, block, galaxy, river, and myriad
+hero plates for all seven cabinets including Coast
 (R57.52 / R57.54). Coast landmark PNGs already landed with Wave 1 (R56).
-Coast marquee/attract/hero plates stay unwired.
 
 ## LinkedIn shots (canvas, not OS chrome)
 
