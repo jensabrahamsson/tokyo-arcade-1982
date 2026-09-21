@@ -18,6 +18,7 @@ import {
   skipCabinetBodyWash, splashWordmarkKind, heroSheetForScene, containRect,
 } from './art';
 import { Keys } from './input';
+import { consumeHallStick } from './serviceChord';
 import { Chiptune } from './audio/chiptune';
 import { Samples } from './audio/samples';
 import { CANVAS_W, CANVAS_H, PAL, PLAYER_COLORS, px, blink, FONT } from './ui';
@@ -439,18 +440,21 @@ function update(ms: number): void {
     }
     if (keys.take('Escape', 'KeyB')) scene = serviceFrom === 'hall' ? 'hall' : 'title';
   } else if (scene === 'title') {
-    if (keys.take('KeyF')) toggleFullscreen();
-    if (keys.take('Space', 'Enter', 'NumpadEnter')) {
-      if (titleStartTarget(joined) === 'hall') enterHall();
-      else openNamePad();
+    if (keys.takeServiceChord()) {
+      openService('title');
+    } else {
+      if (keys.take('KeyF')) toggleFullscreen();
+      if (keys.take('Space', 'Enter', 'NumpadEnter')) {
+        if (titleStartTarget(joined) === 'hall') enterHall();
+        else openNamePad();
+      }
+      if (keys.take('Escape') && escapeBackTarget('title', joined) === 'hall') enterHall();
+      if (keys.take('KeyC')) {
+        creditsFrom = 'title';
+        scene = 'credits';
+      }
+      if (keys.take('KeyL')) toggleLang();
     }
-    if (keys.take('Escape') && escapeBackTarget('title', joined) === 'hall') enterHall();
-    if (keys.take('KeyC')) {
-      creditsFrom = 'title';
-      scene = 'credits';
-    }
-    if (keys.isHeld('ShiftLeft', 'ShiftRight') && keys.take('KeyS')) openService('title');
-    if (keys.take('KeyL')) toggleLang();
   } else if (scene === 'name') {
     if (keys.take('ArrowLeft', 'KeyA')) namePad = moveCursor(namePad, { dr: 0, dc: -1 });
     if (keys.take('ArrowRight', 'KeyD')) namePad = moveCursor(namePad, { dr: 0, dc: 1 });
@@ -484,28 +488,30 @@ function update(ms: number): void {
       net.send({ type: 'hall', watch: true });
       lastHallTablesAt = performance.now();
     }
-    if (keys.take('KeyF')) toggleFullscreen();
-    for (const k of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS']) {
-      if (keys.take(k)) {
-        const next = moveHallSel(sel, k);
+    const stick = consumeHallStick(keys);
+    if (stick === 'service') {
+      openService('hall');
+    } else {
+      if (stick) {
+        const next = moveHallSel(sel, stick);
         if (next !== sel) {
           sel = next;
           hallSteps++;
         }
       }
+      if (keys.take('KeyF')) toggleFullscreen();
+      const game = GAME_IDS[sel]!;
+      const info = world.games.find((g) => g.id === game);
+      if (info?.solo && keys.take('KeyZ', 'Space', 'Enter')) startGame('solo');
+      if (info?.versus && keys.take('KeyX')) startGame('versus');
+      if (keys.take('KeyH')) openScores();
+      if (keys.take('KeyM')) scene = 'map';
+      if (keys.take('KeyC')) {
+        creditsFrom = 'hall';
+        scene = 'credits';
+      }
+      if (keys.take('KeyL')) toggleLang();
     }
-    const game = GAME_IDS[sel]!;
-    const info = world.games.find((g) => g.id === game);
-    if (info?.solo && keys.take('KeyZ', 'Space', 'Enter')) startGame('solo');
-    if (info?.versus && keys.take('KeyX')) startGame('versus');
-    if (keys.take('KeyH')) openScores();
-    if (keys.take('KeyM')) scene = 'map';
-    if (keys.take('KeyC')) {
-      creditsFrom = 'hall';
-      scene = 'credits';
-    }
-    if (keys.isHeld('ShiftLeft', 'ShiftRight') && keys.take('KeyS')) openService('hall');
-    if (keys.take('KeyL')) toggleLang();
   } else if (scene === 'map') {
     if (keys.take('KeyM')) scene = 'hall';
     if (keys.take('KeyB') || (keys.take('Escape') && !exitFullscreenFirst())) escapeHome();
@@ -1431,6 +1437,8 @@ function frame(ms: number): void {
     else if (scene === 'title') renderTitle(ms);
     else if (scene === 'name') renderNamePad(ms);
     else if (scene === 'hall') renderHall(ms);
+    else if (scene === 'service') renderService(ms);
+    else if (scene === 'note') renderNamePad(ms);
     else if (scene === 'map') renderMap(ms);
     else if (scene === 'credits') renderCredits(ms);
     else if (scene === 'table') {

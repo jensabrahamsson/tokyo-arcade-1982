@@ -40,3 +40,21 @@ describe('Wave 2 hall chrome wiring (main.ts)', () => {
     expect(MAIN).toContain('music.startLoop(ATTRACT_TRACK)');
   });
 });
+
+describe('operator Shift+S on the hall (R16.1 leftover)', () => {
+  it('consumes the service chord before WASD KeyS so selection does not walk to River', () => {
+    const hall = MAIN.slice(
+      MAIN.indexOf("} else if (scene === 'hall') {"),
+      MAIN.indexOf("} else if (scene === 'map') {"),
+    );
+    const chord = hall.search(/consumeHallStick/);
+    expect(chord).toBeGreaterThanOrEqual(0);
+    expect(hall.slice(0, chord)).not.toContain("'KeyS'");
+  });
+
+  it('frame paints renderService so Shift+S is not a black canvas', () => {
+    const start = MAIN.indexOf('function frame');
+    const frame = MAIN.slice(start, MAIN.indexOf('requestAnimationFrame(frame)', start));
+    expect(frame).toMatch(/scene === 'service'[\s\S]{0,80}renderService/);
+  });
+});

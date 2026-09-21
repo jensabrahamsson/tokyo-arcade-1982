@@ -6,21 +6,27 @@ interface FakeEvent {
   code: string;
   repeat: boolean;
   isComposing: boolean;
+  shiftKey: boolean;
   preventDefault(): void;
 }
 
 function harness() {
   const target = new EventTarget();
   const keys = new Keys(target as unknown as Window);
-  const fire = (type: string, code: string, repeat = false) => {
+  const fire = (type: string, code: string, repeat = false, shiftKey = false) => {
     const e = new Event(type) as Event & FakeEvent;
     e.code = code;
     e.repeat = repeat;
     e.isComposing = false;
+    e.shiftKey = shiftKey;
     e.preventDefault = () => {};
     target.dispatchEvent(e);
   };
-  return { keys, down: (code: string) => fire('keydown', code), up: (code: string) => fire('keyup', code) };
+  return {
+    keys,
+    down: (code: string, shiftKey = false) => fire('keydown', code, false, shiftKey),
+    up: (code: string) => fire('keyup', code),
+  };
 }
 
 describe('keyboard taps survive fast release (background/throttled rAF)', () => {
@@ -75,5 +81,29 @@ describe('keyboard taps survive fast release (background/throttled rAF)', () => 
     down('KeyZ');
     keys.clear();
     expect(keys.take('KeyZ')).toBe(false);
+  });
+});
+
+describe('Shift+S service chord (R16.1 leftover)', () => {
+  it('ShiftLeft held + KeyS is a chord and does not leave KeyS for hall nav', () => {
+    const { keys, down } = harness();
+    down('ShiftLeft');
+    down('KeyS');
+    expect(keys.takeServiceChord()).toBe(true);
+    expect(keys.take('KeyS')).toBe(false);
+  });
+
+  it('KeyS with shiftKey and no ShiftLeft code is still a chord (CDP modifiers)', () => {
+    const { keys, down } = harness();
+    down('KeyS', true);
+    expect(keys.takeServiceChord()).toBe(true);
+    expect(keys.take('KeyS')).toBe(false);
+  });
+
+  it('unshifted KeyS is not a chord', () => {
+    const { keys, down } = harness();
+    down('KeyS');
+    expect(keys.takeServiceChord()).toBe(false);
+    expect(keys.take('KeyS')).toBe(true);
   });
 });
