@@ -27,4 +27,23 @@ export { myriadSpec, MYRIAD_W, MYRIAD_H, type MyriadState } from './games/myriad
 export { attractDemoTier, demoRuns, type DemoTier } from './engine/attract';
 export { RIVER_W } from './games/river/river';
 export { coastSpec, curveAt, TRACK_LEN, CHECKPOINTS, MAX_SPEED, OFF_ROAD_X, COAST_BILLBOARDS, OBSTACLE_KINDS, type CoastBillboard, type CoastState, type Obstacle, type ObstacleKind } from './games/coast/coast';
+export {
+  circuitSpec,
+  createCircuit,
+  poseAt,
+  projectCar,
+  circuitSteer,
+  CIRCUIT_CAMERA,
+  CIRCUIT_LAPS,
+  CIRCUIT_LIVES,
+  CIRCUIT_MARKS,
+  TRACK_SAMPLES,
+  TRACK_LENGTH,
+  HALF_WIDTH,
+  WALL,
+  CIRCUIT_MAX_SPEED,
+  type CircuitState,
+  type CircuitMark,
+  type TrackSample,
+} from './games/circuit/circuit';
 export { REGISTRY } from './games/registry';

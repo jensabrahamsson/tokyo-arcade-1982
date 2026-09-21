@@ -29,6 +29,7 @@ import { renderGalaxy } from './renderers/galaxy';
 import { renderRiver } from './renderers/river';
 import { renderMyriad } from './renderers/myriad';
 import { renderCoast, drawCoastQualifyingBanner } from './renderers/coast';
+import { renderCircuit } from './renderers/circuit';
 import {
   createNamePad,
   moveCursor,
@@ -73,6 +74,7 @@ const renderers: Partial<Record<GameId, (ctx: CanvasRenderingContext2D, data: ne
   river: (ctx, data, ms) => renderRiver(ctx, data, ms),
   myriad: (ctx, data, ms) => renderMyriad(ctx, data, ms),
   coast: (ctx, data, ms, mini) => renderCoast(ctx, data, ms, lang, mini ?? false),
+  circuit: (ctx, data, ms, mini) => renderCircuit(ctx, data, ms, lang, mini ?? false),
 };
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
@@ -890,6 +892,13 @@ function cabThumb(game: GameId, sx: number, sy: number, sw: number, sh: number, 
       ctx.fillRect(cx - 3, sy + 4, 6, 4);
       ctx.fillRect(cx - 9, sy + 6, 3, 3);
       ctx.fillRect(cx + 6, sy + 6, 3, 3);
+      break;
+    }
+    case 'circuit': {
+      ctx.strokeStyle = accent;
+      ctx.strokeRect(sx + 8, sy + 10, sw - 16, sh - 18);
+      ctx.fillStyle = accent;
+      ctx.fillRect(cx - 3, sy + sh - 16, 8, 4);
       break;
     }
   }

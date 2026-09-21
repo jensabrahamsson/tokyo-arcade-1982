@@ -15,11 +15,11 @@ import { operatorIntent } from './serviceChord';
 /**
  * Wave 0 free-play smoke as pure helpers (no Jens Mac, no fullscreen Chrome).
  * Socket seating lives in arcade.test.ts / http.test.ts; this file walks the
- * client path: splash → title → namepad → 7-cab hall → Coast overlay+stinger
+ * client path: splash → title → namepad → 8-cab hall → Coast overlay+stinger
  * → Escape/KeyB home → snake versus on the hall mini → L language.
  */
 describe('show-floor free-play smoke (wave 0)', () => {
-  it('walks splash → title → namepad → 7-cab hall, Coast 3s overlay+stinger, Escape/KeyB home, snake versus mini, L', () => {
+  it('walks splash → title → namepad → 8-cab hall, Coast 3s overlay+stinger, Escape/KeyB home, snake versus mini, L', () => {
     expect(splashAdvance(0, false)).toBe('splash');
     expect(splashAdvance(SPLASH_MS + 1, false)).toBe('title');
     expect(titleStartTarget(false)).toBe('name');
@@ -31,7 +31,9 @@ describe('show-floor free-play smoke (wave 0)', () => {
     expect(pad.text).toBe('AKIRA');
     expect(titleStartTarget(true)).toBe('hall');
     expect(HALL_SLOTS.map((s) => s.game)).toEqual([...GAME_IDS]);
-    expect(HALL_SLOTS).toHaveLength(7);
+    // R55: wave 0 previously locked 7 slots (R22). The eighth is Circuit d'Or.
+    expect(HALL_SLOTS).toHaveLength(8);
+    expect(HALL_SLOTS.map((s) => s.game)).toContain('circuit');
 
     const coast = {
       game: 'coast' as const,

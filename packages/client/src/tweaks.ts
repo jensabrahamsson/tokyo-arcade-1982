@@ -638,6 +638,7 @@ const CAB_ACCENTS: Record<GameId, string> = {
   galaxy: '#2de2e6',
   myriad: '#e03a8a',
   coast: '#ffa300',
+  circuit: '#d4a017',
 };
 
 export function cabAccent(game: GameId): string {
