@@ -44,7 +44,7 @@ not a substitute), `ARCHITECTURE.md` for *where*, this file for *how*.
 `packages/client/static/art/*.png` is the drop zone for pixel art
 (Cursor / Grok Imagine handoff): 1982 Tokyo arcade style, limited
 palette, small files (16-32 KB each). Current roster: `hall-floor`,
-`cabinet-bezel`, `coast-lo-castle`, `splash-logo`, `marquee-neon`,
+`cabinet-bezel`, `coast-lo-castle`, `splash-logo`, `splash-marquee`, `marquee-neon`,
 `coin-slot`, `credit-panel`, `wait-badge` (all `.png`). OpenCode
 never draws art — it writes the manifest/loader/wiring only. Core must never touch
 Image/DOM/fetch; missing files fall back to procedural drawing.
@@ -169,7 +169,7 @@ packages/client   main.ts, net.ts, input.ts, namepad.ts, audio/, renderers/, sta
 ```
 
 ```sh
-npm test                # vitest run (572 tests, incl. real-socket E2E)
+npm test                # vitest run (581 tests, incl. real-socket E2E)
 npx vitest run <path>   # one file while iterating
 npm run typecheck       # tsc -b
 node build.mjs          # esbuild bundles into dist/

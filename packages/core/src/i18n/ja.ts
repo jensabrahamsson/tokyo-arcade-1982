@@ -4,7 +4,7 @@ export const JA: Record<keyof typeof EN, string> = {
   'app.title': 'トウキョウ アーケード',
   'app.year': '1982年',
   'splash.welcome': 'ようこそ —— どうぞ お入りください',
-  'splash.enter': 'スペースキーで 入場',
+  'splash.enter': 'スタート！',
   'hall.name': 'トウキョウ・ゲームセンター 1982年',
   'hall.insertCoin': 'コインを入れてね',
   'hall.pressStart': 'スペースキーで スタート',
