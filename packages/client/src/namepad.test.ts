@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { createNamePad, moveCursor, pressKey, keyAt, type NamePad } from './namepad';
+import {
+  createNamePad,
+  moveCursor,
+  pressKey,
+  pressNamePadSelect,
+  pressNamePadSpace,
+  keyAt,
+  type NamePad,
+} from './namepad';
 
 describe('namepad (marquee keyboard input)', () => {
   it('starts empty with a cursor and 12-char limit', () => {
@@ -23,10 +31,54 @@ describe('namepad (marquee keyboard input)', () => {
     expect(p.text).toBe('');
   });
 
-  it('space key inserts a space', () => {
+  it('space key inserts a space after the first character', () => {
     let p = pressKey(createNamePad(), 'A');
     p = pressKey(p, ' ');
     expect(p.text).toBe('A ');
+  });
+
+  it('rejects a leading space in the tag', () => {
+    let p = pressKey(createNamePad(), ' ');
+    expect(p.text).toBe('');
+    p = pressKey(pressKey(p, 'A'), ' ');
+    expect(p.text).toBe('A ');
+  });
+
+  it('physical Space only inserts when the cursor is on the space cell (Wave 0 CDP)', () => {
+    let p = createNamePad();
+    expect(keyAt(p, p.cursor)).toBe('Q');
+    p = pressNamePadSpace(p);
+    expect(p.text).toBe('');
+    p = moveCursor(p, { dr: 3, dc: 0 });
+    expect(keyAt(p, p.cursor)).toBe(' ');
+    p = pressKey(p, 'A');
+    p = pressNamePadSpace(p);
+    expect(p.text).toBe('A ');
+  });
+
+  it('typing AKIRA after an accidental Space at Q stays AKIRA', () => {
+    let p = createNamePad();
+    p = pressNamePadSpace(p);
+    for (const k of ['A', 'K', 'I', 'R', 'A']) p = pressKey(p, k);
+    expect(p.text).toBe('AKIRA');
+  });
+
+  it('select at cursor still commits Q when the player chooses it', () => {
+    let p = createNamePad();
+    p = pressNamePadSelect(p);
+    expect(p.text).toBe('Q');
+  });
+
+  it('physical Space still activates OK and backspace cells', () => {
+    let p = pressKey(createNamePad(), 'A');
+    p = moveCursor(p, { dr: 3, dc: 2 });
+    expect(keyAt(p, p.cursor)).toBe('OK');
+    p = pressNamePadSpace(p);
+    expect(p.done).toBe(true);
+    p = pressKey(createNamePad(), 'Z');
+    p = moveCursor(p, { dr: 3, dc: 1 });
+    p = pressNamePadSpace(p);
+    expect(p.text).toBe('');
   });
 
   it('rejects characters outside the keyboard and empty presses', () => {
