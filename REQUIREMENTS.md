@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (568 tests, incl. real-WebSocket E2E for 2- and)
+  `npm test` green (572 tests, incl. real-WebSocket E2E for 2- and)
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7). The integer is this checkout; bump it here, in
   README, and in AGENTS in the same commit. Do not copy unmerged PR counts.
@@ -794,7 +794,10 @@ mini-screen card — not a replacement for the demo.
   spotlight and ready-phase overlay use `cabinetArtFile(..., 'hero')`.
   Never a replacement for live gameplay (R8 attract
   demos and in-cabinet `step()` stay). Puck sheet is a hockey puck,
-  not a maze ghost.
+  not a maze ghost. Coast leftover (same exception as R56.5 / P1-A):
+  solo `begin()` jumps to `playing`, so the in-cabinet `coast-hero`
+  plate still shows ~3 s after the first seated snapshot, independent
+  of phase. After the window, live `step()` is visible. Do not regress.
 
 ## Constraints for R57
 
