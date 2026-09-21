@@ -49,10 +49,15 @@ export function curveAt(dist: number): number {
   return CURVE[Math.max(0, Math.floor(dist / SEG)) % CURVE.length]!;
 }
 
+/** roadside prop kinds — positions live in core; the client draws the sprite */
+export const OBSTACLE_KINDS = ['barrel', 'cone', 'rock', 'post', 'crate'] as const;
+export type ObstacleKind = (typeof OBSTACLE_KINDS)[number];
+
 export interface Obstacle {
   d: number;
   x: number;
   hit: boolean;
+  kind: ObstacleKind;
 }
 
 export interface CoastState extends GameStateBase {
@@ -70,7 +75,12 @@ const makeObstacles = (seed: number): Obstacle[] => {
   const rng = createRng(seed);
   const out: Obstacle[] = [];
   for (let i = 0; i < 14; i++) {
-    out.push({ d: 260 + i * 120 + rng.int(60), x: -1.3 + rng.next() * 2.6, hit: false });
+    out.push({
+      d: 260 + i * 120 + rng.int(60),
+      x: -1.3 + rng.next() * 2.6,
+      hit: false,
+      kind: rng.pick(OBSTACLE_KINDS),
+    });
   }
   return out;
 };

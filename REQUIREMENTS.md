@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (491 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (502 tests, incl. real-WebSocket E2E for 2- and)
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
@@ -225,7 +225,8 @@ change R8.1–R8.5.
 - R22.1 A pseudo-3D coast racing cabinet inspired by Sega OutRun (1986),
   rebuilt in the same 1982 hall spirit: `packages/core` pure logic
   (`games/coast`), server-authoritative, canvas renderer, chiptune only,
-  EN/JA.
+  EN/JA. Visual bar is R56 (Pole Position / early OutRun silhouette,
+  never C64 Night Driver void).
 - R22.2 The background landmark is the LO castle of Liseberg,
   Gothenburg (wooden fairytale castle silhouette on the horizon with
   parallax against the road curves) — never Mount Fuji or any
@@ -618,15 +619,16 @@ paths/protocol keep `arkad`. EN/JA tables updated in lockstep.
   Pure `readyStingerDue()` / `attractMusicActive()` helpers unit-tested.
 - R54.6 LO Castle (LO-borgen) is Coast's primary landmark: larger,
   sun-haloed, flag on the keep, far-distance parallax; PNG plus
-  procedural fallback. `static/art/coast-lo-castle.png` is still the
-  16×16 placeholder — the P1-6 loader ignores sub-64 px stubs, so the
-  procedural castle draws until the real art lands in an Imagine drop.
+  procedural fallback. `static/art/coast-lo-castle.png` is a real
+  size-gated drop (≥64 px, 16–32 KB class); P1-6 still ignores sub-64
+  stubs. Draw scale is Fuji-wide on the horizon (R56), not a 16×16 stretch.
 - R54.7 Drive-past roadside billboards along the coast road — stylized
   8-bit Swedish nostalgia tableaux (Center tree, Harpsund dinghy,
   Bommersvik lodge, Valdebatt '76, Palme in Havana) at fixed track
-  distances; `static/art/coast-*.png` PNG drop zone wired in the R38
-  manifest, procedural fallback until art lands. Homage scenery,
-  not propaganda.
+  distances; `static/art/coast-*.png` in the R38 manifest are real
+  paletted PNG drops (not JPEG named `.png`). Homage scenery, not
+  propaganda. Landmark *moments* — they must not clutter the vanishing
+  point every frame (R56).
 
 ## R55 — Circuit d’Or / サーキット・ドール / Guldvarvet (queued)
 
@@ -651,19 +653,34 @@ Never ship the string “Le Mans” on marquees, UI, i18n, or filenames.
 - R55.4 Look: bright circuit, readable at speed. Not Night Driver. Not
   the R22 Coast camera.
 
-## R56 — Coast Pole Position look (visual bar)
+## R56 — Coast look: Pole Position / early OutRun (not Night Rider)
 
-Coast must read **1982–83 Japanese arcade racing** (Pole Position /
-early OutRun silhouette), not C64 Night Rider / Night Driver void.
-Wave 1 lands the look and writes the detailed R-text in the same PR.
-R22 mechanics and the R54.5 「予選スタート！」 overlay stay required.
+Coast (R22) is an OutRun-feel drive with Pole Position chrome and the
+R54.5 「予選スタート！」 call. A frozen cabinet frame must read **1982–83
+Japanese arcade racing**, never a dark sparse C64 Night Driver / Night
+Rider tunnel. Visual bar on top of R22 / R54 — not a new camera, not a
+new game.
 
-- R56.1 Bright daytime or clear dusk: sky band, horizon, vanishing-point
-  road, chunky rear-view car, roadside rhythm (posts / signs / trees /
-  billboards) readable at speed. Swedish landmarks stay billboard
-  **moments** (R54.7), not a black void with a speck car.
-- R56.2 Visual bar on top of R22 / R54 — not a new camera, not a new
-  game. Qualifying overlay (R54.5) must remain.
+- R56.1 Sky is a bright daytime or clear-dusk band (saturated arcade
+  RGB, high contrast against the road). Navy/black void fills are a
+  spec fail. Unit-tested via luma of the palette constants.
+- R56.2 The road is a vanishing-point trapezoid with grass shoulders,
+  striped rumble, and a dashed center line. It must not paint a
+  full-width gray slab that eats the grass at the horizon.
+- R56.3 The player car is a chunky rear-view sprite (Pole Position
+  weight — body ≥64 px wide on the 320×240 playfield), not a speck.
+- R56.4 Roadside rhythm: striped posts and trees at a fixed scroll
+  step so the shoulder reads at speed. Presentation only; core
+  obstacles stay data (`kind` + position). Swedish billboards (R54.7)
+  and LO-borgen (R54.6) are *moments*, not a postcard on every frame.
+- R56.5 Qualifying overlay `t('coast.qualifying')` still shows ~3 s
+  after the first seated Coast snapshot, independent of phase (P1-A /
+  R54.5). The Lyria stinger still fires once per table. Do not regress.
+- R56.6 HUD TIME / OFF ROAD / speed units stay in lockstep EN+JA
+  (metric km/h on this Tokyo cabinet). Chunky arcade digits, not a
+  modern minimal overlay.
+- R56.7 A frozen-frame recorder test (mock canvas) must see sky + road
+  + chunky car + roadside fills — a black-tunnel ratio is a fail.
 
 ## R57 — Art ID catalog (Wave 3)
 
@@ -680,13 +697,14 @@ Reserved bands (filenames already in R38 / R46 / R54):
 - R57.8–R57.9 Reserved per-cabinet filenames not yet in `ART_FILES`;
   JPEG pilots already off the static path (P2-C).
 - R57.10–R57.30 Per-cabinet hero / marquee / attract (7×3).
-- R57.40–R57.45 LO-borgen + five Coast billboards (Wave 1 owns the
-  PNG drops).
+- R57.40–R57.45 LO-borgen + five Coast billboards — Wave 1 landed the
+  PNG drops (R54.6 / R54.7).
 - R57.50 No fake 16×16 “heroes”; a drop under 64 px does not land.
-- R57.51 Provenance stays `PROCEDURAL UNTIL ART LANDS` until one R57
-  asset is landed.
+- R57.51 Provenance names Coast PNGs after Wave 1; hall chrome stays
+  procedural until Wave 3.
 
-Zero assets landed on `origin/main`. 16×16 stubs are not landed (P1-6).
+Coast landmark PNGs landed with Wave 1. Hall / six-cabinet plates still
+await Wave 3. 16×16 stubs are not landed (P1-6).
 
 ## Lab — Jev self-play & 1-minute autoplay (all cabinets)
 

@@ -55,7 +55,7 @@ export const EN = {
   'game.myriad.tag': 'DONT TOUCH THE BUG',
   'coast.qualifying': 'QUALIFYING START!',
   'coast.time': 'TIME',
-  'coast.mph': 'MPH',
+  'coast.mph': 'KM/H',
   'coast.gate': 'GATE',
   'coast.offRoad': 'OFF ROAD!',
   'hud.score': 'SCORE',

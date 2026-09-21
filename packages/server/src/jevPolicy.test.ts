@@ -973,7 +973,7 @@ describe('coast obstacle-ahead not always straight', () => {
       phase: 'playing',
       playerX: 0,
       dist: 0,
-      obstacles: [{ d: 12, x: 0, hit: false }],
+      obstacles: [{ d: 12, x: 0, hit: false, kind: 'barrel' }],
     };
     const jev = JEV_ADAPTERS.coast!(s)!;
     expect(jev.legal).not.toContain('straight');
