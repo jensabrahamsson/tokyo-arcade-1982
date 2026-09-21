@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (469 tests, incl. real-WebSocket E2E for 2- and
+  `npm test` green (491 tests, incl. real-WebSocket E2E for 2- and
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7).
 - R7.3 Deterministic, framework-free core: pure `create`/`step` on a
@@ -113,17 +113,12 @@ not a substitute — if it is not written here, it is not the contract.
   and unit-tested; the hall view shows them through the same snapshot
   channel as live games.
 
-### Optional: Jev snake self-play (not a hall R-feature)
+### Optional: Jev attract self-play (not a hall R-feature)
 
-Operator/autotest flag, not a cabinet requirement. When
-`ARKAD_JEV_SELFPLAY=1`, the snake attract table may replace `spec.demo`
-with a TypeSafe Jev choice over legal actions (parallel noul danger +
-score aggression), mapped through a confidence threshold onto the
-existing stick. `TYPESAFE_API_KEY` may be unset: fail-closed to
-`spec.demo`. Local key file is gitignored `.env.typesafe` at the repo
-root (never commit). Rate-limited ~5–10 Hz, cached between calls, no
-live API in CI. Other cabinets stay on their deterministic bots. Does
-not change R8.1–R8.5.
+Operator/autotest flag, not a cabinet requirement. See **Lab — Jev
+self-play** (end of this file) for the seven-cabinet contract: fail-closed
+to `spec.demo`, Block/Myriad MUST payload, Galaxy/Coast SHOULD. Does not
+change R8.1–R8.5.
 
 ## R9 — Arrow keys everywhere
 
@@ -695,29 +690,34 @@ Zero assets landed on `origin/main`. 16×16 stubs are not landed (P1-6).
 
 ## Lab — Jev self-play & 1-minute autoplay (all cabinets)
 
+Operator/autotest flag, not a cabinet R-feature. Does not change R8.1–R8.5.
+Adapters live in `packages/server/src/jevPolicy.ts`; core stays pure (no
+fetch). Notes: [`JEV.md`](JEV.md).
+
 - Enable: `ARKAD_JEV_SELFPLAY=1` + `TYPESAFE_API_KEY` (env or gitignored
   `.env.typesafe`). Attract demos of ALL seven cabinets consult Jev at
   ~8 Hz with compact JSON state; missing key/HTTP/low-confidence
-  fail-closed to `spec.demo`. Adapters: `JEV_ADAPTERS` in
-  `packages/server/src/jevPolicy.ts`; core stays pure (no fetch).
+  fail-closed to `spec.demo`.
+- Harden: flaky network/408/429/5xx retry once then fail-closed; logs never
+  print the API key or Bearer token; confidence must be finite and in
+  `[floor, 1]`; shared ~8 Hz rate limit (`JEV_MIN_INTERVAL_MS`).
+- MUST Block: payload carries predicted landing x, signed error vs
+  `paddleCenter`, and `dy` sign. Legal `stay` is dropped when `|error|` is
+  large. Rubric is “line up under the predicted landing”. Tests: falling
+  left → left/right; aligned → stay; low confidence → demo fallback.
+- MUST Myriad: payload carries nearest-segment dx/dy/manhattan, in-column,
+  mushrooms-in-column, and fire-would-hit. Fewer legal choices when safe
+  (omit fire when beside). Tests: above+clear → fire; beside → dodge; low
+  confidence → demo; honour the per-game floor (0.25).
+- SHOULD Galaxy: boolean alien-directly-above; omit `fire` when the sky
+  above the ship is empty. Test: empty sky → fire is not always legal.
+- SHOULD Coast: if an obstacle sits on the current line ahead, legal/rubric
+  push left/right — not always `straight`. Test: obstacle dead ahead →
+  `straight` illegal.
 - One-minute autoplay per cabinet (mock-fetch unit tests cover all
   games; the live harness runs outside the vitest suite):
   `ARKAD_JEV_AUTOPLAY_SECONDS=60 npm run jev:autoplay` — prints
   ticks/calls/ok/avg-confidence per cabinet and exits 0; without a key
   every game is skipped with a log line.
-
-### Adapter tuning (Wave 4 fills measurements in the same PR)
-
-Tuning is Lab, not a new R-batch. Wave 4 owns the implementation and
-the before/after numbers; this heading is the contract so those edits
-have a home. Fail-closed to `spec.demo` stays. CI stays mock-fetch
-(no live API in CI). Core stays pure.
-
-- **MUST — Block:** the paddle should track the ball, not sit on stay
-  while the ball is clearly off-center.
-- **MUST — Myriad:** fire when a segment is in-column and the shot is
-  clear; otherwise dodge. Fire-spam is not the default.
-- **SHOULD — Galaxy:** omit fire when the sky above the ship is empty.
-- **SHOULD — Coast:** if an obstacle is dead ahead on the current line,
-  prefer left/right over straight-only.
-- Snake / puck / river: do not regress.
+- Optional soak: `ARKAD_JEV_SOAK_MINUTES=5 npm run jev:soak` writes
+  `data/jev-soak.json` (gitignored; override with `ARKAD_JEV_SOAK_REPORT`).

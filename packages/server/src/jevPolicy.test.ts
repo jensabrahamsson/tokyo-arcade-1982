@@ -2,7 +2,24 @@ import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DIRS, GAME_IDS, REGISTRY, coastSpec, snakeSpec, type GameId, type GameStateBase, type SnakeState, type PlayerInput } from '@arkad/core';
+import {
+  DIRS,
+  GAME_IDS,
+  REGISTRY,
+  blockSpec,
+  coastSpec,
+  galaxySpec,
+  myriadSpec,
+  snakeSpec,
+  type BlockState,
+  type CoastState,
+  type GameId,
+  type GameStateBase,
+  type GalaxyState,
+  type MyriadState,
+  type PlayerInput,
+  type SnakeState,
+} from '@arkad/core';
 import {
   ACTION_DIRS,
   JEV_CONFIDENCE_MIN,
@@ -13,19 +30,22 @@ import {
   applyTypesafeEnv,
   askJev,
   compactSnakeState,
+  confidenceAcceptable,
   dirToAction,
+  jevReasonRetryable,
   jevSelfPlayFromEnv,
   legalSnakeActions,
   loadTypesafeEnvFile,
   mapJevToInput,
   parseDotEnv,
   rateLimitAllows,
+  redactSecrets,
   runJevSmoke,
   snakeJevQuestions,
   JEV_ADAPTERS,
   mapChoiceToInput,
 } from './jevPolicy';
-import { runAutoplayForAll } from './jevAutoplay';
+import { runAutoplayForAll, writeSoakReport } from './jevAutoplay';
 
 const cfg = { mode: 'solo' as const, playerIds: ['demo'], seed: 1982 };
 const fallback: PlayerInput = { dir: DIRS.right, button: false, seq: 0 };
@@ -448,6 +468,19 @@ describe('jev adapters for all seven cabinets', () => {
     return { ...spec.create({ mode: 'solo', playerIds: ['demo'], seed: 1982 }), phase: 'playing' } as GameStateBase;
   };
 
+  const myriadBugAbove = (raw: GameStateBase): MyriadState => {
+    const s = raw as MyriadState;
+    return {
+      ...s,
+      player: { x: 10, y: 22 },
+      segments: [
+        { x: 10, y: 6 },
+        { x: 10, y: 5 },
+      ],
+      mushrooms: {},
+    };
+  };
+
   for (const id of GAME_IDS) {
     it(`${id}: adapter compacts to a payload with legal actions and a choice question`, () => {
       const adapter = JEV_ADAPTERS[id]!;
@@ -515,10 +548,13 @@ describe('jev adapters for all seven cabinets', () => {
   });
 
   it('myriad carries a per-game confidence floor below the global one (5-choice cap)', () => {
-    const jev = JEV_ADAPTERS.myriad!(playing('myriad'))!;
+    // Wave 4: fire is only legal with a bug/mushroom in-column (was always one of five).
+    // Floor stays ≥0.25 because 3–4 choices still cap Jev confidence near argmax.
+    const jev = JEV_ADAPTERS.myriad!(myriadBugAbove(playing('myriad')))!;
     expect(jev.confidenceMin).toBeDefined();
     expect(jev.confidenceMin!).toBeLessThan(JEV_CONFIDENCE_MIN);
     expect(jev.confidenceMin!).toBeGreaterThanOrEqual(0.25);
+    expect(jev.legal).toContain('fire');
     const fb: PlayerInput = { dir: DIRS.right, button: false, seq: 0 };
     const conf = jev.confidenceMin! + 0.02;
     const got = mapChoiceToInput({ action: { choice: 'fire', confidence: conf } }, jev, fb, 5);
@@ -538,7 +574,8 @@ describe('jev adapters for all seven cabinets', () => {
       });
     }) as unknown as typeof fetch;
     const myriadBot = new JevSelfPlay({ apiKey: 'k', fetchImpl, minIntervalMs: 0 });
-    const ms = playing('myriad');
+    // in-column fixture so fire stays legal after the Wave 4 shrink
+    const ms = myriadBugAbove(playing('myriad'));
     myriadBot.inputFor('myriad', ms, 1, { dir: null, button: false, seq: 1 });
     await flush();
     const held = myriadBot.inputFor('myriad', ms, 2, { dir: null, button: false, seq: 2 });
@@ -591,4 +628,357 @@ describe('one-minute autoplay harness', () => {
     const summaries = await runAutoplayForAll({ apiKey: '', secondsPerGame: 0.02, log: () => undefined });
     expect(summaries.every((s) => s.skipped)).toBe(true);
   });
+
+  it('stays green per cabinet when the mock returns a legal action', async () => {
+    const fetchImpl = (async (_url: unknown, init?: RequestInit) => {
+      const sent = JSON.parse(String(init?.body)) as {
+        questions: { action?: { type: string; criteria?: Record<string, string> } };
+      };
+      const legal = Object.keys(sent.questions.action?.criteria ?? {});
+      return jsonResponse({
+        model: 'jev-1.13.0',
+        answers: { action: { type: 'choice', choice: legal[0] ?? 'stay', confidence: 0.91 } },
+      });
+    }) as unknown as typeof fetch;
+    const summaries = await runAutoplayForAll({
+      apiKey: 'k',
+      fetchImpl,
+      secondsPerGame: 0.05,
+      minIntervalMs: 0,
+      sleep: async () => Promise.resolve(),
+      now: () => Date.now(),
+      log: () => undefined,
+    });
+    expect(summaries).toHaveLength(GAME_IDS.length);
+    for (const s of summaries) {
+      expect(s.skipped).toBe(false);
+      expect(s.ticks).toBeGreaterThan(0);
+      expect(s.ok).toBeGreaterThan(0);
+      expect(s.avgConfidence).not.toBeNull();
+      expect(s.avgConfidence!).toBeGreaterThan(0.5);
+    }
+  });
 });
+
+describe('confidence floors', () => {
+  const legal = ['up', 'down', 'right'] as const;
+
+  it('accepts a choice at the global floor and rejects values outside [floor, 1]', () => {
+    expect(confidenceAcceptable(JEV_CONFIDENCE_MIN)).toBe(true);
+    expect(confidenceAcceptable(1)).toBe(true);
+    expect(confidenceAcceptable(JEV_CONFIDENCE_MIN - 0.01)).toBe(false);
+    expect(confidenceAcceptable(1.01)).toBe(false);
+    expect(confidenceAcceptable(Number.POSITIVE_INFINITY)).toBe(false);
+    const atFloor = {
+      action: { type: 'choice', choice: 'up', confidence: JEV_CONFIDENCE_MIN, probabilities: { up: 1 } },
+    };
+    expect(mapJevToInput(atFloor, legal, fallback, 4).dir).toEqual(ACTION_DIRS.up);
+    const over = {
+      action: { type: 'choice', choice: 'up', confidence: 1.5, probabilities: { up: 1 } },
+    };
+    expect(mapJevToInput(over, legal, fallback, 4)).toEqual(fallback);
+  });
+});
+
+describe('askJev retry-then-fallback', () => {
+  it('retries once on a flaky network then succeeds', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('ECONNRESET'))
+      .mockResolvedValueOnce(jsonResponse(jevOk));
+    const got = await askJev({ apiKey: 'k', state: { game: 'snake' }, questions: {}, fetchImpl });
+    expect(got.ok).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries once on http_503 then fail-closes', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ error: 'busy' }, 503));
+    const got = await askJev({ apiKey: 'k', state: {}, questions: {}, fetchImpl });
+    expect(got.ok).toBe(false);
+    if (!got.ok) expect(got.reason).toBe('http_503');
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(jevReasonRetryable('http_503')).toBe(true);
+    expect(jevReasonRetryable('network')).toBe(true);
+    expect(jevReasonRetryable('http_401')).toBe(false);
+  });
+
+  it('does not retry a 401 (bad key stays fail-closed)', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ error: 'nope' }, 401));
+    const got = await askJev({ apiKey: 'k', state: {}, questions: {}, fetchImpl });
+    expect(got.ok).toBe(false);
+    if (!got.ok) expect(got.reason).toBe('http_401');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('JevSelfPlay retries once then uses the demo fallback stick', async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('offline');
+    });
+    const bot = new JevSelfPlay({ apiKey: 'k', fetchImpl, now: () => 0, minIntervalMs: 0 });
+    bot.inputFor('snake', liveSnake(), 1, fallback);
+    await flush();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(bot.stats.failed).toBe(1);
+    expect(bot.stats.retries).toBe(1);
+    expect(bot.stats.ok).toBe(0);
+    expect(bot.inputFor('snake', liveSnake(), 2, fallback)).toEqual(fallback);
+  });
+});
+
+describe('rate limit across cabinets', () => {
+  it('one JevSelfPlay shares the interval so two games do not burst-fetch', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(jevOk));
+    let now = 0;
+    const bot = new JevSelfPlay({ apiKey: 'k', fetchImpl, now: () => now, minIntervalMs: 100 });
+    bot.inputFor('snake', liveSnake(), 1, fallback);
+    bot.inputFor('coast', playingCoast(), 1, fallback);
+    await flush();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    now = 99;
+    bot.inputFor('coast', playingCoast(), 2, fallback);
+    await flush();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    now = 100;
+    bot.inputFor('coast', playingCoast(), 3, fallback);
+    await flush();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('secret-free Jev logs', () => {
+  const SECRET = 'sk-jev-test-secret-9f3c-do-not-print';
+
+  it('redactSecrets strips Bearer tokens, env assignments and provided secrets', () => {
+    const raw = `Authorization: Bearer ${SECRET} TYPESAFE_API_KEY=${SECRET} leftover ${SECRET}`;
+    const out = redactSecrets(raw, [SECRET]);
+    expect(out).not.toContain(SECRET);
+    expect(out).not.toMatch(/Bearer\s+\S*sk-/i);
+    expect(out).toMatch(/\[redacted\]/);
+  });
+
+  it('JevSelfPlay logs never include the API key even when fetch throws it', async () => {
+    const lines: string[] = [];
+    const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      throw new Error(`upstream 502 Authorization: ${headers.get('Authorization')}`);
+    });
+    const bot = new JevSelfPlay({
+      apiKey: SECRET,
+      fetchImpl,
+      now: () => 0,
+      minIntervalMs: 0,
+      log: (l) => lines.push(l),
+    });
+    bot.inputFor('snake', liveSnake(), 1, fallback);
+    await flush();
+    const blob = lines.join('\n');
+    expect(blob.length).toBeGreaterThan(0);
+    expect(blob).toMatch(/fail-closed/i);
+    expect(blob).not.toContain(SECRET);
+    expect(blob).not.toMatch(/Bearer\s+/i);
+  });
+
+  it('runJevSmoke does not echo the key', async () => {
+    const lines: string[] = [];
+    await runJevSmoke({
+      env: { TYPESAFE_API_KEY: SECRET },
+      fetchImpl: async () => jsonResponse(jevOk),
+      log: (l) => lines.push(l),
+    });
+    expect(lines.join('\n')).not.toContain(SECRET);
+  });
+});
+
+describe('cached coast straight is not treated as fire', () => {
+  it('reuses a button-only straight on the next tick', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({
+        model: 'jev-1.13.0',
+        answers: { action: { type: 'choice', choice: 'straight', confidence: 0.88 } },
+      }),
+    );
+    const bot = new JevSelfPlay({ apiKey: 'k', fetchImpl, now: () => 0, minIntervalMs: 1000 });
+    const coast = playingCoast();
+    const fb: PlayerInput = { dir: DIRS.left, button: false, seq: 0 };
+    bot.inputFor('coast', coast, 1, fb);
+    await flush();
+    const held = bot.inputFor('coast', coast, 2, fb);
+    expect(held.button).toBe(true);
+    expect(held.dir).toBeNull();
+    expect(held.seq).toBe(2);
+    expect(bot.stats.ok).toBe(1);
+  });
+});
+
+describe('soak report', () => {
+  it('writes a JSON report under a temp path and skips without a key', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'arkad-jev-soak-'));
+    try {
+      const reportPath = join(dir, 'jev-soak.json');
+      const skipped = await writeSoakReport({
+        apiKey: '',
+        reportPath,
+        minutesPerGame: 0.001,
+        log: () => undefined,
+      });
+      expect(skipped.cabinets.every((c) => c.skipped)).toBe(true);
+      const disk = JSON.parse(readFileSync(reportPath, 'utf8')) as { cabinets: { skipped: boolean }[] };
+      expect(disk.cabinets).toHaveLength(GAME_IDS.length);
+      expect(disk.cabinets.every((c) => c.skipped)).toBe(true);
+
+      const fetchImpl = (async () =>
+        jsonResponse({
+          model: 'jev-1.13.0',
+          answers: { action: { type: 'choice', choice: 'stay', confidence: 0.9 } },
+        })) as unknown as typeof fetch;
+      const livePath = join(dir, 'live.json');
+      const live = await writeSoakReport({
+        apiKey: 'k',
+        fetchImpl,
+        reportPath: livePath,
+        minutesPerGame: 0.0001,
+        minIntervalMs: 0,
+        sleep: async () => Promise.resolve(),
+        now: () => Date.now(),
+        log: () => undefined,
+      });
+      expect(live.cabinets.every((c) => !c.skipped)).toBe(true);
+      expect(JSON.parse(readFileSync(livePath, 'utf8')).totalCalls).toBeGreaterThan(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('gitignore keeps soak output out of git (data/ and .env.typesafe)', () => {
+    const gi = readFileSync(join(process.cwd(), '.gitignore'), 'utf8');
+    const lines = gi.split(/\r?\n/).map((l) => l.trim());
+    expect(lines).toContain('data/');
+    expect(lines).toContain('.env.typesafe');
+  });
+});
+
+function playingCoast(): GameStateBase {
+  return { ...coastSpec.create({ mode: 'solo', playerIds: ['demo'], seed: 1982 }), phase: 'playing' } as GameStateBase;
+}
+
+function liveBlock(): BlockState {
+  return { ...blockSpec.create(cfg), phase: 'playing', serveTimer: 0 };
+}
+
+function liveMyriad(): MyriadState {
+  return { ...myriadSpec.create(cfg), phase: 'playing' };
+}
+
+describe('block intercept payload + stay shrink', () => {
+  it('falling left of the paddle drops stay and keeps left/right', () => {
+    const s: BlockState = { ...liveBlock(), ball: { x: 8, y: 20, dx: 0, dy: 0.3 } };
+    const jev = JEV_ADAPTERS.block!(s)!;
+    expect(jev.payload.landX).toBeLessThan(jev.payload.paddleCenter as number);
+    expect(jev.payload.error as number).toBeLessThan(-1);
+    expect(jev.payload.dySign).toBe(1);
+    expect(jev.legal).toContain('left');
+    expect(jev.legal).toContain('right');
+    expect(jev.legal).not.toContain('stay');
+    expect(JSON.stringify(jev.questions(jev.payload))).toMatch(/predicted land/i);
+  });
+
+  it('aligned falling ball keeps stay', () => {
+    const s: BlockState = { ...liveBlock(), ball: { x: 15, y: 20, dx: 0, dy: 0.3 } };
+    const jev = JEV_ADAPTERS.block!(s)!;
+    expect(Math.abs(jev.payload.error as number)).toBeLessThan(0.7);
+    expect(jev.legal).toContain('stay');
+  });
+
+  it('low confidence never overrides the fallback', () => {
+    const s: BlockState = { ...liveBlock(), ball: { x: 8, y: 20, dx: 0, dy: 0.3 } };
+    const jev = JEV_ADAPTERS.block!(s)!;
+    const fb: PlayerInput = { dir: DIRS.right, button: false, seq: 0 };
+    expect(mapChoiceToInput({ action: { choice: 'left', confidence: 0.1 } }, jev, fb, 3)).toEqual(fb);
+  });
+});
+
+describe('myriad nearest-segment geometry', () => {
+  it('above+clear includes fire, records geometry, and shrinks the 5-way stick', () => {
+    const s: MyriadState = {
+      ...liveMyriad(),
+      player: { x: 10, y: 22 },
+      segments: [
+        { x: 10, y: 6 },
+        { x: 10, y: 5 },
+      ],
+      mushrooms: {},
+    };
+    const jev = JEV_ADAPTERS.myriad!(s)!;
+    expect(jev.payload.inColumn).toBe(true);
+    expect(jev.payload.fireWouldHit).toBe(true);
+    expect(jev.payload.nearest).toMatchObject({ dx: 0, dy: -16 });
+    expect(jev.legal).toContain('fire');
+    expect(jev.legal.length).toBeLessThan(5);
+  });
+
+  it('beside a segment omits fire and keeps a dodge', () => {
+    const s: MyriadState = {
+      ...liveMyriad(),
+      player: { x: 10, y: 22 },
+      segments: [{ x: 18, y: 8 }],
+      mushrooms: {},
+    };
+    const jev = JEV_ADAPTERS.myriad!(s)!;
+    expect(jev.payload.inColumn).toBe(false);
+    expect(jev.legal).not.toContain('fire');
+    expect(jev.legal.includes('left') || jev.legal.includes('right')).toBe(true);
+  });
+
+  it('low confidence falls back to the demo stick', () => {
+    const s: MyriadState = {
+      ...liveMyriad(),
+      player: { x: 10, y: 22 },
+      segments: [
+        { x: 10, y: 6 },
+        { x: 10, y: 5 },
+      ],
+      mushrooms: {},
+    };
+    const jev = JEV_ADAPTERS.myriad!(s)!;
+    const fb: PlayerInput = { dir: DIRS.right, button: false, seq: 0 };
+    expect(mapChoiceToInput({ action: { choice: 'fire', confidence: 0.1 } }, jev, fb, 4)).toEqual(fb);
+  });
+});
+
+describe('galaxy empty-sky fire greed', () => {
+  it('omits fire when no alien is above the ship', () => {
+    const s = { ...galaxySpec.create(cfg), phase: 'playing', aliens: [] } as GalaxyState;
+    expect(JEV_ADAPTERS.galaxy!(s)!.legal).not.toContain('fire');
+    expect(JEV_ADAPTERS.galaxy!(s)!.payload.alienAbove).toBe(false);
+  });
+
+  it('keeps fire when an alien is in the gun column', () => {
+    const base = galaxySpec.create(cfg);
+    const s = {
+      ...base,
+      phase: 'playing' as const,
+      player: { x: 12, y: base.player.y },
+      aliens: [{ ...base.aliens[0]!, x: 12, y: 8, mode: 'grid' as const }],
+    };
+    expect(JEV_ADAPTERS.galaxy!(s)!.legal).toContain('fire');
+    expect(JEV_ADAPTERS.galaxy!(s)!.payload.alienAbove).toBe(true);
+  });
+});
+
+describe('coast obstacle-ahead not always straight', () => {
+  it('drops straight when an obstacle sits on the current line', () => {
+    const base = coastSpec.create(cfg);
+    const s: CoastState = {
+      ...base,
+      phase: 'playing',
+      playerX: 0,
+      dist: 0,
+      obstacles: [{ d: 12, x: 0, hit: false }],
+    };
+    const jev = JEV_ADAPTERS.coast!(s)!;
+    expect(jev.legal).not.toContain('straight');
+    expect(jev.legal.includes('left') || jev.legal.includes('right')).toBe(true);
+    expect(jev.payload.onLine).toBe(true);
+  });
+});
+

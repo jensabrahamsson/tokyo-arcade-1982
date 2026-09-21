@@ -55,11 +55,11 @@ unit testing, and snapshots that are just `JSON.stringify` of state.
   inputs, and the gameOver→highscore hook.
 - `highscores.ts` — top-10 lists per game+mode in `data/scores.json`
   with shape-checked loads and non-throwing saves.
-- `jevPolicy.ts` — optional TypeSafe Jev self-play for the snake attract
-  demo (`ARKAD_JEV_SELFPLAY=1`). Compact JSON snapshot in, stick out;
+- `jevPolicy.ts` — optional TypeSafe Jev self-play for all seven attract
+  cabinets (`ARKAD_JEV_SELFPLAY=1`). Compact JSON snapshot in, stick out;
   `TYPESAFE_API_KEY` from the environment or gitignored `.env.typesafe`;
-  missing key or HTTP failure fail-closed to `spec.demo`. Fetch stays
-  here; core never sees it.
+  missing key, low confidence, or HTTP failure (one retry on flaky
+  network) fail-closed to `spec.demo`. Fetch stays here; core never sees it.
 
 Model: **full snapshot broadcast** (~30 Hz, ~1.3 KB/table client, ~800
 KB/s for a 20-client snake table). Right model for a LAN hall of dozens
