@@ -28,7 +28,14 @@ import { renderGalaxy } from './renderers/galaxy';
 import { renderRiver } from './renderers/river';
 import { renderMyriad } from './renderers/myriad';
 import { renderCoast } from './renderers/coast';
-import { createNamePad, moveCursor, pressKey, keyAt, type NamePad } from './namepad';
+import {
+  createNamePad,
+  moveCursor,
+  pressKey,
+  pressNamePadSelect,
+  pressNamePadSpace,
+  type NamePad,
+} from './namepad';
 import { HALL_SLOTS, MAP_SLOTS, FLOOR_Y, moveHallSel } from './hall';
 import { splashWordmark } from './splashLook';
 import {
@@ -449,7 +456,8 @@ function update(ms: number): void {
     if (keys.take('ArrowRight', 'KeyD')) namePad = moveCursor(namePad, { dr: 0, dc: 1 });
     if (keys.take('ArrowUp', 'KeyW')) namePad = moveCursor(namePad, { dr: -1, dc: 0 });
     if (keys.take('ArrowDown', 'KeyS')) namePad = moveCursor(namePad, { dr: 1, dc: 0 });
-    if (keys.take('KeyZ', 'Space', 'Enter', 'NumpadEnter')) namePad = pressKey(namePad, keyAt(namePad, namePad.cursor));
+    if (keys.take('KeyZ', 'Enter', 'NumpadEnter')) namePad = pressNamePadSelect(namePad);
+    if (keys.take('Space')) namePad = pressNamePadSpace(namePad);
     if (keys.take('Backspace')) namePad = pressKey(namePad, '<');
     if (keys.take('Escape')) escapeHome(); // P4: welcome may have arrived while typing — hall is home
     if (namePad.done) confirmName();
@@ -458,7 +466,8 @@ function update(ms: number): void {
     if (keys.take('ArrowRight', 'KeyD')) namePad = moveCursor(namePad, { dr: 0, dc: 1 });
     if (keys.take('ArrowUp', 'KeyW')) namePad = moveCursor(namePad, { dr: -1, dc: 0 });
     if (keys.take('ArrowDown', 'KeyS')) namePad = moveCursor(namePad, { dr: 1, dc: 0 });
-    if (keys.take('KeyZ', 'Space', 'Enter', 'NumpadEnter')) namePad = pressKey(namePad, keyAt(namePad, namePad.cursor));
+    if (keys.take('KeyZ', 'Enter', 'NumpadEnter')) namePad = pressNamePadSelect(namePad);
+    if (keys.take('Space')) namePad = pressNamePadSpace(namePad);
     if (keys.take('Backspace')) namePad = pressKey(namePad, '<');
     if (keys.take('Escape')) scene = 'service';
     if (namePad.done) {
