@@ -20,8 +20,10 @@ import {
   rectsOverlap, reconnectStart, escapeSendsBack,
   coastQualifyingOverlay, COAST_QUALIFYING_MS, splashAdvance, SPLASH_MS, SPLASH_SKIP_KEYS,
   titleStartTarget, isBackHomeKey, cabinetScreenData,
+  coastHeroOverlay, COAST_HERO_MS,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
+import { heroSheetForScene } from './art';
 
 const fakeStorage = (init: Record<string, string> = {}) => {
   const map = new Map<string, string>(Object.entries(init));
@@ -834,5 +836,35 @@ describe('Coast qualifying overlay (P1-A)', () => {
     expect(coastQualifyingOverlay({ ...playingSolo, game: 'snake', nowMs: 1_100 })).toBe(false);
     expect(coastQualifyingOverlay({ ...playingSolo, seated: false, nowMs: 1_100 })).toBe(false);
     expect(coastQualifyingOverlay({ ...playingSolo, announcedFor: '', nowMs: 1_100 })).toBe(false);
+  });
+});
+
+describe('Coast ready-hero overlay (R57.54 leftover)', () => {
+  const playingSolo = {
+    game: 'coast' as const,
+    tableId: 't-coast',
+    seated: true,
+    announcedFor: 't-coast',
+    announcedAtMs: 1_000,
+  };
+
+  it('today\'s phase===ready gate would hide coast-hero on a playing solo snapshot', () => {
+    const oldGate = (phase: string): boolean => phase === 'ready';
+    expect(oldGate('playing')).toBe(false);
+  });
+
+  it('still draws coast-hero for N seconds after the first seated snapshot, independent of phase', () => {
+    // R57.54: sheet is ready chrome, never a gameplay replacement
+    expect(heroSheetForScene('coast', 'ready')).toBe('coast-hero.png');
+    expect(heroSheetForScene('coast', 'playing')).toBeNull();
+    expect(coastHeroOverlay({ ...playingSolo, nowMs: 1_000 })).toBe(true);
+    expect(coastHeroOverlay({ ...playingSolo, nowMs: 1_000 + COAST_HERO_MS - 1 })).toBe(true);
+    expect(coastHeroOverlay({ ...playingSolo, nowMs: 1_000 + COAST_HERO_MS })).toBe(false);
+  });
+
+  it('does not show for other games, spectators, or a table that has not announced', () => {
+    expect(coastHeroOverlay({ ...playingSolo, game: 'snake', nowMs: 1_100 })).toBe(false);
+    expect(coastHeroOverlay({ ...playingSolo, seated: false, nowMs: 1_100 })).toBe(false);
+    expect(coastHeroOverlay({ ...playingSolo, announcedFor: '', nowMs: 1_100 })).toBe(false);
   });
 });

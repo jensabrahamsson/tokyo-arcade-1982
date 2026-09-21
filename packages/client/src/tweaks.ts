@@ -522,6 +522,28 @@ export function coastQualifyingOverlay(opts: {
   return elapsed >= 0 && elapsed < windowMs;
 }
 
+/** R57.54 leftover: `coast-hero` ready overlay — N seconds after the first
+ *  seated Coast snapshot, independent of phase. Solo begin() jumps to
+ *  playing, so a phase==='ready' gate never fires on the only playable
+ *  path. Same exception as P1-A / R56.5. Not a gameplay replacement:
+ *  after the window, live step() is visible. */
+export const COAST_HERO_MS = 3000;
+
+export function coastHeroOverlay(opts: {
+  game: string;
+  tableId: string;
+  seated: boolean;
+  announcedFor: string;
+  announcedAtMs: number;
+  nowMs: number;
+  windowMs?: number;
+}): boolean {
+  return coastQualifyingOverlay({
+    ...opts,
+    windowMs: opts.windowMs ?? COAST_HERO_MS,
+  });
+}
+
 /** UX shell: one warm accent per cabinet so hall cabinets read as games,
  * not as seven identical debug frames; distinct, palette-true colors */
 const CAB_ACCENTS: Record<GameId, string> = {
