@@ -64,6 +64,45 @@ describe('Coast qualifying overlay gutter (R56.5)', () => {
     expect(calls[0]!.y).toBe(coastQualifyingOverlayY());
     expect(coastQualifyingClearOfCastle(calls[0]!.y, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER, 0)).toBe(true);
   });
+
+  // LinkedIn leftover on 8d32eec: EN `QUALIFYING START!` painted as one 12px
+  // line (17×12=204 px full-em) so the palisade ate QUAL / ART! (`IFYING ST`).
+  // JA 「予選スタート！」 (7×12=84) already sits in the castle side gutter.
+  it('EN QUALIFYING START! stays inside the LO-borgen side gutter (same 8px as JA)', () => {
+    const en = 'QUALIFYING START!';
+    const ja = '予選スタート！';
+    const castle = coastCastleRect(0);
+    const maxAdv = Math.floor(castle.right - castle.left) - 2 * COAST_QUALIFYING_GUTTER;
+    expect(ja.length * COAST_QUALIFYING_FONT).toBeLessThanOrEqual(maxAdv);
+
+    const paint = (text: string) => {
+      const calls: { text: string; y: number }[] = [];
+      const ctx = {
+        font: '',
+        fillStyle: '',
+        textAlign: 'left' as CanvasTextAlign,
+        textBaseline: 'top' as CanvasTextBaseline,
+        fillText(line: string, _x: number, y: number) {
+          calls.push({ text: line, y });
+        },
+      };
+      drawCoastQualifyingBanner(ctx as unknown as CanvasRenderingContext2D, text, 0);
+      return calls;
+    };
+
+    const jaCalls = paint(ja);
+    expect(jaCalls).toHaveLength(1);
+    expect(jaCalls[0]!.text).toBe(ja);
+
+    const enCalls = paint(en);
+    expect(enCalls.map((c) => c.text).join(' ')).toBe(en);
+    expect(enCalls.length).toBeGreaterThan(1);
+    for (const c of enCalls) {
+      expect(c.text.length * COAST_QUALIFYING_FONT).toBeLessThanOrEqual(maxAdv);
+      expect(c.y).toBeGreaterThanOrEqual(coastQualifyingOverlayY());
+      expect(coastQualifyingClearOfCastle(c.y, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER, 0)).toBe(true);
+    }
+  });
 });
 
 describe('Coast qualifying chrome wiring (R56.5)', () => {
