@@ -34,6 +34,33 @@ describe('Wave 2 hall chrome wiring (main.ts)', () => {
     expect(MAIN).not.toMatch(/\$\{t\('hall\.insertCoin'\)\} \+ Z:/);
   });
 
+  it('WAITING FOR PLAYERS panel wins over READY while versus data is still null', () => {
+    expect(MAIN).toContain('tableShowsWaitingPanel(');
+    const frame = MAIN.slice(MAIN.indexOf('function frame'));
+    const waitCall = frame.search(/tableShowsWaitingPanel\(/);
+    const waitPaint = frame.search(/renderTableWaiting\(/);
+    expect(waitCall).toBeGreaterThanOrEqual(0);
+    expect(waitPaint).toBeGreaterThan(waitCall);
+  });
+
+  it('hall WAIT cue is not trapped inside the live mini render (1P join wait has data:null)', () => {
+    expect(MAIN).toContain('hallWaitCueVisible(');
+    const cabThumb = MAIN.lastIndexOf('cabThumb(');
+    const cue = MAIN.indexOf('hallWaitCueVisible(');
+    expect(cabThumb).toBeGreaterThan(0);
+    expect(cue).toBeGreaterThan(cabThumb);
+    expect(MAIN).toContain("art()['wait-badge.png']");
+  });
+
+  it('hall WAIT is fillRect HALL_WAIT_INK glyphs, not fillText and not a 12×12 siren', () => {
+    expect(MAIN).toContain('hallWaitCuePlate(');
+    expect(MAIN).toContain('hallWaitGlyphCells(');
+    expect(MAIN).toContain('HALL_WAIT_INK');
+    expect(MAIN).toMatch(/fillRect\(cell\.x, cell\.y, 1, 1\)/);
+    expect(MAIN).not.toMatch(/px\(ctx, `\$\{t\('hall\.wait'\)\}/);
+    expect(MAIN).not.toMatch(/drawImage\(badge,\s*screenX \+ 2,\s*screenY \+ 2,\s*12,\s*12\)/);
+  });
+
   it('Late Night Cabinet loop still lives in applyPresentation, not moved', () => {
     expect(MAIN).toContain("ATTRACT_TRACK = 'audio/Late_Night_Cabinet.mp3'");
     expect(MAIN).toContain('attractMusicActive(scene)');
