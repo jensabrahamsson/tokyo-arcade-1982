@@ -54,6 +54,8 @@ const NAV: Record<string, { dr: number; dc: number }> = {
   KeyS: { dr: 1, dc: 0 },
 };
 
+export const HALL_NAV_KEYS = Object.keys(NAV);
+
 /** grid navigation with wrap: arrows and WASD are equal (R9) */
 export function moveHallSel(sel: number, key: string): number {
   const d = NAV[key];
