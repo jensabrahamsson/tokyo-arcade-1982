@@ -18,15 +18,23 @@ export class Keys {
    * One keydown = one count, so rapid repeats step per press, never coalesce. */
   private taps = new Map<string, number>();
   private held = new Set<string>();
+  /** taps whose keydown had Shift (held code or event.shiftKey — CDP modifiers). */
+  private shiftedTaps = new Map<string, number>();
 
   constructor(target: Window = window) {
     target.addEventListener('keydown', (e) => {
       if (e.repeat || e.isComposing) return;
       if (DIR_KEYS[e.code] || e.code === 'Space' || e.code === 'Enter') e.preventDefault();
       if (DIR_KEYS[e.code] && !this.dirStack.includes(e.code)) this.dirStack.push(e.code);
+      const shift = Boolean(e.shiftKey)
+        || this.held.has('ShiftLeft')
+        || this.held.has('ShiftRight');
       this.pressed.add(e.code);
       this.taps.set(e.code, (this.taps.get(e.code) ?? 0) + 1);
       this.held.add(e.code);
+      if (shift && e.code !== 'ShiftLeft' && e.code !== 'ShiftRight') {
+        this.shiftedTaps.set(e.code, (this.shiftedTaps.get(e.code) ?? 0) + 1);
+      }
     });
     target.addEventListener('keyup', (e) => {
       this.held.delete(e.code);
@@ -60,10 +68,27 @@ export class Keys {
     return codes.some((c) => this.held.has(c));
   }
 
+  /**
+   * R16.1: hold Shift+S. Consumes KeyS so hall WASD cannot walk the grid.
+   * Also matches CDP `KeyS` with `shiftKey` and no separate ShiftLeft down.
+   */
+  takeServiceChord(): boolean {
+    const tagged = this.shiftedTaps.get('KeyS') ?? 0;
+    if (tagged > 0) {
+      this.shiftedTaps.set('KeyS', tagged - 1);
+      const n = this.taps.get('KeyS') ?? 0;
+      if (n > 0) this.taps.set('KeyS', n - 1);
+      this.pressed.delete('KeyS');
+      return true;
+    }
+    return this.isHeld('ShiftLeft', 'ShiftRight') && this.take('KeyS');
+  }
+
   clear(): void {
     this.dirStack = [];
     this.pressed.clear();
     this.taps.clear();
     this.held.clear();
+    this.shiftedTaps.clear();
   }
 }

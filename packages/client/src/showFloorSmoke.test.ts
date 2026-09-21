@@ -9,6 +9,7 @@ import {
   escapeBackTarget, coastQualifyingOverlay, COAST_QUALIFYING_MS,
   readyStingerDue, cabinetScreenData, marqueeLamp,
 } from './tweaks';
+import { operatorIntent } from './serviceChord';
 
 /**
  * Wave 0 free-play smoke as pure helpers (no Jens Mac, no fullscreen Chrome).
@@ -62,5 +63,12 @@ describe('show-floor free-play smoke (wave 0)', () => {
 
     expect(nextLang('en')).toBe('ja');
     expect(nextLang('ja')).toBe('en');
+  });
+
+  it('Shift+S on hall opens service; F then toggles free play (not hall fullscreen)', () => {
+    expect(operatorIntent('hall', { code: 'KeyS', shiftHeld: true })).toBe('open-service');
+    expect(operatorIntent('hall', { code: 'KeyS', shiftHeld: false })).toBe('hall-nav');
+    expect(operatorIntent('service', { code: 'KeyF', shiftHeld: false })).toBe('toggle-freeplay');
+    expect(operatorIntent('hall', { code: 'KeyF', shiftHeld: false })).toBe('fullscreen');
   });
 });
