@@ -20,6 +20,8 @@ export const ART_FILES = [
   'coast-bommersvik.png',
   'coast-valdebatt76.png',
   'coast-castro-visit.png',
+  // R57.46: rear-view player car. Missing file keeps the procedural sedan.
+  'coast-datsun.png',
   // R57 Wave 3: seven-cabinet marquee + attract + hero plates
   'snake-marquee.png',
   'snake-attract.png',

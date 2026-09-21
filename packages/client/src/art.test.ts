@@ -30,6 +30,8 @@ describe('art manifest (R38)', () => {
         'river-marquee.png', 'river-attract.png', 'river-hero.png',
         'myriad-marquee.png', 'myriad-attract.png', 'myriad-hero.png',
         'coast-marquee.png', 'coast-attract.png', 'coast-hero.png',
+        // R57.46: rear-view player car. Missing file still paints the sedan.
+        'coast-datsun.png',
       ].sort(),
     );
   });
@@ -83,8 +85,10 @@ describe('art manifest (R38)', () => {
     expect(coastArt).toEqual(expect.arrayContaining([
       'coast-lo-castle.png', 'coast-centerpartiet.png', 'coast-harpsund.png',
       'coast-bommersvik.png', 'coast-valdebatt76.png', 'coast-castro-visit.png',
+      'coast-datsun.png',
     ]));
-    expect(coastArt.length).toBe(9);
+    // Was 9 before the player-car plate (R57.46). Landmarks R57.40–.45 stay.
+    expect(coastArt.length).toBe(10);
     for (const name of coastArt) {
       const p = join(artDir, name);
       expect(existsSync(p), name).toBe(true);
@@ -187,6 +191,10 @@ describe('Wave 3 six-cabinet plates (R57)', () => {
       'coin-slot.png', 'credit-panel.png', 'wait-badge.png',
     ]);
     for (const name of HALL_CHROME_FILES) expectLandedPlate(name);
+  });
+
+  it('lands the Coast player car as a paletted 16–32 KB plate (R57.46)', () => {
+    expectLandedPlate('coast-datsun.png');
   });
 
   it('lands paletted hero sheets for all seven cabinets (R57.54 incl. Coast)', () => {
