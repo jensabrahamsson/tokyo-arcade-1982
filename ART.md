@@ -31,7 +31,8 @@ paletted ≥64 px, 16–32 KB, color-type 3.
 |------|------|-------------------|---------|
 | `hall-floor.png` | **landed** paletted | hall carpet pattern | R57.1 |
 | `cabinet-bezel.png` | **landed** paletted | cabinet body; wash skipped | R57.2 |
-| `splash-logo.png` | **landed** paletted | splash wordmark | R57.3 |
+| `splash-logo.png` | **landed** paletted | splash wordmark (EN; JA uses i18n) | R57.3 |
+| `splash-marquee.png` | **landed** paletted | splash + title attract backdrop, no baked words | R12.1 / R57.3 |
 | `marquee-neon.png` | **landed** paletted | hall neon strip | R57.4 |
 | `coin-slot.png` | **landed** paletted | coin-insert slot | R57.5 |
 | `credit-panel.png` | **landed** paletted | credit-strip backdrop | R57.6 |
@@ -110,7 +111,8 @@ not a replacement for the bots. Hero sheets never replace gameplay.
 
 | Surface | Current visual | ID |
 |---------|----------------|----|
-| Splash wordmark | **landed** TOKYO ARCADE plate + amber year | R57.3 |
+| Splash wordmark | **landed** TOKYO ARCADE plate (EN) / i18n title (JA) | R57.3 |
+| Splash + title attract | **landed** neon marquee plate, press-start over it | R12.1 |
 | Hall floor | **landed** teal klinker tile + faint piping | R57.1 |
 | Cabinet body | **landed** wood bezel (wash skipped) | R57.2 |
 | Hall neon marquee | **landed** katakana neon strip + i18n scroll | R57.4 |

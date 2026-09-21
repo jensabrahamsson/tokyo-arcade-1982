@@ -17,6 +17,8 @@ describe('art manifest (R38)', () => {
     expect([...ART_FILES].sort()).toEqual(
       [
         'cabinet-bezel.png', 'coast-lo-castle.png', 'hall-floor.png', 'splash-logo.png',
+        // R12.1 attract plate joined the manifest. Old list stopped at splash-logo.
+        'splash-marquee.png',
         'marquee-neon.png', 'coin-slot.png', 'credit-panel.png', 'wait-badge.png',
         // R54 additions: Coast roadside landmark billboards (Imagine PNG drop zone)
         'coast-centerpartiet.png', 'coast-harpsund.png', 'coast-bommersvik.png',
@@ -199,6 +201,24 @@ describe('Wave 3 six-cabinet plates (R57)', () => {
   it('uses splash-logo art when loaded, else the procedural wordmark (R57.53)', () => {
     expect(splashWordmarkKind(true)).toBe('art');
     expect(splashWordmarkKind(false)).toBe('procedural');
+    // The plate bakes a Latin wordmark. JA paints the i18n title instead.
+    expect(splashWordmarkKind(true, 'ja')).toBe('procedural');
+    expect(splashWordmarkKind(false, 'ja')).toBe('procedural');
+  });
+
+  it('lands the splash attract marquee as a paletted 16–32 KB plate (R12.1)', () => {
+    const name = 'splash-marquee.png';
+    const p = join(artDir, name);
+    expect(existsSync(p), name).toBe(true);
+    const buf = readFileSync(p);
+    const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    expect(buf.subarray(0, 8).equals(pngMagic)).toBe(true);
+    const { width, height, colorType } = pngIhdr(buf);
+    expect(Math.max(width, height)).toBeGreaterThanOrEqual(64);
+    expect(colorType).toBe(3);
+    expect(buf.byteLength).toBeGreaterThanOrEqual(16 * 1024);
+    expect(buf.byteLength).toBeLessThanOrEqual(32 * 1024);
+    expect(buf.toString('latin1')).not.toMatch(/GROK|IMAGINE WATERMARK|OPENAI/i);
   });
 
   it('shows hero sheets on title and ready only, not during play (R57.54)', () => {
