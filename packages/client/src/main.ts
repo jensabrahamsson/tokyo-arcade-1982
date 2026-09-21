@@ -38,7 +38,10 @@ import {
   type NamePad,
 } from './namepad';
 import { HALL_SLOTS, MAP_SLOTS, FLOOR_Y, moveHallSel } from './hall';
-import { splashWordmark } from './splashLook';
+import {
+  splashWordmark, SPLASH_LOOK, attractFaceLines, attractBulbXs, attractBulbHot,
+  attractMarqueeBand, attractPromptPlate, attractWordmarkSize,
+} from './splashLook';
 import {
   cabinetMarquee, cabinetTitleKey, insertCoinVisible, insertCoinPlate,
   waitingHintLine, waitingPanelCopy,
@@ -52,7 +55,7 @@ import {
   powerLed, ledState, scoreCrawlOffset,
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
-  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
+  testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt,
   hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, hallMarqueeClip, hallMarqueeNeonDest, MARQUEE_NEON_TILE_W, FULLSCREEN_HINT, FULLSCREEN_HINT_SIZE, reconnectStart, coastQualifyingOverlay, coastHeroOverlay, splashAdvance, SPLASH_SKIP_KEYS, titleStartTarget, cabinetScreenData, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
@@ -717,50 +720,94 @@ function drawWordmark(y: number, size: number): void {
   px(ctx, mark.line2, cx, y + size + 4, Math.max(8, Math.round(size / 3)), mark.yearColor, 'center');
 }
 
-function renderSplash(ms: number): void {
-  const cx = CANVAS_W / 2;
-  // warm night: the hall after closing time, before the doors open
-  const sky = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-  sky.addColorStop(0, '#0d0710');
-  sky.addColorStop(0.62, '#1b0e17');
-  sky.addColorStop(1, '#2a1512');
-  ctx.fillStyle = sky;
+/** R12.1 / R54.1: night, neon marquee, lanterns. Shared by splash and title. */
+function drawAttractChrome(ms: number): void {
+  ctx.fillStyle = '#0d0710';
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  // a string of paper lanterns over the entrance — the human 1982 touch
-  for (let i = 0; i < 7; i++) {
-    const lx = 24 + i * 46;
-    const sway = Math.sin(ms / 900 + i * 1.3) * 1.6;
-    ctx.strokeStyle = '#3a2530';
-    ctx.beginPath();
-    ctx.moveTo(lx, 0);
-    ctx.lineTo(lx + sway, 22);
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(255,163,0,0.14)';
-    ctx.fillRect(lx + sway - 7, 16, 16, 16);
-    ctx.fillStyle = i % 2 === 0 ? PAL.orange : PAL.red;
-    ctx.fillRect(lx + sway - 4, 20, 9, 11);
-    ctx.fillStyle = PAL.black;
-    ctx.fillRect(lx + sway - 4, 24, 9, 1);
-  }
-  const logo = art()['splash-logo.png'];
-  if (splashWordmarkKind(!!logo) === 'art' && logo) {
+  const plate = art()['splash-marquee.png'];
+  if (plate) {
     ctx.imageSmoothingEnabled = false;
-    const box = containRect(logo.naturalWidth, logo.naturalHeight, 28, 34, CANVAS_W - 56, 72);
+    ctx.drawImage(plate, 0, 0, CANVAS_W, CANVAS_H);
+    ctx.imageSmoothingEnabled = true;
+    // generator plates sometimes bake a latin prompt; the i18n invite owns the bottom
+    ctx.fillStyle = '#0a0610';
+    ctx.fillRect(0, 176, CANVAS_W, CANVAS_H - 176);
+  } else {
+    const sky = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+    sky.addColorStop(0, '#120814');
+    sky.addColorStop(1, '#1c1018');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    const neon = art()['marquee-neon.png'];
+    const band = attractMarqueeBand(CANVAS_W);
+    if (neon) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(neon, band.x, band.y + 2, band.w, 11);
+      ctx.imageSmoothingEnabled = true;
+    }
+    const n = SPLASH_LOOK.lanterns;
+    for (let i = 0; i < n; i++) {
+      const lx = 18 + i * ((CANVAS_W - 36) / Math.max(1, n - 1));
+      const sway = Math.sin(ms / 900 + i * 1.3) * 1.2;
+      ctx.strokeStyle = '#3a2530';
+      ctx.beginPath();
+      ctx.moveTo(lx, 18);
+      ctx.lineTo(lx + sway, 28);
+      ctx.stroke();
+      ctx.fillStyle = i % 2 === 0 ? PAL.orange : PAL.red;
+      ctx.fillRect(lx + sway - 3, 28, 6, 8);
+    }
+  }
+  const step = Math.floor(ms / 140);
+  const colors = [PAL.red, PAL.magenta, PAL.cyan, PAL.yellow, PAL.orange];
+  attractBulbXs(CANVAS_W).forEach((x, i) => {
+    const hot = attractBulbHot(i, step);
+    ctx.fillStyle = hot ? colors[i % colors.length]! : '#241018';
+    ctx.fillRect(Math.round(x) - 2, 6, 4, 4);
+  });
+}
+
+function drawAttractPrompt(ms: number, text: string): void {
+  const plate = attractPromptPlate(CANVAS_W, CANVAS_H);
+  ctx.fillStyle = '#140810';
+  ctx.fillRect(plate.x, plate.y, plate.w, plate.h);
+  const hot = blink(ms, 620);
+  ctx.strokeStyle = hot ? PAL.magenta : PAL.cyan;
+  ctx.strokeRect(plate.x + 0.5, plate.y + 0.5, plate.w - 1, plate.h - 1);
+  ctx.fillStyle = PAL.yellow;
+  ctx.fillRect(plate.x - 2, plate.y - 2, 3, 3);
+  ctx.fillRect(plate.x + plate.w - 1, plate.y - 2, 3, 3);
+  ctx.fillRect(plate.x - 2, plate.y + plate.h - 1, 3, 3);
+  ctx.fillRect(plate.x + plate.w - 1, plate.y + plate.h - 1, 3, 3);
+  px(ctx, text, CANVAS_W / 2, plate.y + 6, 11, hot ? PAL.yellow : PAL.orange, 'center');
+}
+
+function drawAttractWordmark(y: number, maxSize: number): void {
+  const logo = art()['splash-logo.png'];
+  const marquee = art()['splash-marquee.png'];
+  // The Latin plate is a black field. On the neon marquee it reads as a
+  // pasted panel, so both languages paint the i18n wordmark instead.
+  if (!marquee && splashWordmarkKind(!!logo, lang) === 'art' && logo && maxSize >= 20) {
+    ctx.imageSmoothingEnabled = false;
+    const box = containRect(logo.naturalWidth, logo.naturalHeight, 36, y, CANVAS_W - 72, 78);
     ctx.drawImage(logo, box.x, box.y, box.w, box.h);
     ctx.imageSmoothingEnabled = true;
-    px(ctx, `— ${t('app.year')} —`, cx, box.y + box.h + 2, 8, PAL.orange, 'center');
-  } else {
-    drawWordmark(60, 26);
+    return;
   }
-  px(ctx, t('splash.welcome'), cx, 124, 9, PAL.yellow, 'center');
-  // boot lines: kept, because they are charming — just quiet and warm now
-  px(ctx, 'BIOS 1982.6 ...... OK', cx, 148, 8, PAL.lime, 'center');
-  px(ctx, `CARTRIDGES ${cartridgeBadge(GAME_IDS.length)} ..... OK`, cx, 160, 8, PAL.lime, 'center');
-  // the doorway: a warm strip of floor light with the house name
-  ctx.fillStyle = 'rgba(255,163,0,0.10)';
-  ctx.fillRect(cx - 78, 176, 156, 60);
-  if (blink(ms, 620)) px(ctx, t('splash.enter'), cx, 190, 10, PAL.yellow, 'center');
-  px(ctx, t('hall.name'), cx, 224, 7, PAL.gray, 'center');
+  drawWordmark(y, attractWordmarkSize(t('app.title'), CANVAS_W, maxSize));
+}
+
+function renderSplash(ms: number): void {
+  drawAttractChrome(ms);
+  drawAttractWordmark(100, 22);
+  const [invite] = attractFaceLines('splash', {
+    pressStart: t('splash.enter'),
+    insertCoin: t('hall.insertCoin'),
+    gameTitle: '',
+    gameTag: '',
+    coinPhase: false,
+  });
+  drawAttractPrompt(ms, invite ?? t('splash.enter'));
 }
 
 function hallCabinetScreen(game: GameId): { data: unknown; demo: boolean } | null {
@@ -1283,45 +1330,43 @@ function renderCoinInsert(ms: number): void {
 
 function renderTitle(ms: number): void {
   const cx = CANVAS_W / 2;
-  // night behind the door, same room the splash opened
-  const sky = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-  sky.addColorStop(0, '#0d0710');
-  sky.addColorStop(1, '#1c1018');
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  drawWordmark(20, 24);
-  px(ctx, t('hall.name'), cx, 66, 8, PAL.gray, 'center');
+  drawAttractChrome(ms);
+  drawWordmark(94, Math.min(12, attractWordmarkSize(t('app.title'), CANVAS_W, 12)));
 
-  // tonight's cabinets rotate through the spotlight, one accent each
+  // one cabinet in the spotlight — an attract, not a list of instructions
   const idx = Math.floor(ms / 2200) % GAME_IDS.length;
   const g = GAME_IDS[idx]!;
   const flavorLang = attractLang(ms, 3000);
   const heroName = heroSheetForScene(g, 'title');
   const heroImg = heroName ? art()[heroName] : undefined;
-  const spotY = heroImg ? 78 : 96;
-  const spotH = heroImg ? 80 : 52;
-  ctx.fillStyle = 'rgba(255,163,0,0.06)';
+  const lines = attractFaceLines('title', {
+    pressStart: t('splash.enter'),
+    insertCoin: t('hall.insertCoin'),
+    gameTitle: translate(flavorLang, `game.${g}` as never),
+    gameTag: t(`game.${g}.tag` as never),
+    coinPhase: blink(ms, 900),
+  });
+  const gameTitle = lines[0] ?? '';
+  const gameTag = lines[1] ?? '';
+  const invite = lines[2] ?? t('splash.enter');
+  const spotY = heroImg ? 118 : 124;
+  const spotH = heroImg ? 72 : 48;
+  ctx.fillStyle = 'rgba(8,4,12,0.45)';
   ctx.fillRect(cx - 92, spotY, 184, spotH);
-  ctx.strokeStyle = '#3a2530';
+  ctx.strokeStyle = cabAccent(g);
   ctx.strokeRect(cx - 92.5, spotY + 0.5, 185, spotH - 1);
-  ctx.fillStyle = cabAccent(g); // the game's own color announces the next cabinet
-  ctx.fillRect(cx - 92, spotY, 3, spotH);
-  ctx.fillRect(cx + 89, spotY, 3, spotH);
   if (heroImg) {
     ctx.imageSmoothingEnabled = false;
-    const box = containRect(heroImg.naturalWidth, heroImg.naturalHeight, cx - 86, spotY + 2, 172, 50);
+    const box = containRect(heroImg.naturalWidth, heroImg.naturalHeight, cx - 86, spotY + 4, 172, 52);
     ctx.drawImage(heroImg, box.x, box.y, box.w, box.h);
     ctx.imageSmoothingEnabled = true;
-    px(ctx, translate(flavorLang, `game.${g}` as never), cx, spotY + 56, 10, PAL.white, 'center');
-    px(ctx, t(`game.${g}.tag` as never), cx, spotY + 68, 7, PAL.cyan, 'center');
+    px(ctx, gameTitle, cx, spotY + 58, 10, PAL.white, 'center');
+    px(ctx, gameTag, cx, spotY + 70, 7, PAL.cyan, 'center');
   } else {
-    px(ctx, translate(flavorLang, `game.${g}` as never), cx, 108, 12, PAL.white, 'center');
-    px(ctx, t(`game.${g}.tag` as never), cx, 132, 8, PAL.cyan, 'center');
+    px(ctx, gameTitle, cx, spotY + 12, 12, PAL.white, 'center');
+    px(ctx, gameTag, cx, spotY + 30, 8, PAL.cyan, 'center');
   }
-
-  if (blink(ms)) px(ctx, t('hall.insertCoin'), cx, 168, 12, PAL.yellow, 'center');
-  px(ctx, t('hall.pressStart'), cx, 190, 8, PAL.gray, 'center');
-  px(ctx, `L: ${t('menu.language')}  C: ${t('menu.credits')}`, cx, 228, 8, PAL.gray, 'center');
+  drawAttractPrompt(ms, invite);
   drawError();
 }
 

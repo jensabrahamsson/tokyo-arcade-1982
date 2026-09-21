@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (572 tests, incl. real-WebSocket E2E for 2- and)
+  `npm test` green (581 tests, incl. real-WebSocket E2E for 2- and)
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7). The integer is this checkout; bump it here, in
   README, and in AGENTS in the same commit. Do not copy unmerged PR counts.
@@ -146,9 +146,15 @@ change R8.1–R8.5.
 
 ## R12 — Splash screen
 
-- R12.1 On load the client shows a splash/boot screen (marquee, build
-  line, 1982 boot flavor) for a few seconds; any key skips it to the
-  title screen.
+- R12.1 On load the client shows a splash attract — neon marquee,
+  one press-start invite — for a few seconds; any key skips it to the
+  title screen. The title is the same attract with one cabinet in the
+  spotlight (insert-coin / press-start). It is not a boot log (no BIOS
+  or cartridge status lines) and not a wall of key instructions.
+  Language (`L`) and credits (`C`) still work from the title; they are
+  not painted on this face. EN and JA share the layout. `splash.enter`
+  is `PRESS START` / `スタート！`. `splash.welcome` stays the
+  waiting-panel line and is not painted here.
 
 ## R13 — Credits
 
@@ -601,10 +607,17 @@ Player-facing brand is **Tokyo Arcade 1982**: splash, hall chrome,
 attract, waiting, credits and the HTML shell all carry it; internal
 paths/protocol keep `arkad`. EN/JA tables updated in lockstep.
 
-- R54.1 Splash is a warm 1982 entry: lantern string, one intentional
-  wordmark (white body, single deep-magenta shadow, amber year line),
-  quiet warm boot lines and a real invitation ("PRESS SPACE TO COME
-  IN"); the rainbow-glitch logo and colour bar are gone.
+- R54.1 Splash and the title before the hall are one warm 1982
+  attract: lantern string, neon marquee, one intentional wordmark
+  (Latin `splash-logo` plate when loaded; otherwise white body, single
+  deep-magenta shadow, amber year — Japanese always uses the i18n
+  title). On `splash-marquee.png` both languages paint that i18n
+  wordmark — the Latin plate is a black field and would cover the
+  neon, so it is the fallback when the marquee plate is missing.
+  Press-start is `splash.enter` ("PRESS START" / "スタート！"). The
+  rainbow-glitch logo, colour bar, BIOS/cartridge boot lines, and the
+  title's language/credits legend are gone. A procedural neon chase
+  is the fallback when the marquee plate is missing.
 - R54.2 Hall cabinets carry game identity: marquee shows the translated
   title (`game.<id>`) on a lit band, idle screens draw a procedural
   thumbnail in the cabinet's accent (`cabAccent`, unit-tested) instead
@@ -717,7 +730,7 @@ d’Or (queued, no gameplay).
 |----|------|------|--------|
 | R57.1 | `hall-floor.png` | Hall carpet tile | **landed** paletted; hall `createPattern` |
 | R57.2 | `cabinet-bezel.png` | Cabinet body chrome | **landed** paletted; dark body wash skipped (R57.53) |
-| R57.3 | `splash-logo.png` | Splash wordmark art | **landed** paletted; `drawImage` when loaded, else `drawWordmark` |
+| R57.3 | `splash-logo.png` | Splash wordmark art | **landed** paletted; EN `drawImage` when loaded, else `drawWordmark`. JA uses the i18n wordmark. `splash-marquee.png` is the same splash chrome: paletted attract backdrop, no baked words, splash + title (R12.1) |
 | R57.4 | `marquee-neon.png` | Hall neon marquee strip | **landed** paletted; tiled behind i18n scroll |
 | R57.5 | `coin-slot.png` | Coin-insert slot chrome | **landed** paletted; coin-insert scene |
 | R57.6 | `credit-panel.png` | Credit-digit strip backdrop | **landed** paletted; cabinet credit badge |
@@ -785,8 +798,10 @@ mini-screen card — not a replacement for the demo.
   `marquee-neon`, `coin-slot`, `credit-panel`, `wait-badge`). Each
   file is PNG magic, color-type 3, ≥64 px, 16–32 KB — never a 16×16
   stub. Hall `drawImage` uses them. When a bezel is present the dark
-  body wash is skipped so the wood frame stays visible. Splash uses
-  `splash-logo.png` via `drawImage` when loaded, else `drawWordmark`.
+  body wash is skipped so the wood frame stays visible. EN splash uses
+  `splash-logo.png` via `drawImage` when loaded, else `drawWordmark`;
+  JA always uses the i18n wordmark. `splash-marquee.png` is the R12.1
+  attract backdrop on splash and title (same size gate, no baked words).
   Wave 1 already landed `coast-lo-castle.png` (R57.40 / R56).
 - R57.54 Wave 3 hero sheets (not Circuit): paletted PNG
   for R57.10, .13, .16, .19, .22, .25, .28 (`snake|puck|block|galaxy|river|myriad|coast-hero.png`).
