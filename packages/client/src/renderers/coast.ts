@@ -1,6 +1,6 @@
 import type { CoastState, ObstacleKind } from '@arkad/core';
 import { COAST_BILLBOARDS, curveAt, OFF_ROAD_X, TRACK_LEN, MAX_SPEED, t as translate, type Lang } from '@arkad/core';
-import { PAL } from '../ui';
+import { PAL, px, blink } from '../ui';
 import { art, type ArtFile } from '../art';
 
 const W = 320;
@@ -44,6 +44,53 @@ export const COAST_SPEED_SCALE = 220;
 
 /** Fuji-scale: wide on the horizon, short enough that the sky still reads. */
 export const CASTLE_DRAW = { w: 152, h: 56 } as const;
+/** px() uses textBaseline top — qualifying banner must sit below LO-borgen (R56.5). */
+export const COAST_QUALIFYING_FONT = 12;
+export const COAST_QUALIFYING_GUTTER = 8;
+
+/** Screen rect of LO-borgen — same numbers as drawCastle (shift follows curve + steer). */
+export function coastCastleRect(shift = 0): { left: number; top: number; right: number; bottom: number } {
+  const bx = CX + shift;
+  const by = HORIZON + 3;
+  const { w, h } = CASTLE_DRAW;
+  const left = bx - w / 2;
+  const top = by - h + 2;
+  return { left, top, right: left + w, bottom: top + h };
+}
+
+/** Vertical band for qualifying copy drawn with px(..., baseline top). */
+export function coastQualifyingClearOfCastle(
+  yTop: number,
+  fontPx: number,
+  gutter = COAST_QUALIFYING_GUTTER,
+  shift = 0,
+): boolean {
+  const castle = coastCastleRect(shift);
+  const bandBottom = yTop + fontPx;
+  return bandBottom + gutter <= castle.top || yTop >= castle.bottom + gutter;
+}
+
+export function coastQualifyingOverlayY(
+  fontPx = COAST_QUALIFYING_FONT,
+  gutter = COAST_QUALIFYING_GUTTER,
+  shift = 0,
+): number {
+  return Math.round(coastCastleRect(shift).bottom + gutter);
+}
+
+/** R56.5 / R54.5: Pole Position qualifying call — draw below LO-borgen, not on it. */
+export function drawCoastQualifyingBanner(ctx: CanvasRenderingContext2D, text: string, tMs: number): void {
+  px(
+    ctx,
+    text,
+    CX,
+    coastQualifyingOverlayY(),
+    COAST_QUALIFYING_FONT,
+    blink(tMs, 420) ? PAL.white : PAL.magenta,
+    'center',
+  );
+}
+
 /** Rear-view arcade car — Pole Position weight, not a C64 speck. */
 export const CAR_DRAW = { w: 76, h: 42 } as const;
 
