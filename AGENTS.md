@@ -1,7 +1,8 @@
 # AGENTS.md — how to work on ARKAD
 
 Rules for humans and agents working in this repo. Read `REQUIREMENTS.md`
-for *what*, `ARCHITECTURE.md` for *where*, this file for *how*.
+for *what* (krav-sanningen: numbered R-items or Lab only; chat/PRs are
+not a substitute), `ARCHITECTURE.md` for *where*, this file for *how*.
 
 ## Prime directives
 
