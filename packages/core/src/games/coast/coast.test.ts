@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { coastSpec, createCoast, curveAt, TRACK_LEN, CHECKPOINTS, COAST_BILLBOARDS, type CoastState } from './coast';
+import { coastSpec, createCoast, curveAt, TRACK_LEN, CHECKPOINTS, COAST_BILLBOARDS, OBSTACLE_KINDS, type CoastState } from './coast';
 import { NO_INPUT, type GameConfig, type PlayerInput } from '../../engine/types';
 
 const cfg: GameConfig = { mode: 'solo', playerIds: ['p1'], seed: 7 };
@@ -53,6 +53,18 @@ describe('coast create', () => {
     const c = JSON.stringify(createCoast({ ...cfg, seed: 12 }).obstacles);
     expect(a).toBe(b);
     expect(a).not.toBe(c);
+  });
+
+  it('obstacles carry a readable prop kind (data only — client draws the sprite)', () => {
+    const s = createCoast(cfg);
+    expect(OBSTACLE_KINDS.length).toBeGreaterThanOrEqual(4);
+    for (const o of s.obstacles) {
+      expect(OBSTACLE_KINDS.includes(o.kind)).toBe(true);
+    }
+    const kindsUsed = new Set(s.obstacles.map((o) => o.kind));
+    expect(kindsUsed.size).toBeGreaterThan(1);
+    const clone = JSON.parse(JSON.stringify(s)) as CoastState;
+    expect(clone.obstacles[0]!.kind).toBe(s.obstacles[0]!.kind);
   });
 
   it('curveAt is pure, bounded and follows the segment pattern', () => {
