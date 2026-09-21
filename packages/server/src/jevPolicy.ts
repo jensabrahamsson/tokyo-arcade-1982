@@ -1,5 +1,5 @@
 /**
- * TypeSafe Jev self-play for all seven attract cabinets.
+ * TypeSafe Jev self-play for every attract cabinet (eight since Circuit d'Or).
  * Lives on the server (fetch/I/O). Core stays pure: missing key, low
  * confidence, or HTTP failure (one retry on flaky network) fail-closed
  * to spec.demo. No images — compact JSON state only.
@@ -21,7 +21,9 @@ import {
   SNAKE_GRID,
   snakeSpec,
   type BlockState,
+  type CircuitState,
   type CoastState,
+  circuitSteer,
   type GalaxyState,
   type GameId,
   type GameStateBase,
@@ -318,7 +320,7 @@ export async function askJev(opts: {
 
 
 /**
- * Per-cabinet adapters (all seven games, Jens lab pack 2026-09-20):
+ * Per-cabinet adapters (eight games; Circuit d'Or joined the 2026-09-20 pack):
  * compact state + typed questions + action -> PlayerInput, fail-closed.
  */
 export interface JevedGame {
@@ -764,6 +766,43 @@ export const coastAdapter: GameJevAdapter = (raw) => {
   };
 };
 
+export const circuitAdapter: GameJevAdapter = (raw) => {
+  const s = raw as CircuitState;
+  const hint = circuitSteer(s);
+  const legal = ['left', 'straight', 'right'];
+  return {
+    game: 'circuit',
+    payload: {
+      game: 'circuit',
+      speed: Math.round(s.speed * 100) / 100,
+      lap: s.lap,
+      u: Math.round(s.u * 1000) / 1000,
+      lat: Math.round(s.lat * 10) / 10,
+      timeLeft: s.timeLeft,
+      hint: hint < 0 ? 'left' : hint > 0 ? 'right' : 'straight',
+    },
+    legal,
+    questions: () => ({
+      ...choiceQ(
+        "Circuit d'Or: stay on the asphalt. Full throttle, steer with the hint. No gears, no traffic.",
+        legal,
+        {
+          left: 'Steer left.',
+          straight: 'Hold the wheel.',
+          right: 'Steer right.',
+        },
+      ),
+      ...DANGER('the car', 'The car is off the asphalt or headed at the wall', 'The car is on the racing line'),
+    }),
+    toInput: (c, t) => {
+      if (c === 'straight') return { dir: null, button: true, seq: t };
+      if (c === 'left') return { dir: { dx: -1, dy: 0 }, button: true, seq: t };
+      if (c === 'right') return { dir: { dx: 1, dy: 0 }, button: true, seq: t };
+      return null;
+    },
+  };
+};
+
 export const JEV_ADAPTERS: Partial<Record<GameId, GameJevAdapter>> = {
   snake: snakeAdapter,
   puck: puckAdapter,
@@ -772,6 +811,7 @@ export const JEV_ADAPTERS: Partial<Record<GameId, GameJevAdapter>> = {
   river: riverAdapter,
   myriad: myriadAdapter,
   coast: coastAdapter,
+  circuit: circuitAdapter,
 };
 
 /** apply a validated JeV choice; falls back on unknown choice or low confidence */

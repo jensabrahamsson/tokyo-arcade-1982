@@ -17,7 +17,7 @@ Open the printed address in any browser — on the host machine or any device
 on `192.168.50.x` / `10.x`. No installation on the clients.
 
 Env: `ARKAD_PORT` (default 8442), `ARKAD_DATA` (default `./data`).
-Optional Jev attract self-play (all seven cabinets): `ARKAD_JEV_SELFPLAY=1`
+Optional Jev attract self-play (all eight cabinets): `ARKAD_JEV_SELFPLAY=1`
 plus `TYPESAFE_API_KEY` (TypeSafe Jev; local file `.env.typesafe` at the
 repo root, gitignored, never commit it). Unset key fail-closes to the
 built-in demo bots. Live one-shot: `npm run jev:smoke` (skips if the key
@@ -98,7 +98,7 @@ banner tracks the live leader of the hall.
 
 ## The hall is alive (1982 mode)
 
-The game select is not a menu — it is a rendered arcade hall: seven cabinets
+The game select is not a menu — it is a rendered arcade hall: eight cabinets
 with lit marquees, floor reflections and a "you are here" token you walk
 around with the arrow keys. Every idle cabinet runs a live attract demo
 (built-in deterministic bots playing their own games), so the hall hums
@@ -125,7 +125,7 @@ pushes harder when a player is cruising — never boring, never unfair.
 
 ```
 packages/
-  core/      pure game logic (no DOM, no Node): engines, seven games,
+  core/      pure game logic (no DOM, no Node): engines, eight games,
              i18n (EN/JA), difficulty, protocol, chiptune note tables
   server/    Node + ws: lobby, tables, authoritative 60 Hz loop, high scores
   client/    Canvas 2D renderer, Web Audio chiptune synth, scenes
@@ -138,7 +138,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 591 tests across engine, games, server, client
+npm test          # vitest: 613 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```
@@ -189,7 +189,7 @@ Mac, not fullscreen stolen from the cloud. English pass, then `L` for
 the JA pair. `jev:autoplay` or hall attract keeps the cabinets alive.
 
 1. Splash — two lines TOKYO ARCADE + amber 1982.
-2. Hall — seven live attract cabinets, one chrome row, title Tokyo Arcade 1982.
+2. Hall — eight live attract cabinets, one chrome row, title Tokyo Arcade 1982. Circuit d'Or is the eighth.
 3. Coast — 「予選スタート！」 ~3 s, then billboards + LO castle.
 4. Snake versus in the hall mini (NOW PLAYING).
 5. Puck / Block / Galaxy / River / Myriad — one hero frame each, not a 16×16 stub.

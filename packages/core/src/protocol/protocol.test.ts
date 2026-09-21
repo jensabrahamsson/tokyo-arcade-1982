@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { parseClientMessage, serialize, GAME_IDS, type ClientMessage } from './protocol';
 
 describe('protocol', () => {
-  it('lists the hall cabinets (R22 added coast)', () => {
-    expect(GAME_IDS).toEqual(['snake', 'puck', 'block', 'galaxy', 'river', 'myriad', 'coast']);
+  it('lists the hall cabinets (R22 added coast, R55 added circuit)', () => {
+    // The old roster stopped at coast (seven). Owner opened R55: Circuit d'Or is the eighth.
+    expect(GAME_IDS).toEqual(['snake', 'puck', 'block', 'galaxy', 'river', 'myriad', 'coast', 'circuit']);
   });
 
   it('parses a join message', () => {
@@ -33,6 +34,27 @@ describe('protocol', () => {
   it('rejects bad game ids in start', () => {
     const msg = { type: 'start', game: 'doodlejump', mode: 'solo' } as unknown as ClientMessage;
     expect(parseClientMessage(JSON.stringify(msg))).toBeNull();
+  });
+
+  it('accepts circuit and rejects a title alias as the game id (R55)', () => {
+    expect(parseClientMessage(JSON.stringify({ type: 'start', game: 'circuit', mode: 'solo' }))).toEqual({
+      type: 'start',
+      game: 'circuit',
+      mode: 'solo',
+    });
+    expect(parseClientMessage(JSON.stringify({ type: 'coin', game: 'circuit' }))).toEqual({
+      type: 'coin',
+      game: 'circuit',
+    });
+    expect(parseClientMessage(JSON.stringify({ type: 'ooo', game: 'circuit', out: true }))).toEqual({
+      type: 'ooo',
+      game: 'circuit',
+      out: true,
+    });
+    expect(parseClientMessage(JSON.stringify({ type: 'start', game: 'lemans', mode: 'solo' }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: 'coin', game: 'lemans' }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: 'ooo', game: 'lemans', out: true }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: 'start', game: 'circuit', mode: 'duel' }))).toBeNull();
   });
 
   it('rejects non-unit directions', () => {

@@ -2,7 +2,7 @@ import type { Dir } from '../engine/vec';
 import type { Lang } from '../i18n/i18n';
 import type { GameMode, SfxEvent } from '../engine/types';
 
-export const GAME_IDS = ['snake', 'puck', 'block', 'galaxy', 'river', 'myriad', 'coast'] as const;
+export const GAME_IDS = ['snake', 'puck', 'block', 'galaxy', 'river', 'myriad', 'coast', 'circuit'] as const;
 export type GameId = (typeof GAME_IDS)[number];
 
 export interface JoinMsg {

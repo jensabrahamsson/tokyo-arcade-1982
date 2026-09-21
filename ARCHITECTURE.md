@@ -22,8 +22,9 @@ Pure TypeScript. No `node:`, no DOM, no `Math.random`, no timers.
   lives, sfx), the phase machine (`ready → playing → roundOver /
   gameOver → attract`), seeded `Rng` (xorshift, passed explicitly), and
   `PlayerInput` (`dir`, `button`, `seq` for edge-triggered reads).
-- `games/<name>/` — seven specs: snake (capacity 4 FFA), puck (turnBased,
-  4-personality ghost AI), block, galaxy, river, myriad, coast (R22).
+- `games/<name>/` — eight specs: snake (capacity 4 FFA), puck (turnBased,
+  4-personality ghost AI), block, galaxy, river, myriad, coast (R22),
+  circuit (R55, overview endurance, title Circuit d'Or).
   Every `step()`
   is **pure**: it clones before writing, never mutates the state it was
   handed, and returns plain-JSON state.
@@ -55,7 +56,7 @@ unit testing, and snapshots that are just `JSON.stringify` of state.
   inputs, and the gameOver→highscore hook.
 - `highscores.ts` — top-10 lists per game+mode in `data/scores.json`
   with shape-checked loads and non-throwing saves.
-- `jevPolicy.ts` — optional TypeSafe Jev self-play for all seven attract
+- `jevPolicy.ts` — optional TypeSafe Jev self-play for all eight attract
   cabinets (`ARKAD_JEV_SELFPLAY=1`). Compact JSON snapshot in, stick out;
   `TYPESAFE_API_KEY` from the environment or gitignored `.env.typesafe`;
   missing key, low confidence, or HTTP failure (one retry on flaky
