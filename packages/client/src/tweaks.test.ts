@@ -21,8 +21,10 @@ import {
   coastQualifyingOverlay, COAST_QUALIFYING_MS, splashAdvance, SPLASH_MS, SPLASH_SKIP_KEYS,
   titleStartTarget, isBackHomeKey, cabinetScreenData,
   coastHeroOverlay, COAST_HERO_MS, hallWaitCueVisible, tableShowsWaitingPanel,
+  HALL_WAIT_INK, hallWaitCuePlate, hallWaitGlyphCells,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
+import { PAL } from './ui';
 import { heroSheetForScene } from './art';
 
 const fakeStorage = (init: Record<string, string> = {}) => {
@@ -390,6 +392,31 @@ describe('join-queue waiting dots (R43)', () => {
     expect(marqueeLamp({ demo: false, players: 1 })).toBe('now-playing');
     expect(hallWaitCueVisible(true, marqueeLamp({ demo: false, players: 1 }))).toBe(true);
     expect(cabinetScreenData([{ game: 'puck', demo: false, data: null }], 'puck')).toBeNull();
+  });
+
+  it('stamps WAIT as PAL.yellow fillRect cells in the CRT sample band (not fillText AA)', () => {
+    expect(HALL_WAIT_INK).toBe(PAL.yellow);
+    expect(HALL_WAIT_INK).toBe('#f7e766');
+    const screen = { x: 92, y: 68, w: 58, h: 44 };
+    const plate = hallWaitCuePlate(screen);
+    expect(plate.x).toBe(screen.x);
+    expect(plate.y).toBe(screen.y);
+    expect(plate.w).toBeGreaterThanOrEqual(24);
+    expect(plate.h).toBeGreaterThanOrEqual(9);
+    expect(plate.w).toBeLessThanOrEqual(screen.w);
+    const cells = hallWaitGlyphCells('WAIT', plate.x + 1, plate.y + 3);
+    expect(cells.length).toBeGreaterThan(20);
+    const inSample = cells.filter((c) =>
+      c.x >= screen.x && c.x < screen.x + 22 && c.y >= screen.y && c.y < screen.y + 14);
+    expect(inSample.length).toBeGreaterThan(20);
+    const xs = cells.map((c) => c.x);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(15);
+  });
+
+  it('待機 still lays yellow cells so a JA hall cue is measurable', () => {
+    const cells = hallWaitGlyphCells('待機', 92, 71);
+    expect(cells.length).toBeGreaterThan(10);
+    expect(cells.every((c) => Number.isInteger(c.x) && Number.isInteger(c.y))).toBe(true);
   });
 });
 

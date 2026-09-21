@@ -284,6 +284,67 @@ export function hallWaitCueVisible(selected: boolean, lamp: LampMode): boolean {
   return selected && lamp === 'now-playing';
 }
 
+/** Exact PAL.yellow. Hall WAIT is fillRect of this ink — fillText AA is not the cue. */
+export const HALL_WAIT_INK = '#f7e766';
+
+export type HallWaitCell = { x: number; y: number };
+
+/** Dark plate behind WAIT so attract art cannot eat the glyphs. */
+export function hallWaitCuePlate(screen: {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}): { x: number; y: number; w: number; h: number } {
+  return {
+    x: screen.x,
+    y: screen.y,
+    w: Math.max(0, Math.min(screen.w, 56)),
+    h: Math.min(11, Math.max(0, screen.h)),
+  };
+}
+
+const HALL_WAIT_GLYPHS: Record<string, readonly string[]> = {
+  W: ['#   #', '#   #', '# # #', '## ##', '#   #'],
+  A: [' ### ', '#   #', '#####', '#   #', '#   #'],
+  I: [' ### ', '  #  ', '  #  ', '  #  ', ' ### '],
+  T: ['#####', '  #  ', '  #  ', '  #  ', '  #  '],
+  '.': ['     ', '     ', '     ', '  #  ', '  #  '],
+};
+
+const HALL_WAIT_FALLBACK: readonly string[] = [
+  '#####',
+  '#   #',
+  '#   #',
+  '#   #',
+  '#####',
+];
+
+/**
+ * 5×5 bitmap cells for the hall WAIT / 待機 cue. Latin WAIT lands inside the
+ * 22×14 CRT sample the CDP harness counts; unknown glyphs (JA) still stamp
+ * yellow cells so waitExact is not zero.
+ */
+export function hallWaitGlyphCells(
+  word: string,
+  originX: number,
+  originY: number,
+): HallWaitCell[] {
+  const cells: HallWaitCell[] = [];
+  let cx = originX;
+  for (const ch of [...word]) {
+    const rows = HALL_WAIT_GLYPHS[ch] ?? HALL_WAIT_FALLBACK;
+    for (let dy = 0; dy < rows.length; dy++) {
+      const row = rows[dy]!;
+      for (let dx = 0; dx < row.length; dx++) {
+        if (row[dx] === '#') cells.push({ x: cx + dx, y: originY + dy });
+      }
+    }
+    cx += 6;
+  }
+  return cells;
+}
+
 /**
  * Wave 2 waiting panel (WAITING FOR PLAYERS + empty second seat).
  * No snapshot yet, or versus still gathering (data null). A full table's
