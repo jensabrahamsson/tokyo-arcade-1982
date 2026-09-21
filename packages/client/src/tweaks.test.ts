@@ -16,7 +16,8 @@ import {
   escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue,
   escapeClearsFullscreenOnly, provenanceLines, guardRender,
   hallCoinBadge, countedChrome, HALL_CHROME, hallMarqueeClip, hallFullscreenHintRect,
-  hallClockRect, rectsOverlap, reconnectStart, escapeSendsBack,
+  hallClockRect, hallMarqueeNeonDest, MARQUEE_NEON_TILE_W, FULLSCREEN_HINT, pxAdvance,
+  rectsOverlap, reconnectStart, escapeSendsBack,
   coastQualifyingOverlay, COAST_QUALIFYING_MS, splashAdvance, SPLASH_MS, SPLASH_SKIP_KEYS,
   titleStartTarget, isBackHomeKey, cabinetScreenData,
   type CrtKnobs, type VolumeDetent,
@@ -709,6 +710,35 @@ describe('hall marquee vs F-hint (R59)', () => {
     expect(rectsOverlap(clock, clip)).toBe(false);
     expect(clip.w).toBeGreaterThan(80);
     expect(clip.y).toBe(HALL_CHROME.marqueeTop);
+  });
+
+  // Merged-main leftover: fHintMaxW was 90, but px("F: FULLSCREEN", size 8)
+  // can paint a full-em per glyph (13×8=104) and share pixels with the neon.
+  it('F-hint gutter covers the painted F: FULLSCREEN string at full-em (R59 leftover)', () => {
+    expect(FULLSCREEN_HINT).toBe('F: FULLSCREEN');
+    const hint = hallFullscreenHintRect();
+    expect(hint.w).toBeGreaterThanOrEqual(pxAdvance(FULLSCREEN_HINT, 8));
+    expect(hint.x).toBe(HALL_CHROME.fHintX);
+    const clip = hallMarqueeClip(320);
+    expect(clip.x).toBeGreaterThanOrEqual(hint.x + hint.w);
+    expect(rectsOverlap(hint, clip)).toBe(false);
+  });
+
+  // Merged-main leftover: neon PNG tiles were 120px unclipped, so the second
+  // tile overshot the clock gutter. Dest rects must sit inside the clip.
+  it('neon dest tiles clip to the marquee band and miss the F-hint and clock (R59 leftover)', () => {
+    const clip = hallMarqueeClip(320);
+    const tiles = hallMarqueeNeonDest(clip, MARQUEE_NEON_TILE_W);
+    expect(tiles.length).toBeGreaterThan(0);
+    const last = tiles[tiles.length - 1]!;
+    expect(last.x + last.w).toBe(clip.x + clip.w);
+    expect(last.w).toBeLessThanOrEqual(MARQUEE_NEON_TILE_W);
+    for (const tile of tiles) {
+      expect(tile.x).toBeGreaterThanOrEqual(clip.x);
+      expect(tile.x + tile.w).toBeLessThanOrEqual(clip.x + clip.w);
+      expect(rectsOverlap(tile, hallFullscreenHintRect())).toBe(false);
+      expect(rectsOverlap(tile, hallClockRect(320))).toBe(false);
+    }
   });
 });
 

@@ -142,6 +142,7 @@ describe('i18n', () => {
     'game.river.tag': '川を渡れ!',
     'game.coast.tag': 'エルオー城まで走れ',
     'game.myriad.tag': '虫にさわるな!',
+    'hall.attract': 'デモ中',
   } as const;
 
   const WAVE6_EN_UNCHANGED = {
@@ -172,6 +173,7 @@ describe('i18n', () => {
     'game.river.tag': 'CROSS THE BUSY RIVER',
     'game.coast.tag': 'RUN TO LO CASTLE',
     'game.myriad.tag': 'DONT TOUCH THE BUG',
+    'hall.attract': 'ATTRACT',
   } as const;
 
   it('Wave 6 JA strings are native cabinet copy (R58)', () => {
@@ -196,5 +198,13 @@ describe('i18n', () => {
     expect(JA['cab.ooo']).toBe('故障中');
     expect(JA['game.snake']).toBe('ヘビ');
     expect(JA['game.puck']).toBe('パック メイズ');
+  });
+
+  // Wave 6 leftover on merged main: idle hall minis still painted
+  // machine-katakana デモ チュウ. Native PCB mix is デモ中 (デモ + 中).
+  it('hall attract is native デモ中, not machine-katakana デモ チュウ (R58 leftover)', () => {
+    expect(JA['hall.attract']).toBe('デモ中');
+    expect(JA['hall.attract']).not.toContain('チュウ');
+    expect(EN['hall.attract']).toBe('ATTRACT');
   });
 });

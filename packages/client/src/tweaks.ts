@@ -538,15 +538,28 @@ export function cabAccent(game: GameId): string {
   return CAB_ACCENTS[game]!;
 }
 
+/** R53.2 / R59: the painted first-run hint; English is the R53 contract. */
+export const FULLSCREEN_HINT = 'F: FULLSCREEN';
+export const FULLSCREEN_HINT_SIZE = 8;
+/** 4px so the neon flourish cannot kiss the last glyph. */
+export const F_HINT_PAD = 4;
+export const MARQUEE_NEON_TILE_W = 120;
+
+/** conservative canvas advance for `px()` — full-em per glyph (CJK fonts). */
+export function pxAdvance(text: string, size: number): number {
+  return Math.max(0, text.length * size);
+}
+
 /** P2-G / R59: header chrome — left stack vs right stack, never the same cell.
- *  F-hint and clock gutters keep the neon marquee from painting those pixels. */
+ *  F-hint and clock gutters keep the neon marquee from painting those pixels.
+ *  fHintMaxW is the painted hint at full-em plus pad (90px leftover was short). */
 export const HALL_CHROME = {
   leftY: 2,
   leftY2: 12,
   rightY: 2,
   rightY2: 12,
   fHintX: 6,
-  fHintMaxW: 90,
+  fHintMaxW: pxAdvance(FULLSCREEN_HINT, FULLSCREEN_HINT_SIZE) + F_HINT_PAD,
   clockMaxW: 52,
   marqueeTop: 8,
   marqueeH: 10,
@@ -571,6 +584,19 @@ export function hallMarqueeClip(canvasW: number): HallRect {
   const x = HALL_CHROME.fHintX + HALL_CHROME.fHintMaxW;
   const right = canvasW - HALL_CHROME.clockMaxW;
   return { x, y: HALL_CHROME.marqueeTop, w: Math.max(0, right - x), h: HALL_CHROME.marqueeH };
+}
+
+/** dest rects for the neon PNG tiles, clipped to the marquee band so a 120px
+ *  step cannot overshoot the clock gutter (R59 leftover). */
+export function hallMarqueeNeonDest(band: HallRect, tileW = MARQUEE_NEON_TILE_W): HallRect[] {
+  const tiles: HallRect[] = [];
+  const right = band.x + band.w;
+  const step = Math.max(1, tileW);
+  for (let nx = band.x; nx < right; nx += step) {
+    const w = Math.min(step, right - nx);
+    if (w > 0) tiles.push({ x: nx, y: band.y, w, h: band.h });
+  }
+  return tiles;
 }
 
 /** P2-E: FREE PLAY / COIN 1C from the i18n tables, not a hardcoded English pair */
