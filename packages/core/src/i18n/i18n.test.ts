@@ -207,4 +207,54 @@ describe('i18n', () => {
     expect(JA['hall.attract']).not.toContain('チュウ');
     expect(EN['hall.attract']).toBe('ATTRACT');
   });
+
+  // Wave 6 leftover (R58): machine-katakana HUD/toast/marquee — native PCB mix.
+  const WAVE6_LEFTOVER_NATIVE_JA = {
+    'marquee.1': 'トウキョウ アーケード 1982年へようこそ —— ハイスコアでおやつ',
+    'toast.outOfOrder': 'その筐体は故障中です',
+    'toast.unknownGame': 'そのカートリッジは館内にありません',
+    'hall.thanks': 'ありがとう',
+    'hud.turn': '順番',
+    'phase.ready': 'よーい',
+    'phase.set': 'よーい・どん!',
+    'phase.winner': '{name}の勝ち!',
+    'lobby.pressKey': '{key}を押して',
+    'score.empty': 'まだスコアなし',
+    'net.connecting': '接続中...',
+    'misc.you': 'きみ',
+    'misc.spectate': '観戦',
+    'misc.full': 'テーブル満席',
+  } as const;
+
+  const WAVE6_LEFTOVER_EN_UNCHANGED = {
+    'marquee.1': 'WELCOME TO TOKYO ARCADE 1982 - FREE SNACKS FOR HIGH SCORES',
+    'toast.outOfOrder': 'THAT CABINET IS OUT OF ORDER',
+    'toast.unknownGame': 'THAT CARTRIDGE IS NOT IN THE HALL',
+    'hall.thanks': 'THANK YOU',
+    'hud.turn': 'TURN',
+    'phase.ready': 'READY',
+    'phase.set': 'SET',
+    'phase.winner': '{name} WINS!',
+    'lobby.pressKey': 'PRESS {key}',
+    'score.empty': 'NO SCORES YET',
+    'net.connecting': 'CONNECTING...',
+    'misc.you': 'YOU',
+    'misc.spectate': 'SPECTATE',
+    'misc.full': 'TABLE FULL',
+  } as const;
+
+  it('Wave 6 leftover JA strings are native cabinet copy (R58)', () => {
+    for (const [key, value] of Object.entries(WAVE6_LEFTOVER_NATIVE_JA)) {
+      expect(JA[key as keyof typeof JA], key).toBe(value);
+    }
+  });
+
+  it('Wave 6 leftover does not retune English partners (R58 lockstep)', () => {
+    for (const [key, value] of Object.entries(WAVE6_LEFTOVER_EN_UNCHANGED)) {
+      expect(EN[key as keyof typeof EN], key).toBe(value);
+    }
+    expect(Object.keys(WAVE6_LEFTOVER_NATIVE_JA).sort()).toEqual(
+      Object.keys(WAVE6_LEFTOVER_EN_UNCHANGED).sort(),
+    );
+  });
 });
