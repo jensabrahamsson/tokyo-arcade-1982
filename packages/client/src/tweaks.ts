@@ -457,6 +457,33 @@ export function badgePlateRect(
 /** boot splash cartridge count follows the registry (regression: was hardcoded 6/6) */
 export const cartridgeBadge = (count: number): string => `${count}/${count}`;
 
+/** Wave 0: splash skip keys + timeout — Space/Z/X/Enter skip, otherwise 3.4 s */
+export const SPLASH_MS = 3400;
+export const SPLASH_SKIP_KEYS = ['Space', 'Enter', 'NumpadEnter', 'KeyZ', 'KeyX'] as const;
+
+export function splashAdvance(elapsedMs: number, skip: boolean, timeoutMs = SPLASH_MS): 'splash' | 'title' {
+  return skip || elapsedMs > timeoutMs ? 'title' : 'splash';
+}
+
+/** Wave 0: Space on title opens the namepad until join, then the hall */
+export function titleStartTarget(joined: boolean): 'name' | 'hall' {
+  return joined ? 'hall' : 'name';
+}
+
+/** Wave 0: windowed Escape and KeyB are the same back/home keys */
+export function isBackHomeKey(code: string): boolean {
+  return code === 'Escape' || code === 'KeyB';
+}
+
+/** Wave 0: hall mini draws this cabinet's hallTables row (live versus beats demo) */
+export function cabinetScreenData(
+  cabinets: ReadonlyArray<{ game: string; data: unknown; demo: boolean }> | null | undefined,
+  game: string,
+): { data: unknown; demo: boolean } | null {
+  const cab = cabinets?.find((c) => c.game === game);
+  return cab && cab.data !== null ? { data: cab.data, demo: cab.demo } : null;
+}
+
 /** attract music rule: the Late Night Cabinet loop lives outside the cabinets
  * (splash/hall/attract chrome) and must never compete with game sound inside
  * a table */
