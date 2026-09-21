@@ -47,6 +47,8 @@ export const CASTLE_DRAW = { w: 152, h: 56 } as const;
 /** px() uses textBaseline top — qualifying banner must sit below LO-borgen (R56.5). */
 export const COAST_QUALIFYING_FONT = 12;
 export const COAST_QUALIFYING_GUTTER = 8;
+/** Extra pixels between wrapped qualifying lines (EN `QUALIFYING` / `START!`). */
+export const COAST_QUALIFYING_LINE_GAP = 2;
 
 /** Screen rect of LO-borgen — same numbers as drawCastle (shift follows curve + steer). */
 export function coastCastleRect(shift = 0): { left: number; top: number; right: number; bottom: number } {
@@ -78,17 +80,75 @@ export function coastQualifyingOverlayY(
   return Math.round(coastCastleRect(shift).bottom + gutter);
 }
 
-/** R56.5 / R54.5: Pole Position qualifying call — draw below LO-borgen, not on it. */
+/** Full-em advance — same conservative budget as hall F-hint (CJK fonts). */
+export function coastQualifyingAdvance(text: string, fontPx = COAST_QUALIFYING_FONT): number {
+  return Math.max(0, text.length * fontPx);
+}
+
+/** Horizontal budget under LO-borgen: castle width minus the same 8px gutter JA already has. */
+export function coastQualifyingMaxAdvance(shift = 0): number {
+  const c = coastCastleRect(shift);
+  return Math.max(0, Math.floor(c.right - c.left) - 2 * COAST_QUALIFYING_GUTTER);
+}
+
+/** Word-wrap so each line's full-em width fits the castle side gutter. */
+export function coastQualifyingWrap(
+  text: string,
+  fontPx = COAST_QUALIFYING_FONT,
+  maxAdvance = coastQualifyingMaxAdvance(),
+): string[] {
+  if (coastQualifyingAdvance(text, fontPx) <= maxAdvance) return [text];
+  const words = text.split(' ').filter((w) => w.length > 0);
+  if (words.length <= 1) return [text];
+  const lines: string[] = [];
+  let cur = words[0]!;
+  for (const w of words.slice(1)) {
+    const trial = `${cur} ${w}`;
+    if (coastQualifyingAdvance(trial, fontPx) <= maxAdvance) cur = trial;
+    else {
+      lines.push(cur);
+      cur = w;
+    }
+  }
+  lines.push(cur);
+  return lines;
+}
+
+export function coastQualifyingBannerLayout(
+  text: string,
+  shift = 0,
+): { lines: string[]; font: number; y: number; gap: number } {
+  const maxAdv = coastQualifyingMaxAdvance(shift);
+  let font = COAST_QUALIFYING_FONT;
+  let lines = coastQualifyingWrap(text, font, maxAdv);
+  while (lines.some((l) => coastQualifyingAdvance(l, font) > maxAdv) && font > 6) {
+    font -= 1;
+    lines = coastQualifyingWrap(text, font, maxAdv);
+  }
+  return {
+    lines,
+    font,
+    y: coastQualifyingOverlayY(COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER, shift),
+    gap: COAST_QUALIFYING_LINE_GAP,
+  };
+}
+
+/** R56.5 / R54.5: Pole Position qualifying call — draw below LO-borgen, not on it.
+ *  EN `QUALIFYING START!` wraps to the same side gutter as JA 「予選スタート！」. */
 export function drawCoastQualifyingBanner(ctx: CanvasRenderingContext2D, text: string, tMs: number): void {
-  px(
-    ctx,
-    text,
-    CX,
-    coastQualifyingOverlayY(),
-    COAST_QUALIFYING_FONT,
-    blink(tMs, 420) ? PAL.white : PAL.magenta,
-    'center',
-  );
+  const layout = coastQualifyingBannerLayout(text);
+  const color = blink(tMs, 420) ? PAL.white : PAL.magenta;
+  layout.lines.forEach((line, i) => {
+    px(
+      ctx,
+      line,
+      CX,
+      layout.y + i * (layout.font + layout.gap),
+      layout.font,
+      color,
+      'center',
+    );
+  });
 }
 
 /** Rear-view arcade car — Pole Position weight, not a C64 speck. */
