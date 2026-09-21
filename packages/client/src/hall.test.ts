@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HALL_SLOTS, MAP_SLOTS, moveHallSel, CANVAS_W, CANVAS_H } from './hall';
+import { HALL_SLOTS, MAP_SLOTS, moveHallSel, CANVAS_W, CANVAS_H, HALL_CHROME_BAND } from './hall';
 import { GAME_IDS } from '@arkad/core';
 
 describe('hall layout (R10)', () => {
@@ -25,6 +25,14 @@ describe('hall layout (R10)', () => {
         const overlapY = a.y < b.y + b.h && b.y < a.y + a.h;
         expect(overlapX && overlapY).toBe(false);
       }
+    }
+  });
+
+  it('cabinets stand below the one chrome band so the header never eats marquees', () => {
+    expect(HALL_CHROME_BAND.top).toBe(0);
+    expect(HALL_CHROME_BAND.bottom).toBeGreaterThan(40);
+    for (const s of HALL_SLOTS) {
+      expect(s.y).toBeGreaterThanOrEqual(HALL_CHROME_BAND.bottom);
     }
   });
 
