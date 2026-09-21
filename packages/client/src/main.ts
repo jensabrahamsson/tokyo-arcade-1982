@@ -10,6 +10,7 @@ import {
   type SnapshotMsg,
   type WelcomeMsg,
   t as translate,
+  nextLang,
 } from '@arkad/core';
 import { Net } from './net';
 import { art, loadArtBrowser } from './art';
@@ -36,7 +37,7 @@ import {
   waitDots, thunkEnvelope, formatHallClock, exitToastVisible,
   attractGain, effectiveAttractGain, heatShimmer, readyCountdown, initialGlow,
   testToneAllowed, shouldRequestFullscreen, fullscreenHintVisible, firstHallVisitAt, cartridgeBadge,
-  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, reconnectStart, coastQualifyingOverlay, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
+  hallWatchOnWelcome, coinModeFor, waitingRetryHint, badgePlateRect, escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue, escapeClearsFullscreenOnly, provenanceLines, guardRender, DEFAULT_VOLUME, hallCoinBadge, countedChrome, HALL_CHROME, reconnectStart, coastQualifyingOverlay, splashAdvance, SPLASH_SKIP_KEYS, titleStartTarget, cabinetScreenData, type CrtKnobs, type AccessMode, type BannerCabinet, type VolumeDetent,
 } from './tweaks';
 import type { StatsReplyMsg } from '@arkad/core';
 
@@ -194,7 +195,7 @@ window.addEventListener('keydown', () => {
 window.addEventListener('pointerdown', () => music.unlock(), { once: true });
 
 function toggleLang(): void {
-  lang = lang === 'en' ? 'ja' : 'en';
+  lang = nextLang(lang);
   localStorage.setItem('arkad-lang', lang);
   if (joined) net.send({ type: 'join', name: myName, lang });
 }
@@ -369,7 +370,7 @@ function openScores(): void {
 
 function update(ms: number): void {
   if (scene === 'splash') {
-    if (ms - bootAt > 3400 || keys.take('Space', 'Enter', 'NumpadEnter', 'KeyZ', 'KeyX')) {
+    if (splashAdvance(ms - bootAt, keys.take(...SPLASH_SKIP_KEYS)) === 'title') {
       scene = 'title';
       keys.clear();
     }
@@ -425,7 +426,7 @@ function update(ms: number): void {
   } else if (scene === 'title') {
     if (keys.take('KeyF')) toggleFullscreen();
     if (keys.take('Space', 'Enter', 'NumpadEnter')) {
-      if (joined) enterHall();
+      if (titleStartTarget(joined) === 'hall') enterHall();
       else openNamePad();
     }
     if (keys.take('Escape') && escapeBackTarget('title', joined) === 'hall') enterHall();
@@ -707,9 +708,8 @@ function renderSplash(ms: number): void {
   px(ctx, t('hall.name'), cx, 224, 7, PAL.gray, 'center');
 }
 
-function cabinetScreenData(game: GameId): { data: unknown; demo: boolean } | null {
-  const cab = world.hall?.cabinets.find((c) => c.game === game);
-  return cab && cab.data !== null ? { data: cab.data, demo: cab.demo } : null;
+function hallCabinetScreen(game: GameId): { data: unknown; demo: boolean } | null {
+  return cabinetScreenData(world.hall?.cabinets, game);
 }
 
 /** UX shell: the dark idle screen gets a small procedural thumbnail of the
@@ -844,7 +844,7 @@ function renderCabinet(
   // screen
   ctx.fillStyle = '#000';
   ctx.fillRect(screenX, screenY, screenW, screenH);
-  const live = cabinetScreenData(slot.game);
+  const live = hallCabinetScreen(slot.game);
   const render = renderers[slot.game];
   if (live && render) {
     ctx.save();

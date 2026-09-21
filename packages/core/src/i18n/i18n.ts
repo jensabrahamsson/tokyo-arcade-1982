@@ -9,6 +9,11 @@ export type MsgKey = keyof typeof EN;
 
 export const LANGS: readonly Lang[] = ['en', 'ja'];
 
+/** L on title/hall: EN ↔ JA. Anything that is not `en` lands back on English. */
+export function nextLang(lang: Lang): Lang {
+  return lang === 'en' ? 'ja' : 'en';
+}
+
 const TABLES: Record<Lang, Record<string, string>> = { en: EN, ja: JA };
 
 export function t(lang: Lang, key: MsgKey, params?: Record<string, string | number>): string {

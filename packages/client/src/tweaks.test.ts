@@ -16,7 +16,8 @@ import {
   escapeBackTarget, hallWatchStale, cabAccent, attractMusicActive, readyStingerDue,
   escapeClearsFullscreenOnly, provenanceLines, guardRender,
   hallCoinBadge, countedChrome, HALL_CHROME, reconnectStart, escapeSendsBack,
-  coastQualifyingOverlay, COAST_QUALIFYING_MS,
+  coastQualifyingOverlay, COAST_QUALIFYING_MS, splashAdvance, SPLASH_MS, SPLASH_SKIP_KEYS,
+  titleStartTarget, isBackHomeKey, cabinetScreenData,
   type CrtKnobs, type VolumeDetent,
 } from './tweaks';
 
@@ -707,6 +708,44 @@ describe('Escape from table sends back (P2-H)', () => {
 
   it('fullscreen spends the first Escape leaving FS, not back', () => {
     expect(escapeSendsBack('table', true, true)).toBe(false);
+  });
+});
+
+describe('boot scene advance (wave 0)', () => {
+  it('splash stays until skip or the 3.4 s timeout, then title', () => {
+    expect(splashAdvance(0, false)).toBe('splash');
+    expect(splashAdvance(SPLASH_MS, false)).toBe('splash');
+    expect(splashAdvance(SPLASH_MS + 1, false)).toBe('title');
+    expect(splashAdvance(0, true)).toBe('title');
+    expect(SPLASH_SKIP_KEYS).toEqual(['Space', 'Enter', 'NumpadEnter', 'KeyZ', 'KeyX']);
+  });
+
+  it('Space on title opens the namepad until join, then the 7-cab hall', () => {
+    expect(titleStartTarget(false)).toBe('name');
+    expect(titleStartTarget(true)).toBe('hall');
+  });
+
+  it('Escape and KeyB are the same windowed back/home keys', () => {
+    expect(isBackHomeKey('Escape')).toBe(true);
+    expect(isBackHomeKey('KeyB')).toBe(true);
+    expect(isBackHomeKey('KeyL')).toBe(false);
+    expect(escapeSendsBack('table', true, false)).toBe(true);
+  });
+});
+
+describe('hall mini screen source (wave 0)', () => {
+  it('a live snake versus row is what the hall mini draws, not the attract demo', () => {
+    const live = { snakes: { p1: { body: [{ x: 1, y: 1 }] } } };
+    const demo = { snakes: { demo: { body: [{ x: 0, y: 0 }] } } };
+    const cabinets = [
+      { game: 'coast', demo: true, data: { dist: 0 } },
+      { game: 'snake', demo: false, data: live },
+    ];
+    expect(cabinetScreenData(cabinets, 'snake')).toEqual({ data: live, demo: false });
+    expect(cabinetScreenData(cabinets, 'coast')?.demo).toBe(true);
+    expect(cabinetScreenData([{ game: 'snake', demo: true, data: demo }], 'snake')?.demo).toBe(true);
+    expect(cabinetScreenData([], 'snake')).toBeNull();
+    expect(cabinetScreenData([{ game: 'snake', demo: false, data: null }], 'snake')).toBeNull();
   });
 });
 
