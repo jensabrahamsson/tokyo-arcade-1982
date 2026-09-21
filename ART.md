@@ -14,7 +14,7 @@ This catalog does **not** drop Coast billboard or LO-borgen PNGs
 
 **Landed** = PNG magic, ≥64 px on at least one axis, typically 16–32 KB
 (R7.4 / R38.5), original / GPL-compatible, no commercial sprites.
-A 16×16 stub is never landed. Hall chrome R57.1–7 and **eighteen**
+A 16×16 stub is never landed. Hall chrome R57.1–7 and **21**
 seven-cabinet marquee/attract/hero plates are landed (R57.52–R57.54),
 including Coast (R57.28–.30). Coast landmark PNGs landed with Wave 1 (R56).
 
@@ -24,7 +24,7 @@ Credits provenance names hall chrome + seven cabinets + Coast PNGs
 ## Drop-zone files (`packages/client/static/art/`)
 
 LO-borgen and the five Coast billboards are Wave 1 paletted PNG drops.
-None are JPEG-misnamed. Wave 3 hall chrome and six-cabinet plates are
+None are JPEG-misnamed. Wave 3 hall chrome and seven-cabinet plates are
 paletted ≥64 px, 16–32 KB, color-type 3.
 
 | File | Kind | Wired `drawImage` | Catalog |
@@ -55,6 +55,9 @@ paletted ≥64 px, 16–32 KB, color-type 3.
 | `myriad-marquee.png` | **landed** paletted | hall cabinet marquee | R57.26 |
 | `myriad-attract.png` | **landed** paletted | idle mini if no live demo | R57.27 |
 | `myriad-hero.png` | **landed** paletted | title spotlight + ready overlay | R57.25 |
+| `coast-marquee.png` | **landed** paletted | hall cabinet marquee | R57.29 |
+| `coast-attract.png` | **landed** paletted | idle mini if no live demo | R57.30 |
+| `coast-hero.png` | **landed** paletted | title spotlight + ready overlay | R57.28 |
 
 Manifest Coast landmarks (Wave 1 landed paletted PNG; loader uses them).
 

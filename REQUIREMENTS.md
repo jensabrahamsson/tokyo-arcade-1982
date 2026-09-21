@@ -702,12 +702,13 @@ A 16×16 stub is never landed. Credits provenance stays
 once six-cabinet plates land, the wall names those plates and keeps
 hall chrome / Coast honest as still procedural (R57.51). After hall
 chrome lands (R57.53), the wall names hall chrome + six cabinets and
-keeps Coast procedural.
+keeps Coast procedural. After Coast plates land (R57.28–.30), the
+wall names hall chrome + seven cabinets + Coast PNGs.
 
-As of Wave 3 leftover, hall chrome R57.1–7 and **eighteen**
-six-cabinet plates (marquee + attract + hero) are landed
-(R57.52–R57.54). Coast landmarks R57.40–R57.45 already landed with
-Wave 1 (R56). Coast marquee/attract/hero stay TODO. R55 is Circuit
+As of Wave 3 leftover, hall chrome R57.1–7 and **21**
+seven-cabinet plates (marquee + attract + hero) are landed
+(R57.52–R57.54), including Coast (R57.28–.30). Coast landmarks
+R57.40–R57.45 already landed with Wave 1 (R56). R55 is Circuit
 d’Or (queued, no gameplay).
 
 ### Hall / splash chrome (landed paletted PNG)
@@ -787,11 +788,11 @@ mini-screen card — not a replacement for the demo.
   body wash is skipped so the wood frame stays visible. Splash uses
   `splash-logo.png` via `drawImage` when loaded, else `drawWordmark`.
   Wave 1 already landed `coast-lo-castle.png` (R57.40 / R56).
-- R57.54 Wave 3 hero sheets (not Coast, not Circuit): paletted PNG
-  for R57.10, .13, .16, .19, .22, .25 (`snake|puck|block|galaxy|river|myriad-hero.png`).
+- R57.54 Wave 3 hero sheets (not Circuit): paletted PNG
+  for R57.10, .13, .16, .19, .22, .25, .28 (`snake|puck|block|galaxy|river|myriad|coast-hero.png`).
   Each file is PNG magic, color-type 3, ≥64 px, 16–32 KB. Title
   spotlight and ready-phase overlay use `cabinetArtFile(..., 'hero')`.
-  Never Coast. Never a replacement for live gameplay (R8 attract
+  Never a replacement for live gameplay (R8 attract
   demos and in-cabinet `step()` stay). Puck sheet is a hockey puck,
   not a maze ghost.
 
@@ -895,7 +896,7 @@ table rewrite (R58). R59 is the hall marquee clip / F-hint gutter
   coins). In-memory only.
 - R60.4 Credits (R13) and README Sound name the Lyria 3.5 exception
   honestly (`Late_Night_Cabinet`, `coast_yosen_start_ja`); pixel art
-  names hall chrome + six cabinets + Coast landmarks that already
+  names hall chrome + seven cabinets + Coast landmarks that already
   landed (R56 / R57). No new samples.
 - R60.5 README lists LinkedIn canvas shots (1920-ish of the canvas, not
   OS chrome): splash TOKYO ARCADE + amber 1982, hall of seven, Coast
