@@ -1,5 +1,7 @@
 /** R38: pixel-art manifest + async loader. Presentation only; core never sees this. */
 
+import type { GameId } from '@arkad/core';
+
 export const ART_FILES = [
   'hall-floor.png',
   'cabinet-bezel.png',
@@ -16,9 +18,86 @@ export const ART_FILES = [
   'coast-bommersvik.png',
   'coast-valdebatt76.png',
   'coast-castro-visit.png',
+  // R57 Wave 3: six-cabinet marquee + attract + hero plates. Coast plates
+  // are PR #8 (do not add coast-marquee/attract/hero here).
+  'snake-marquee.png',
+  'snake-attract.png',
+  'snake-hero.png',
+  'puck-marquee.png',
+  'puck-attract.png',
+  'puck-hero.png',
+  'block-marquee.png',
+  'block-attract.png',
+  'block-hero.png',
+  'galaxy-marquee.png',
+  'galaxy-attract.png',
+  'galaxy-hero.png',
+  'river-marquee.png',
+  'river-attract.png',
+  'river-hero.png',
+  'myriad-marquee.png',
+  'myriad-attract.png',
+  'myriad-hero.png',
 ] as const;
 
 export type ArtFile = (typeof ART_FILES)[number];
+
+/** R57: marquee/attract/hero filenames for the six Wave 3 cabinets. Coast → null. */
+export const WAVE3_CABINET_GAMES = ['snake', 'puck', 'block', 'galaxy', 'river', 'myriad'] as const;
+
+export const HALL_CHROME_FILES = [
+  'hall-floor.png',
+  'cabinet-bezel.png',
+  'splash-logo.png',
+  'marquee-neon.png',
+  'coin-slot.png',
+  'credit-panel.png',
+  'wait-badge.png',
+] as const;
+
+export function cabinetArtFile(
+  game: GameId,
+  slot: 'marquee' | 'attract' | 'hero',
+): ArtFile | null {
+  const name = `${game}-${slot}.png`;
+  return (ART_FILES as readonly string[]).includes(name) ? (name as ArtFile) : null;
+}
+
+/** R57.53: a landed bezel must stay visible — skip the dark body wash. */
+export function skipCabinetBodyWash(hasBezel: boolean): boolean {
+  return hasBezel;
+}
+
+/** R57.3 / R57.53: splash uses the wordmark plate when the loader kept it. */
+export function splashWordmarkKind(hasLogo: boolean): 'art' | 'procedural' {
+  return hasLogo ? 'art' : 'procedural';
+}
+
+export type HeroSheetScene = 'title' | 'ready' | 'playing' | 'hall' | 'attract';
+
+/** R57.54: hero sheets are title spotlight + ready overlay; never gameplay, never Coast. */
+export function heroSheetForScene(game: GameId, scene: HeroSheetScene): ArtFile | null {
+  if (scene !== 'title' && scene !== 'ready') return null;
+  return cabinetArtFile(game, 'hero');
+}
+
+/** Fit src into dest while preserving aspect (letterbox). */
+export function containRect(
+  srcW: number,
+  srcH: number,
+  destX: number,
+  destY: number,
+  destW: number,
+  destH: number,
+): { x: number; y: number; w: number; h: number } {
+  if (!(srcW > 0) || !(srcH > 0) || !(destW > 0) || !(destH > 0)) {
+    return { x: destX, y: destY, w: destW, h: destH };
+  }
+  const s = Math.min(destW / srcW, destH / srcH);
+  const w = srcW * s;
+  const h = srcH * s;
+  return { x: destX + (destW - w) / 2, y: destY + (destH - h) / 2, w, h };
+}
 
 export const artPath = (name: ArtFile): string => `/art/${name}`;
 

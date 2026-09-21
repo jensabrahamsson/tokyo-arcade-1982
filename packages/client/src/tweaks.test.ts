@@ -629,11 +629,9 @@ describe('escape vs fullscreen (P2-9)', () => {
 });
 
 describe('credits provenance (P2-8/P2-10)', () => {
-  it('names the Lyria exception and tells the truth about which PNGs have landed', () => {
-    // Wave 1 dropped real Coast billboard + LO-borgen PNGs. The previous
-    // line 'PIXEL ART: PROCEDURAL UNTIL ART LANDS' was honest while the
-    // drop zone was 16×16 stubs; claiming ORIGINALS for the whole hall
-    // is still wrong (hall chrome is stubs). Credits name Coast vs hall.
+  it('names the Lyria exception and landed hall chrome, six cabinets, and Coast PNGs', () => {
+    // Wave 1 landed Coast landmarks; R57.52–54 landed hall chrome + six
+    // cabinets. The wall must name all three and not claim Circuit art.
     const lines = provenanceLines();
     expect(lines.length).toBeGreaterThanOrEqual(3);
     const all = lines.join('\n');
@@ -641,10 +639,13 @@ describe('credits provenance (P2-8/P2-10)', () => {
     expect(all).toContain('LATE NIGHT CABINET');
     expect(all).toContain('COAST YOSEN START');
     expect(all).toContain('WATERMARK');
-    expect(all).toContain('COAST PNGS');
-    expect(all).toContain('HALL PROCEDURAL');
-    expect(all).not.toContain('ORIGINALS, CHECKED FOR WATERMARKS');
+    expect(all).toContain('HALL CHROME');
+    expect(all).toContain('SIX CABS');
+    expect(all).toContain('COAST');
     expect(all).not.toContain('PROCEDURAL UNTIL ART LANDS');
+    expect(all).not.toContain('ORIGINALS, CHECKED FOR WATERMARKS');
+    expect(all).not.toContain('HALL CHROME PROCEDURAL');
+    expect(all).not.toContain('COAST STILL PROCEDURAL');
     for (const line of lines) expect(line.length).toBeLessThanOrEqual(46);
   });
 });
