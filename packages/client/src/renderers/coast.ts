@@ -44,6 +44,58 @@ function project(dist: number, camDist: number, playerX: number): { y: number; s
 /** km/h shown at MAX_SPEED — Tokyo Arcade 1982 is a metric cabinet. */
 export const COAST_SPEED_SCALE = 220;
 
+export interface CoastHudSlot {
+  text: string;
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  align: CanvasTextAlign;
+}
+
+export function coastHudSlots(
+  copy: { time: string; speed: string; gate: string; offRoad: string | null },
+): { bar: typeof COAST_HUD_BAR; slots: CoastHudSlot[] } {
+  const y = 3;
+  const size = 10;
+  const slots: CoastHudSlot[] = [
+    { text: copy.time, x: 6, y, size, color: PAL.yellow, align: 'left' },
+    { text: copy.gate, x: CX, y, size, color: PAL.yellow, align: 'center' },
+    { text: copy.speed, x: W - 6, y, size, color: PAL.white, align: 'right' },
+  ];
+  if (copy.offRoad) {
+    slots.push({
+      text: copy.offRoad,
+      x: CX,
+      y: 136,
+      size: 12,
+      color: '#ffd75e',
+      align: 'center',
+    });
+  }
+  return { bar: COAST_HUD_BAR, slots };
+}
+
+function drawCoastHud(
+  ctx: CanvasRenderingContext2D,
+  copy: { time: string; speed: string; gate: string; offRoad: string | null },
+): void {
+  const { bar, slots } = coastHudSlots(copy);
+  ctx.fillStyle = COAST_HUD_PLATE;
+  ctx.fillRect(bar.x, bar.y, bar.w, bar.h);
+  for (const s of slots) {
+    if (s.y >= bar.y + bar.h) {
+      const tw = s.text.length * s.size;
+      ctx.fillStyle = COAST_HUD_PLATE;
+      ctx.fillRect(Math.round(s.x - tw / 2 - 4), s.y - 2, tw + 8, s.size + 4);
+    }
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+      px(ctx, s.text, s.x + dx, s.y + dy, s.size, PAL.black, s.align);
+    }
+    px(ctx, s.text, s.x, s.y, s.size, s.color, s.align);
+  }
+}
+
 /** Fuji-scale: wide on the horizon, short enough that the sky still reads. */
 export const CASTLE_DRAW = { w: 152, h: 56 } as const;
 /** px() uses textBaseline top — qualifying banner must sit below LO-borgen (R56.5). */
@@ -154,9 +206,19 @@ export function drawCoastQualifyingBanner(ctx: CanvasRenderingContext2D, text: s
 }
 
 /** Rear-view arcade car — Pole Position weight, not a C64 speck.
- *  Old body was the flat red wedge #e03c2f. */
+ *  Old body was the flat red wedge #e03c2f. 80×52 sat on the asphalt like a
+ *  sticker; the seated sedan is a third of the 320 glass. Aspect matches
+ *  coast-datsun.png (160×105). */
 export const CAR_BODY = '#ff7a18';
-export const CAR_DRAW = { w: 80, h: 52 } as const;
+export const CAR_DRAW = { w: 120, h: 79 } as const;
+/** Tires rest just inside the glass so the bumper is not clipped. */
+export const CAR_BOTTOM_INSET = 4;
+
+/** Night moon. The HUD bar ends above it so TIME never sits in the disc. */
+export const COAST_MOON = { x: 72, y: 26, r: 8 } as const;
+/** Instrument bar — chunky digits, not bare monospace on the sky. */
+export const COAST_HUD_BAR = { x: 0, y: 0, w: W, h: 16 } as const;
+export const COAST_HUD_PLATE = '#05060c';
 
 export type CoastCarRole = 'shadow' | 'wheel' | 'body' | 'glass' | 'lamp' | 'bumper' | 'plate';
 
@@ -169,20 +231,38 @@ export interface CoastCarPart {
   role: CoastCarRole;
 }
 
-/** Procedural orange sedan used when `coast-datsun.png` is missing. */
-export function coastCarSprite(w = CAR_DRAW.w, h = CAR_DRAW.h): CoastCarPart[] {
+/** Procedural orange sedan used when `coast-datsun.png` is missing.
+ *  Parts stay inside the draw box and the body tracks the box width. */
+export function coastCarSprite(w: number = CAR_DRAW.w, h: number = CAR_DRAW.h): CoastCarPart[] {
+  const bodyW = Math.round(w * 0.82);
+  const cabinW = Math.round(w * 0.5);
+  const wheelW = Math.max(10, Math.round(w * 0.15));
+  const wheelH = Math.round(h * 0.36);
+  const lampW = Math.round(w * 0.12);
   return [
-    { role: 'shadow', dx: -w / 2 + 6, dy: -4, w: w - 12, h: 6, color: 'rgba(20,16,32,0.45)' },
-    { role: 'wheel', dx: -w / 2 - 1, dy: -h * 0.38, w: 12, h: h * 0.36, color: '#1c1c28' },
-    { role: 'wheel', dx: w / 2 - 11, dy: -h * 0.38, w: 12, h: h * 0.36, color: '#1c1c28' },
-    { role: 'body', dx: -32, dy: -h, w: 64, h: h * 0.62, color: CAR_BODY },
-    { role: 'body', dx: -22, dy: -h - 8, w: 44, h: 10, color: CAR_BODY },
-    { role: 'glass', dx: -18, dy: -h - 6, w: 36, h: 7, color: '#243056' },
-    { role: 'bumper', dx: -30, dy: -h * 0.2, w: 60, h: 5, color: '#c2c3c7' },
-    { role: 'lamp', dx: -28, dy: -h * 0.36, w: 10, h: 6, color: '#ff004d' },
-    { role: 'lamp', dx: 18, dy: -h * 0.36, w: 10, h: 6, color: '#ff004d' },
-    { role: 'plate', dx: -8, dy: -h * 0.46, w: 16, h: 6, color: '#f7e766' },
+    { role: 'shadow', dx: Math.round(-w * 0.38), dy: -6, w: Math.round(w * 0.76), h: 6, color: 'rgba(20,16,32,0.45)' },
+    { role: 'wheel', dx: -Math.round(w / 2), dy: -wheelH - 2, w: wheelW, h: wheelH, color: '#1c1c28' },
+    { role: 'wheel', dx: Math.round(w / 2) - wheelW, dy: -wheelH - 2, w: wheelW, h: wheelH, color: '#1c1c28' },
+    { role: 'body', dx: -Math.round(bodyW / 2), dy: -Math.round(h * 0.7), w: bodyW, h: Math.round(h * 0.7), color: CAR_BODY },
+    { role: 'body', dx: -Math.round(cabinW / 2), dy: -h, w: cabinW, h: Math.round(h * 0.4), color: CAR_BODY },
+    { role: 'glass', dx: -Math.round(cabinW * 0.4), dy: -h + 3, w: Math.round(cabinW * 0.8), h: Math.round(h * 0.16), color: '#243056' },
+    { role: 'bumper', dx: -Math.round(bodyW * 0.48), dy: -Math.round(h * 0.16), w: Math.round(bodyW * 0.96), h: 6, color: '#c2c3c7' },
+    { role: 'lamp', dx: -Math.round(bodyW * 0.44), dy: -Math.round(h * 0.32), w: lampW, h: 7, color: '#ff004d' },
+    { role: 'lamp', dx: Math.round(bodyW * 0.44) - lampW, dy: -Math.round(h * 0.32), w: lampW, h: 7, color: '#ff004d' },
+    { role: 'plate', dx: -9, dy: -Math.round(h * 0.4), w: 18, h: 7, color: '#f7e766' },
   ];
+}
+
+/** Where the seated car is painted. Bottom inset keeps the tires on the glass. */
+export function coastCarScreenRect(tMs = 0, speed = 0): { x: number; y: number; w: number; h: number } {
+  const bob = Math.sin(tMs / 55) * (speed / MAX_SPEED) * 1.5;
+  const bottom = H - CAR_BOTTOM_INSET + bob;
+  return {
+    x: CX - CAR_DRAW.w / 2,
+    y: bottom - CAR_DRAW.h,
+    w: CAR_DRAW.w,
+    h: CAR_DRAW.h,
+  };
 }
 
 export interface ObstaclePart {
@@ -325,7 +405,7 @@ function drawCastle(ctx: CanvasRenderingContext2D, shift: number, tMs: number): 
  * copy live in the core (COAST_BILLBOARDS); this table adds the visual skin.
  * PNGs from Imagine drop into static/art; the procedural fallback keeps the
  * beat even before they land. LO-borgen stays the primary landmark. */
-const ROADSIDE_SKIN: readonly { art: ArtFile; accent: string; glyph: 'tree' | 'dinghy' | 'lodge' | 'debate' | 'palm' }[] = [
+export const COAST_BOARD_SKIN: readonly { art: ArtFile; accent: string; glyph: 'tree' | 'dinghy' | 'lodge' | 'debate' | 'palm' }[] = [
   { art: 'coast-centerpartiet.png', accent: '#2ee66b', glyph: 'tree' },
   { art: 'coast-harpsund.png', accent: '#f7e766', glyph: 'dinghy' },
   { art: 'coast-bommersvik.png', accent: '#ff004d', glyph: 'lodge' },
@@ -337,21 +417,44 @@ interface BoardDraw { d: number; side: -1 | 1; text: string; art: ArtFile; accen
 
 const ROADSIDE: readonly BoardDraw[] = COAST_BILLBOARDS.map((b, i) => ({
   ...b,
-  ...ROADSIDE_SKIN[i % ROADSIDE_SKIN.length]!,
+  ...COAST_BOARD_SKIN[i % COAST_BOARD_SKIN.length]!,
 }));
 
-function drawBillboard(ctx: CanvasRenderingContext2D, b: BoardDraw, p: { y: number; scale: number; roadW: number; offX: number }, tMs: number): void {
-  const bw = Math.max(10, Math.min(88, p.scale * 240));
-  const bh = Math.round(bw * 0.62);
-  const bx = p.offX + b.side * (p.roadW * 0.7 + bw * 0.45);
-  if (bx < -bw || bx > W + bw) return;
-  const groundY = p.y;
-  const postW = Math.max(1, Math.round(bw * 0.06));
-  const postH = Math.max(2, Math.round(bh * 0.45));
+/** Drive-past window. Farther than this is a vanishing-point speck; closer
+ * and the shoulder is gone, so the Swedish plate would be a sliver off-glass. */
+export const COAST_BOARD_AHEAD = { near: 46, far: 74 } as const;
+
+/** Screen box for one homage board. Null when it would not read. */
+export function coastBillboardScreen(
+  boardD: number,
+  cam: number,
+  side: -1 | 1,
+  playerX = 0,
+): { x: number; top: number; w: number; h: number } | null {
+  const ahead = boardD - cam;
+  if (ahead < COAST_BOARD_AHEAD.near || ahead > COAST_BOARD_AHEAD.far) return null;
+  const p = project(boardD, cam, playerX);
+  const shoulder = (W - Math.min(W, p.roadW)) / 2;
+  const w = Math.floor(Math.min(112, shoulder - 8));
+  if (w < 80) return null;
+  const h = Math.round(w * 0.62);
+  const shift = Math.max(-12, Math.min(12, (p.offX - CX) * 0.12));
+  const anchor = side < 0 ? shoulder / 2 : W - shoulder / 2;
+  const x = Math.max(w / 2 + 1, Math.min(W - w / 2 - 1, anchor + shift));
+  const postH = Math.max(4, Math.round(h * 0.28));
+  return { x, top: p.y - postH - h, w, h };
+}
+
+function drawBillboard(ctx: CanvasRenderingContext2D, b: BoardDraw, cam: number, playerX: number, tMs: number): void {
+  const box = coastBillboardScreen(b.d, cam, b.side, playerX);
+  if (!box) return;
+  const { w: bw, h: bh, x: bx, top: boardTop } = box;
+  const postH = Math.max(4, Math.round(bh * 0.28));
+  const groundY = boardTop + bh + postH;
+  const postW = Math.max(2, Math.round(bw * 0.06));
   ctx.fillStyle = '#241a12';
   ctx.fillRect(bx - bw * 0.3, groundY - postH, postW, postH);
   ctx.fillRect(bx + bw * 0.3 - postW, groundY - postH, postW, postH);
-  const boardTop = groundY - postH - bh;
   const img = art()[b.art];
   if (img) {
     ctx.imageSmoothingEnabled = false;
@@ -364,14 +467,8 @@ function drawBillboard(ctx: CanvasRenderingContext2D, b: BoardDraw, p: { y: numb
   ctx.strokeStyle = PAL.gray;
   ctx.lineWidth = 1;
   ctx.strokeRect(bx - bw / 2 + 0.5, boardTop + 0.5, bw - 1, bh - 1);
-  if (bw >= 44) {
-    // the board carries its 1982 copy once it is big enough to read
-    ctx.font = `${Math.max(5, Math.min(8, Math.round(bw / 12)))}px monospace`;
-    ctx.fillStyle = b.accent;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(b.text, Math.round(bx), Math.round(boardTop + bh - 12));
-  }
+  const caption = Math.max(7, Math.min(8, Math.floor(bw / 12)));
+  px(ctx, b.text, bx, boardTop + bh - caption - 3, caption, b.accent, 'center');
   const u = bw / 24; // unit grid so glyphs read at every distance
   ctx.fillStyle = b.accent;
   switch (b.glyph) {
@@ -464,7 +561,7 @@ function drawRoadsideRhythm(
 
 /** Fixed night stars — presentation only, no Math.random. */
 const COAST_STARS: readonly (readonly [number, number])[] = [
-  [18, 14], [42, 28], [96, 12], [210, 18], [248, 32], [286, 16], [150, 22],
+  [18, 20], [42, 28], [96, 20], [210, 18], [248, 32], [286, 22], [150, 22],
 ];
 
 /** Orange sedan. Sprite when `coast-datsun.png` loaded, else coastCarSprite. */
@@ -472,19 +569,21 @@ export function drawCoastCar(
   ctx: CanvasRenderingContext2D,
   opts: { img?: CanvasImageSource; steer: number; tMs: number; speed: number },
 ): void {
-  const { w, h } = CAR_DRAW;
   const { img, steer, tMs, speed } = opts;
+  const rect = coastCarScreenRect(tMs, speed);
   ctx.save();
-  ctx.translate(CX, H - 4 + Math.sin(tMs / 55) * (speed / MAX_SPEED) * 1.5);
+  ctx.translate(rect.x + rect.w / 2, rect.y + rect.h);
   ctx.transform(1, 0, -steer * 0.1, 1, 0, 0);
   if (img) {
+    ctx.fillStyle = 'rgba(5,6,12,0.5)';
+    ctx.fillRect(-rect.w * 0.34, -7, rect.w * 0.68, 6);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, -w / 2, -h, w, h);
+    ctx.drawImage(img, -rect.w / 2, -rect.h, rect.w, rect.h);
     ctx.imageSmoothingEnabled = true;
     ctx.restore();
     return;
   }
-  for (const part of coastCarSprite(w, h)) {
+  for (const part of coastCarSprite(rect.w, rect.h)) {
     ctx.fillStyle = part.color;
     ctx.fillRect(part.dx, part.dy, part.w, part.h);
   }
@@ -501,7 +600,7 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
   for (const [sx, sy] of COAST_STARS) ctx.fillRect(sx, sy, 2, 2);
   ctx.fillStyle = '#f4e6a8';
   ctx.beginPath();
-  ctx.arc(72, 26, 8, 0, Math.PI * 2);
+  ctx.arc(COAST_MOON.x, COAST_MOON.y, COAST_MOON.r, 0, Math.PI * 2);
   ctx.fill();
 
   const camCurve = curveAt(s.dist);
@@ -540,10 +639,7 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
 
   if (!mini) drawRoadsideRhythm(ctx, cam, s.playerX);
 
-  for (const b of ROADSIDE) {
-    if (b.d < cam + 1 || b.d > cam + 140) continue;
-    drawBillboard(ctx, b, project(b.d, cam, s.playerX), tMs);
-  }
+  for (const b of ROADSIDE) drawBillboard(ctx, b, cam, s.playerX, tMs);
 
   for (const o of s.obstacles) {
     if (o.hit || o.d < cam + 1 || o.d > cam + 140) continue;
@@ -559,23 +655,5 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
   const steer = Math.max(-1, Math.min(1, (s.playerX % 1) * 0.4 + curveAt(s.dist) * 0.3));
   drawCoastCar(ctx, { img: art()['coast-datsun.png'], steer, tMs, speed: s.speed });
 
-  const hud = coastHudCopy(lang, s);
-  ctx.font = '10px monospace';
-  ctx.fillStyle = '#f7e766';
-  ctx.textAlign = 'left';
-  ctx.fillText(hud.time, 6, 12);
-  ctx.textAlign = 'right';
-  ctx.fillStyle = PAL.white;
-  ctx.fillText(hud.speed, W - 6, 12);
-  ctx.textAlign = 'left';
-  ctx.font = '8px monospace';
-  ctx.fillStyle = PAL.gray;
-  ctx.fillText(hud.gate, 6, 22);
-  if (hud.offRoad) {
-    ctx.font = '10px monospace';
-    ctx.fillStyle = '#ffd75e';
-    ctx.textAlign = 'center';
-    ctx.fillText(hud.offRoad, CX, H - 58);
-    ctx.textAlign = 'left';
-  }
+  if (!mini) drawCoastHud(ctx, coastHudCopy(lang, s));
 }
