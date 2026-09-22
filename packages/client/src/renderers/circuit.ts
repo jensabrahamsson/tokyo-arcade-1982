@@ -18,6 +18,8 @@ export const GRASS: readonly [number, number, number] = [78, 196, 74];
 export const INFIELD: readonly [number, number, number] = [48, 150, 62];
 export const ASPHALT: readonly [number, number, number] = [198, 192, 174];
 export const CAR: readonly [number, number, number] = [255, 112, 28];
+/** Second human on the same overview. Orange stays player one. */
+export const CAR_P2: readonly [number, number, number] = [45, 226, 230];
 
 const rgb = (c: readonly [number, number, number]): string => `rgb(${c[0]},${c[1]},${c[2]})`;
 
@@ -93,19 +95,31 @@ export function renderCircuit(
     }
   }
 
-  const car = overviewPoint(s.x, s.y);
-  const c = Math.cos(s.heading);
-  const sn = Math.sin(s.heading);
-  const blit = (ox: number, oy: number, w: number, h: number, color: string) => {
-    const wx = car.x + ox * c - oy * sn;
-    const wy = car.y + ox * sn + oy * c;
-    ctx.fillStyle = color;
-    ctx.fillRect(wx - w / 2, wy - h / 2, w, h);
+  const paintCar = (x: number, y: number, heading: number, body: string) => {
+    const car = overviewPoint(x, y);
+    const c = Math.cos(heading);
+    const sn = Math.sin(heading);
+    const blit = (ox: number, oy: number, w: number, h: number, color: string) => {
+      const wx = car.x + ox * c - oy * sn;
+      const wy = car.y + ox * sn + oy * c;
+      ctx.fillStyle = color;
+      ctx.fillRect(wx - w / 2, wy - h / 2, w, h);
+    };
+    blit(0, 0, 12, 6, body);
+    blit(6, 0, 4, 3, PAL.yellow);
+    blit(-2, -3, 3, 3, PAL.navy);
+    blit(-2, 3, 3, 3, PAL.navy);
   };
-  blit(0, 0, 12, 6, rgb(CAR));
-  blit(6, 0, 4, 3, PAL.yellow);
-  blit(-2, -3, 3, 3, PAL.navy);
-  blit(-2, 3, 3, 3, PAL.navy);
+  if (s.mode === 'versus' && s.cars) {
+    const ids = Object.keys(s.cars);
+    ids.forEach((id, i) => {
+      const car = s.cars[id];
+      if (!car) return;
+      paintCar(car.x, car.y, car.heading, rgb(i === 0 ? CAR : CAR_P2));
+    });
+  } else {
+    paintCar(s.x, s.y, s.heading, rgb(CAR));
+  }
 
   const hud = circuitHudCopy(lang, s);
   px(ctx, hud.title, W / 2, 4, 8, PAL.white, 'center');

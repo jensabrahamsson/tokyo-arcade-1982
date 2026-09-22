@@ -75,9 +75,12 @@ describe('circuit d’Or title (R55.1)', () => {
 });
 
 describe('circuit create (R55)', () => {
-  it('is the overview endurance cabinet, solo, id circuit', () => {
+  it('is the overview endurance cabinet, id circuit', () => {
     expect(circuitSpec.id).toBe('circuit');
-    expect(circuitSpec.supportsVersus).toBe(false);
+    // R55.2 shipped solo-only (supportsVersus false, versus out of scope).
+    // R61 seats a second human on this same overview, so the flag is now true.
+    expect(circuitSpec.supportsVersus).toBe(true);
+    expect(circuitSpec.capacity).toBe(2);
     expect(CIRCUIT_CAMERA).toBe('overview');
     expect(CIRCUIT_LAPS).toBeGreaterThanOrEqual(2);
     expect(CIRCUIT_LIVES).toBeGreaterThanOrEqual(1);
@@ -181,6 +184,69 @@ describe('circuit drive', () => {
     expect(s.finished).toBe(true);
     expect(s.lap).toBeGreaterThanOrEqual(CIRCUIT_LAPS);
     expect(s.scores['p1']!).toBeGreaterThan(0);
+  });
+
+  it('versus keeps both cars on one loop and lets the other finish the race', () => {
+    const vs: GameConfig = { mode: 'versus', playerIds: ['a', 'b'], seed: 1976 };
+    const grid = createCircuit(vs);
+    expect(grid.mode).toBe('versus');
+    expect(Object.keys(grid.cars)).toEqual(['a', 'b']);
+    expect(Math.hypot(grid.cars.a!.x - grid.cars.b!.x, grid.cars.a!.y - grid.cars.b!.y)).toBeGreaterThan(8);
+    expect(grid.cars.a!.u).toBeLessThan(0.05);
+    expect(grid.cars.b!.u).toBeLessThan(0.05);
+
+    const started = play(grid);
+    const steered = circuitSpec.step(started, {
+      a: { dir: DIRS.left, button: true, seq: 1 },
+      b: { dir: DIRS.right, button: true, seq: 1 },
+    });
+    expect(steered.cars.a!.heading).toBeLessThan(started.cars.a!.heading);
+    expect(steered.cars.b!.heading).toBeGreaterThan(started.cars.b!.heading);
+    expect(steered.phase).toBe('playing');
+
+    const pose = poseAt(0.9);
+    let s: CircuitState = {
+      ...started,
+      cars: {
+        ...started.cars,
+        a: {
+          ...started.cars.a!,
+          x: pose.x,
+          y: pose.y,
+          heading: pose.heading,
+          speed: MAX_SPEED * 0.8,
+          u: pose.u,
+          lat: 0,
+          lap: CIRCUIT_LAPS - 1,
+        },
+      },
+    };
+    for (let i = 0; i < 500 && s.phase === 'playing' && !s.cars.a!.finished; i++) {
+      const view = {
+        ...s,
+        x: s.cars.a!.x,
+        y: s.cars.a!.y,
+        heading: s.cars.a!.heading,
+        u: s.cars.a!.u,
+        lat: s.cars.a!.lat,
+        speed: s.cars.a!.speed,
+      };
+      const steer = circuitSteer(view);
+      s = circuitSpec.step(s, {
+        a: { dir: steer === 0 ? null : { dx: steer, dy: 0 }, button: true, seq: i },
+        b: NO_INPUT,
+      });
+    }
+    expect(s.cars.a!.finished).toBe(true);
+    expect(s.phase).toBe('playing');
+    expect(s.cars.b!.retired).toBe(false);
+    expect(s.cars.b!.lap).toBe(0);
+    const parked = s.cars.b!;
+    s = circuitSpec.step({ ...s, timeLeft: 1 }, { a: NO_INPUT, b: NO_INPUT });
+    expect(s.phase).toBe('gameOver');
+    expect(s.winner).toBe('a');
+    expect(s.cars.b!.x).toBe(parked.x);
+    expect(s.cars.b!.y).toBe(parked.y);
   });
 
   it('the attract bot completes a lap without wrecking', () => {

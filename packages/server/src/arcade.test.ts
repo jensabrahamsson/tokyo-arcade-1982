@@ -802,6 +802,49 @@ describe('Arcade', () => {
     arcade.handleMessage('c1', { type: 'join', name: 'AKIRA', lang: 'ja' });
     expect(net.last<{ type: string }>('c1', 'welcome')?.type).toBe('welcome');
   });
+
+  it('coast and circuit versus seat a second human the way snake does (R61)', () => {
+    for (const game of ['coast', 'circuit'] as const) {
+      arcade.handleMessage('c1', { type: 'start', game, mode: 'versus' });
+      arcade.handleMessage('c2', { type: 'start', game, mode: 'versus' });
+      arcade.handleMessage('c3', { type: 'start', game, mode: 'versus' });
+      for (let i = 0; i < 200; i++) arcade.tick();
+      const snap = net.last<SnapshotMsg>('c1', 'snapshot');
+      expect(snap?.table.game).toBe(game);
+      expect(snap?.table.mode).toBe('versus');
+      expect(snap?.table.phase).toBe('playing');
+      expect(snap?.table.players.map((p) => p.id).sort()).toEqual(['c1', 'c2']);
+      expect(snap?.credits).toBe(0);
+      const watch = net.last<SnapshotMsg>('c3', 'snapshot');
+      expect(watch?.table.players).toHaveLength(2);
+      arcade.handleMessage('c1', { type: 'back' });
+      arcade.handleMessage('c2', { type: 'back' });
+      arcade.handleMessage('c3', { type: 'back' });
+    }
+  });
+
+  it('a second racer does not debit the seated wallet again (R61)', () => {
+    arcade.handleMessage('c1', { type: 'freePlay', on: false });
+    arcade.handleMessage('c1', { type: 'coin', game: 'coast' });
+    arcade.handleMessage('c1', { type: 'start', game: 'coast', mode: 'versus' });
+    for (let i = 0; i < 4; i++) arcade.tick();
+    expect(net.last<SnapshotMsg>('c1', 'snapshot')?.credits).toBe(0);
+    arcade.handleMessage('c2', { type: 'start', game: 'coast', mode: 'versus' });
+    expect(net.last<{ code: string }>('c2', 'error')?.code).toBe('insert-coin');
+    for (let i = 0; i < 4; i++) arcade.tick();
+    const held = net.last<SnapshotMsg>('c1', 'snapshot');
+    expect(held?.credits).toBe(0);
+    expect(held?.table.players).toHaveLength(1);
+
+    arcade.handleMessage('c2', { type: 'coin', game: 'coast' });
+    arcade.handleMessage('c2', { type: 'start', game: 'coast', mode: 'versus' });
+    for (let i = 0; i < 4; i++) arcade.tick();
+    expect(net.last<SnapshotMsg>('c1', 'snapshot')?.credits).toBe(0);
+    const joined = net.last<SnapshotMsg>('c2', 'snapshot');
+    expect(joined?.credits).toBe(0);
+    expect(joined?.table.players).toHaveLength(2);
+    expect(joined?.table.mode).toBe('versus');
+  });
 });
 
 describe('Arcade smoke (all cabinets)', () => {

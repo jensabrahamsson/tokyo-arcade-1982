@@ -1,5 +1,6 @@
 import {
   type GameConfig,
+  type GameMode,
   type GameSpec,
   type GameStateBase,
   type PlayerInput,
@@ -55,7 +56,25 @@ export const CIRCUIT_MARKS: readonly CircuitMark[] = [
   { u: 0.58, kind: 'pits' },
 ];
 
+/** One car on the shared overview. Versus keeps two; solo still reads the top-level pose. */
+export interface CircuitCar {
+  x: number;
+  y: number;
+  heading: number;
+  speed: number;
+  u: number;
+  lat: number;
+  lap: number;
+  onTrack: boolean;
+  invuln: number;
+  /** completed the scheduled laps */
+  finished: boolean;
+  /** parked: laps done or out of lives */
+  retired: boolean;
+}
+
 export interface CircuitState extends GameStateBase {
+  mode: GameMode;
   x: number;
   y: number;
   heading: number;
@@ -71,7 +90,12 @@ export interface CircuitState extends GameStateBase {
   deaths: number;
   clears: number;
   rngSeed: number;
+  cars: Record<string, CircuitCar>;
 }
+
+/** Side-by-side grid so both cars read on the overview. Inside the asphalt. */
+const GRID_LAT = 12;
+const BUMP = 16;
 
 const wrapAngle = (a: number): number => {
   let x = a;
@@ -188,14 +212,37 @@ export function circuitSteer(state: CircuitState): -1 | 0 | 1 {
   return 0;
 }
 
+function carAt(u: number, lat: number): CircuitCar {
+  const pose = poseAt(u);
+  const nx = Math.sin(pose.heading);
+  const ny = -Math.cos(pose.heading);
+  return {
+    x: pose.x + nx * lat,
+    y: pose.y + ny * lat,
+    heading: pose.heading,
+    speed: 0,
+    u: pose.u,
+    lat,
+    lap: 0,
+    onTrack: Math.abs(lat) <= HALF_WIDTH,
+    invuln: 0,
+    finished: false,
+    retired: false,
+  };
+}
+
 export function createCircuit(config: GameConfig): CircuitState {
-  const pose = poseAt(0);
   const lives: Record<string, number> = {};
   const scores: Record<string, number> = {};
-  for (const id of config.playerIds) {
+  const cars: Record<string, CircuitCar> = {};
+  const duo = config.mode === 'versus' && config.playerIds.length > 1;
+  config.playerIds.forEach((id, i) => {
     lives[id] = CIRCUIT_LIVES;
     scores[id] = 0;
-  }
+    const lat = duo ? (i === 0 ? -GRID_LAT : GRID_LAT) : 0;
+    cars[id] = carAt(0, lat);
+  });
+  const lead = cars[config.playerIds[0]!] ?? carAt(0, 0);
   return {
     phase: 'ready',
     phaseTimer: 0,
@@ -203,25 +250,211 @@ export function createCircuit(config: GameConfig): CircuitState {
     scores,
     lives,
     sfx: [],
-    x: pose.x,
-    y: pose.y,
-    heading: pose.heading,
-    speed: 0,
-    u: pose.u,
-    lat: 0,
-    lap: 0,
+    mode: config.mode,
+    x: lead.x,
+    y: lead.y,
+    heading: lead.heading,
+    speed: lead.speed,
+    u: lead.u,
+    lat: lead.lat,
+    lap: lead.lap,
     timeLeft: CIRCUIT_TIME,
-    onTrack: true,
-    invuln: 0,
+    onTrack: lead.onTrack,
+    invuln: lead.invuln,
     finished: false,
     deaths: 0,
     clears: 0,
     rngSeed: config.seed >>> 0,
+    cars,
   };
 }
 
-const step = (state: CircuitState, inputs: Record<string, PlayerInput>): CircuitState => {
-  if (state.phase !== 'playing') return tickPhase(state, 1 / 60).state;
+function driveCar(
+  car: CircuitCar,
+  id: string,
+  input: PlayerInput | undefined,
+  lives: number,
+  score: number,
+): { car: CircuitCar; lives: number; score: number; events: SfxEvent[]; died: boolean; cleared: boolean } {
+  if (car.retired) return { car, lives, score, events: [], died: false, cleared: false };
+  const dy = input?.dir?.dy ?? 0;
+  let speed = car.speed;
+  if (input?.button || dy < 0) speed += 0.032;
+  else if (dy > 0) speed -= 0.06;
+  else speed -= 0.012;
+  speed = Math.min(MAX_SPEED, Math.max(0, speed));
+
+  let heading = car.heading + (input?.dir?.dx ?? 0) * STEER;
+  let x = car.x + Math.cos(heading) * speed;
+  let y = car.y + Math.sin(heading) * speed;
+  let invuln = car.invuln > 0 ? car.invuln - 1 : 0;
+  let proj = projectCar(x, y);
+  let lat = proj.lat;
+  let u = proj.u;
+  let onTrack = Math.abs(lat) <= HALF_WIDTH;
+  let lap = car.lap;
+  const events: SfxEvent[] = [];
+
+  if (Math.abs(lat) > WALL && car.invuln === 0) {
+    const pose = poseAt(u);
+    const left = lives - 1;
+    events.push({ name: left <= 0 ? 'die' : 'hit', player: id });
+    return {
+      car: {
+        x: pose.x,
+        y: pose.y,
+        heading: pose.heading,
+        speed: 0.2,
+        lat: 0,
+        u: pose.u,
+        onTrack: true,
+        invuln: 40,
+        lap,
+        finished: false,
+        retired: left <= 0,
+      },
+      lives: left,
+      score,
+      events,
+      died: left <= 0,
+      cleared: false,
+    };
+  }
+
+  if (!onTrack) speed *= 0.9;
+  else if (invuln === 0) score += 1 + Math.floor(speed * 2);
+
+  let finished = false;
+  let retired = false;
+  let cleared = false;
+  if (car.u > 0.8 && u < 0.2 && speed > 0.3 && Math.abs(lat) <= WALL) {
+    lap += 1;
+    score += LAP_BONUS;
+    events.push({ name: 'levelUp', player: id });
+    if (lap >= CIRCUIT_LAPS) {
+      score += FINISH_BONUS;
+      events.push({ name: 'goal', player: id });
+      finished = true;
+      retired = true;
+      cleared = true;
+      speed = 0;
+    }
+  }
+
+  return {
+    car: { x, y, heading, speed, lat, u, onTrack, invuln, lap, finished, retired },
+    lives,
+    score,
+    events,
+    died: false,
+    cleared,
+  };
+}
+
+function separateCars(cars: Record<string, CircuitCar>): Record<string, CircuitCar> {
+  const ids = Object.keys(cars);
+  if (ids.length < 2) return cars;
+  const aId = ids[0]!;
+  const bId = ids[1]!;
+  const a = cars[aId]!;
+  const b = cars[bId]!;
+  if (a.retired || b.retired) return cars;
+  let dx = b.x - a.x;
+  let dy = b.y - a.y;
+  let dist = Math.hypot(dx, dy);
+  if (dist >= BUMP) return cars;
+  if (dist < 0.001) {
+    dx = Math.cos(a.heading + Math.PI / 2);
+    dy = Math.sin(a.heading + Math.PI / 2);
+    dist = 1;
+  }
+  const push = (BUMP - dist) / 2;
+  const ux = dx / dist;
+  const uy = dy / dist;
+  const shift = (car: CircuitCar, sx: number, sy: number): CircuitCar => {
+    const x = car.x + sx;
+    const y = car.y + sy;
+    const proj = projectCar(x, y);
+    return { ...car, x, y, u: proj.u, lat: proj.lat, onTrack: Math.abs(proj.lat) <= HALF_WIDTH };
+  };
+  return {
+    ...cars,
+    [aId]: shift(a, -ux * push, -uy * push),
+    [bId]: shift(b, ux * push, uy * push),
+  };
+}
+
+function mirrorLead(state: CircuitState, id: string, car: CircuitCar): CircuitState {
+  return {
+    ...state,
+    x: car.x,
+    y: car.y,
+    heading: car.heading,
+    speed: car.speed,
+    u: car.u,
+    lat: car.lat,
+    lap: car.lap,
+    onTrack: car.onTrack,
+    invuln: car.invuln,
+    finished: car.finished,
+    cars: { ...state.cars, [id]: car },
+  };
+}
+
+const stepVersus = (state: CircuitState, inputs: Record<string, PlayerInput>): CircuitState => {
+  const ids = Object.keys(state.scores);
+  let cars = { ...state.cars };
+  let lives = { ...state.lives };
+  let scores = { ...state.scores };
+  const events: SfxEvent[] = [];
+  let deaths = state.deaths;
+  let clears = state.clears;
+  for (const id of ids) {
+    const car = cars[id] ?? carAt(0, 0);
+    const driven = driveCar(car, id, inputs[id], lives[id] ?? 0, scores[id] ?? 0);
+    cars = { ...cars, [id]: driven.car };
+    lives = { ...lives, [id]: driven.lives };
+    scores = { ...scores, [id]: driven.score };
+    events.push(...driven.events);
+    if (driven.died) deaths += 1;
+    if (driven.cleared) clears += 1;
+  }
+  cars = separateCars(cars);
+  const timeLeft = state.timeLeft - 1;
+  const leadId = ids[0];
+  let next: CircuitState = {
+    ...state,
+    sfx: events,
+    lives,
+    scores,
+    cars,
+    deaths,
+    clears,
+    timeLeft,
+  };
+  if (leadId && cars[leadId]) next = mirrorLead(next, leadId, cars[leadId]);
+  const allParked = ids.length > 0 && ids.every((id) => cars[id]?.retired);
+  if (allParked || timeLeft <= 0) {
+    let best = -Infinity;
+    let winner: string | undefined;
+    let ties = 0;
+    for (const id of ids) {
+      const sc = scores[id] ?? 0;
+      if (sc > best) {
+        best = sc;
+        winner = id;
+        ties = 1;
+      } else if (sc === best) ties += 1;
+    }
+    if (ties !== 1) winner = undefined;
+    const timed = timeLeft <= 0 && !allParked;
+    const dying = timed ? withSfx({ ...next, timeLeft: 0, deaths: deaths + 1, winner }, { name: 'die' }) : { ...next, winner };
+    return enterPhase(dying, 'gameOver');
+  }
+  return next;
+};
+
+const stepSolo = (state: CircuitState, inputs: Record<string, PlayerInput>): CircuitState => {
   const id = Object.keys(state.scores)[0];
   if (!id) return { ...state, sfx: [] };
 
@@ -347,6 +580,12 @@ const step = (state: CircuitState, inputs: Record<string, PlayerInput>): Circuit
   return next;
 };
 
+const step = (state: CircuitState, inputs: Record<string, PlayerInput>): CircuitState => {
+  if (state.phase !== 'playing') return tickPhase(state, 1 / 60).state;
+  if (state.mode === 'versus') return stepVersus(state, inputs);
+  return stepSolo(state, inputs);
+};
+
 function demoCircuit(state: CircuitState, tick: number): PlayerInput {
   const steer = circuitSteer(state);
   const aim = poseAt(state.u + LOOK);
@@ -361,8 +600,8 @@ function demoCircuit(state: CircuitState, tick: number): PlayerInput {
 
 export const circuitSpec: GameSpec<CircuitState> = {
   id: 'circuit',
-  supportsVersus: false,
-  capacity: 1,
+  supportsVersus: true,
+  capacity: 2,
   turnBased: false,
   create: createCircuit,
   step,

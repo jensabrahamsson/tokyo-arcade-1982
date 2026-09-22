@@ -8,7 +8,7 @@ import { FONT, PAL } from '../ui';
 import {
   coastLodStride, CASTLE_DRAW, CAR_DRAW, CAR_BODY, obstacleSprite, coastHudCopy, COAST_SPEED_SCALE,
   SKY_TOP, SKY_BOT, GRASS_A, GRASS_B, ROAD_A, ROAD_WIDTH_K, ROADSIDE_POST_STEP, ROADSIDE_TREE_STEP,
-  luma, renderCoast, drawCoastQualifyingBanner, coastCastleRect, coastQualifyingOverlayY,
+  luma, renderCoast, coastSplitPanes, drawCoastQualifyingBanner, coastCastleRect, coastQualifyingOverlayY,
   coastQualifyingClearOfCastle, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER, COAST_QUALIFYING_LINE_GAP,
   coastCarSprite, drawCoastCar, coastCarScreenRect, coastHudSlots, COAST_HUD_BAR, COAST_HUD_PLATE, COAST_MOON,
   coastBillboardScreen, COAST_BOARD_SKIN,
@@ -231,6 +231,59 @@ describe('Coast HUD plates (R56.6, not a muddy overlay)', () => {
     renderCoast(ctx as unknown as CanvasRenderingContext2D, { ...s, phase: 'playing' }, 0, 'ja', false);
     expect(texts.some((t) => t.text.startsWith('タイム'))).toBe(true);
     expect(fonts.filter((f) => f.includes('Hiragino')).length).toBeGreaterThan(1);
+  });
+
+  it('versus paints two full-width night views, top and bottom', () => {
+    const panes = coastSplitPanes(320, 240);
+    expect(panes).toEqual([
+      { x: 0, y: 0, w: 320, h: 120 },
+      { x: 0, y: 120, w: 320, h: 120 },
+    ]);
+    const scales: number[][] = [];
+    const texts: { text: string; fill: string }[] = [];
+    const ctx = {
+      fillStyle: '#000000' as string | { addColorStop: () => void },
+      strokeStyle: '#000',
+      lineWidth: 1,
+      font: '',
+      textAlign: 'left' as CanvasTextAlign,
+      textBaseline: 'alphabetic' as CanvasTextBaseline,
+      imageSmoothingEnabled: true,
+      createLinearGradient: () => ({ addColorStop() { /* band */ } }),
+      createRadialGradient: () => ({ addColorStop() { /* halo */ } }),
+      fillRect() { /* glass */ },
+      strokeRect() { /* board */ },
+      beginPath() { /* clip / sun */ },
+      rect() { /* pane */ },
+      clip() { /* pane */ },
+      moveTo() { /* keep */ },
+      lineTo() { /* keep */ },
+      arc() { /* sun */ },
+      fill() { /* sun */ },
+      save() { /* pane */ },
+      restore() { /* pane */ },
+      translate() { /* pane */ },
+      scale(x: number, y: number) { scales.push([x, y]); },
+      transform() { /* steer */ },
+      drawImage() { /* no art */ },
+      fillText(text: string) {
+        const fill = typeof ctx.fillStyle === 'string' ? ctx.fillStyle : '';
+        texts.push({ text, fill });
+      },
+    };
+    const s = coastSpec.create({ mode: 'versus', playerIds: ['p1', 'p2'], seed: 7 });
+    renderCoast(ctx as unknown as CanvasRenderingContext2D, {
+      ...s,
+      phase: 'playing',
+      runners: {
+        p1: { ...s.runners.p1!, dist: 40, speed: 80 },
+        p2: { ...s.runners.p2!, dist: 180, speed: 40, playerX: 0.4 },
+      },
+    }, 0, 'en', false);
+    expect(scales.filter(([x, y]) => x === 1 && y === 0.5)).toHaveLength(2);
+    expect(texts.filter((t) => t.text.startsWith('TIME') && t.fill === PAL.yellow)).toHaveLength(2);
+    expect(texts.filter((t) => t.text.startsWith('GATE') && t.fill === PAL.yellow)).toHaveLength(2);
+    expect(texts.filter((t) => /KM\/H/.test(t.text) && t.fill === PAL.white)).toHaveLength(2);
   });
 });
 

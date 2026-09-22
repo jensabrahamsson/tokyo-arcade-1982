@@ -590,7 +590,16 @@ export function drawCoastCar(
   ctx.restore();
 }
 
-export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 0, lang: Lang = 'en', mini = false): void {
+/** Top/bottom panes keep the full 320-wide road. A left/right split would be 160 and unreadable. */
+export function coastSplitPanes(w = W, h = H): { x: number; y: number; w: number; h: number }[] {
+  const half = Math.floor(h / 2);
+  return [
+    { x: 0, y: 0, w, h: half },
+    { x: 0, y: half, w, h: h - half },
+  ];
+}
+
+function renderCoastPane(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 0, lang: Lang = 'en', mini = false): void {
   const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
   sky.addColorStop(0, blend(SKY_TOP));
   sky.addColorStop(1, blend(SKY_BOT));
@@ -656,4 +665,37 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
   drawCoastCar(ctx, { img: art()['coast-datsun.png'], steer, tMs, speed: s.speed });
 
   if (!mini) drawCoastHud(ctx, coastHudCopy(lang, s));
+}
+
+export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 0, lang: Lang = 'en', mini = false): void {
+  const ids = Object.keys(s.runners ?? {});
+  if (s.mode === 'versus' && ids.length >= 2 && !mini) {
+    const panes = coastSplitPanes();
+    for (let i = 0; i < 2; i++) {
+      const id = ids[i]!;
+      const pane = panes[i]!;
+      const r = s.runners[id];
+      if (!r) continue;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(pane.x, pane.y, pane.w, pane.h);
+      ctx.clip();
+      ctx.translate(pane.x, pane.y);
+      ctx.scale(pane.w / W, pane.h / H);
+      renderCoastPane(ctx, {
+        ...s,
+        playerX: r.playerX,
+        speed: r.speed,
+        dist: r.dist,
+        timeLeft: r.timeLeft,
+        checkpoints: r.checkpoints,
+        obstacles: r.obstacles,
+      }, tMs, lang, false);
+      ctx.restore();
+    }
+    ctx.fillStyle = '#f7e766';
+    ctx.fillRect(0, H / 2 - 1, W, 2);
+    return;
+  }
+  renderCoastPane(ctx, s, tMs, lang, mini);
 }
