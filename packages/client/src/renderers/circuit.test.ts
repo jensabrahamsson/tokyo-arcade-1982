@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { circuitSpec, createCircuit } from '@arkad/core';
+import { CIRCUIT_MARKS, circuitSpec, createCircuit, poseAt } from '@arkad/core';
+import { PAL } from '../ui';
 import {
   ASPHALT,
   CAR,
@@ -117,5 +118,69 @@ describe('circuit overview (R55.4)', () => {
     renderCircuit(ctx as unknown as CanvasRenderingContext2D, s, 0, 'ja', false);
     expect(texts).toContain('サーキット・ドール');
     for (const text of texts) expect(text.toLowerCase()).not.toContain('le mans');
+  });
+
+  it('reads as 1976 prototypes on an arch-bridge loop, without sponsor wordmarks', () => {
+    const s = { ...createCircuit({ mode: 'solo', playerIds: ['p1'], seed: 1 }), phase: 'playing' as const };
+    const fills: { color: string; x: number; y: number; w: number; h: number }[] = [];
+    const texts: string[] = [];
+    let fillStyle = '';
+    const ctx = {
+      get fillStyle() {
+        return fillStyle;
+      },
+      set fillStyle(v: string) {
+        fillStyle = String(v);
+      },
+      font: '',
+      textAlign: 'left' as CanvasTextAlign,
+      textBaseline: 'top' as CanvasTextBaseline,
+      fillRect(x: number, y: number, w: number, h: number) {
+        fills.push({ color: fillStyle, x, y, w, h });
+      },
+      fillText(text: string) {
+        texts.push(text);
+      },
+    };
+    renderCircuit(ctx as unknown as CanvasRenderingContext2D, s, 0, 'en', false);
+
+    const bridge = poseAt(CIRCUIT_MARKS.find((m) => m.kind === 'bridge')!.u);
+    const above = fills.filter(
+      (f) =>
+        (f.color === PAL.white || f.color === '#ffffff') &&
+        Math.abs(f.x + f.w / 2 - bridge.x) < 24 &&
+        f.y < bridge.y - 6,
+    );
+    expect(above.filter((f) => f.w >= 28)).toEqual([]);
+    const crownY = Math.min(...above.map((f) => f.y));
+    const crown = above.filter((f) => f.y <= crownY + 1);
+    expect(crown.length).toBeGreaterThan(0);
+    expect(crown.every((f) => f.w <= 8)).toBe(true);
+    expect(Math.abs(crown[0]!.x + crown[0]!.w / 2 - bridge.x)).toBeLessThan(8);
+    expect(above.some((f) => f.x + f.w < bridge.x - 8 && f.y > crownY + 4)).toBe(true);
+    expect(above.some((f) => f.x > bridge.x + 8 && f.y > crownY + 4)).toBe(true);
+
+    const car = `rgb(${CAR[0]},${CAR[1]},${CAR[2]})`;
+    const body = fills.filter((f) => f.color === car && f.w >= 16 && f.h <= 6 && f.w > f.h * 3);
+    expect(body.length).toBeGreaterThan(0);
+    const wing = fills.filter((f) => f.color === car && f.w >= 10 && f.w <= 14 && f.h <= 3);
+    expect(wing.length).toBeGreaterThan(0);
+
+    const seats = fills.filter((f) => f.color === PAL.red && f.w <= 3 && f.h <= 3);
+    expect(seats.length).toBeGreaterThan(6);
+    const armco = fills.filter((f) => f.color === PAL.gray).reduce((sum, f) => sum + f.w * f.h, 0);
+    expect(armco).toBeGreaterThan(400);
+
+    const gantry = poseAt(CIRCUIT_MARKS.find((m) => m.kind === 'gantry')!.u);
+    const banner = fills.filter(
+      (f) => Math.hypot(f.x - gantry.x, f.y - gantry.y) < 30 && (f.color === PAL.black || f.color === PAL.white),
+    );
+    expect(banner.length).toBeGreaterThan(4);
+
+    for (const text of texts) {
+      expect(text.toUpperCase()).not.toMatch(/DUNLOP|PORSCHE|MARTINI|RENAULT|\bELF\b|GULF|MICHELIN/);
+      expect(text.toLowerCase()).not.toContain('le mans');
+    }
+    expect(texts).toContain("CIRCUIT D'OR");
   });
 });
