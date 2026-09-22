@@ -1,8 +1,9 @@
 import {
   type GameConfig,
+  type GameMode,
   type GameSpec,
   type PlayerInput,
-  withSfx,
+  type SfxEvent,
   type GameStateBase,
 } from '../../engine/types';
 import { enterPhase, tickPhase } from '../../engine/phase';
@@ -60,7 +61,19 @@ export interface Obstacle {
   kind: ObstacleKind;
 }
 
+/** One driver's night-road view. Versus keeps two of these; solo mirrors the lead. */
+export interface CoastRunner {
+  playerX: number;
+  speed: number;
+  dist: number;
+  timeLeft: number;
+  checkpoints: number;
+  obstacles: Obstacle[];
+  done: boolean;
+}
+
 export interface CoastState extends GameStateBase {
+  mode: GameMode;
   playerX: number;
   speed: number;
   dist: number;
@@ -69,6 +82,7 @@ export interface CoastState extends GameStateBase {
   obstacles: Obstacle[];
   deaths: number;
   clears: number;
+  runners: Record<string, CoastRunner>;
 }
 
 const makeObstacles = (seed: number): Obstacle[] => {
@@ -85,13 +99,29 @@ const makeObstacles = (seed: number): Obstacle[] => {
   return out;
 };
 
+function freshRunner(obstacles: Obstacle[]): CoastRunner {
+  return {
+    playerX: 0,
+    speed: 0,
+    dist: 0,
+    timeLeft: START_TIME,
+    checkpoints: 0,
+    obstacles: obstacles.map((o) => ({ ...o })),
+    done: false,
+  };
+}
+
 export function createCoast(config: GameConfig): CoastState {
   const lives: Record<string, number> = {};
   const scores: Record<string, number> = {};
+  const runners: Record<string, CoastRunner> = {};
+  const field = makeObstacles(config.seed);
   for (const id of config.playerIds) {
     lives[id] = 1;
     scores[id] = 0;
+    runners[id] = freshRunner(field);
   }
+  const lead = runners[config.playerIds[0]!] ?? freshRunner(field);
   return {
     phase: 'ready',
     phaseTimer: 0,
@@ -99,87 +129,174 @@ export function createCoast(config: GameConfig): CoastState {
     scores,
     lives,
     sfx: [],
-    playerX: 0,
-    speed: 0,
-    dist: 0,
-    timeLeft: START_TIME,
-    checkpoints: 0,
-    obstacles: makeObstacles(config.seed),
+    mode: config.mode,
+    playerX: lead.playerX,
+    speed: lead.speed,
+    dist: lead.dist,
+    timeLeft: lead.timeLeft,
+    checkpoints: lead.checkpoints,
+    obstacles: lead.obstacles.map((o) => ({ ...o })),
     deaths: 0,
     clears: 0,
+    runners,
   };
 }
 
-const step = (state: CoastState, inputs: Record<string, PlayerInput>): CoastState => {
-  if (state.phase !== 'playing') return tickPhase(state, 1 / 60).state;
-  let s: CoastState = { ...state, sfx: [] as CoastState['sfx'] };
-  const id = Object.keys(s.scores)[0]!;
-  const input = inputs[id];
-
-  // pedals
-  let speed = s.speed;
+/** One tick of the night road. Shared by solo and each versus pane. */
+function integrateCoast(
+  k: CoastRunner,
+  id: string,
+  score: number,
+  input: PlayerInput | undefined,
+): { runner: CoastRunner; score: number; sfx: SfxEvent[]; over: 'goal' | 'time' | null } {
+  if (k.done) return { runner: k, score, sfx: [], over: null };
+  let speed = k.speed;
   if (input?.dir && input.dir.dy > 0) speed -= 1.5;
   else if (input?.button) speed += 0.35;
   else speed -= 0.15;
   speed = Math.min(MAX_SPEED, Math.max(0, speed));
 
-  // steering + curve centrifugal push
-  let x = s.playerX;
+  let x = k.playerX;
   if (input?.dir) x += input.dir.dx * 0.045 * (0.4 + speed / MAX_SPEED);
-  x -= curveAt(s.dist) * speed * 0.00045;
+  x -= curveAt(k.dist) * speed * 0.00045;
   x = Math.min(2, Math.max(-2, x));
 
-  // off-road bleed
   if (Math.abs(x) > OFF_ROAD_X && speed > OFF_MAX_SPEED) {
     speed -= (speed - OFF_MAX_SPEED) * 0.08;
   }
 
-  let next: CoastState = { ...s, playerX: x, speed, dist: s.dist + speed * 0.011, timeLeft: s.timeLeft - 1 };
-  s = next;
+  let dist = k.dist + speed * 0.011;
+  let timeLeft = k.timeLeft - 1;
+  let checkpoints = k.checkpoints;
+  let obstacles = k.obstacles;
+  const sfx: SfxEvent[] = [];
 
-  // checkpoint gates
-  while (s.checkpoints < CHECKPOINTS.length && s.dist >= CHECKPOINTS[s.checkpoints]!) {
-    s = withSfx(
-      {
-        ...s,
-        checkpoints: s.checkpoints + 1,
-        timeLeft: s.timeLeft + CHECKPOINT_BONUS,
-        scores: { ...s.scores, [id]: s.scores[id]! + 300 },
-      },
-      { name: 'levelUp', player: id },
-    );
+  while (checkpoints < CHECKPOINTS.length && dist >= CHECKPOINTS[checkpoints]!) {
+    checkpoints += 1;
+    timeLeft += CHECKPOINT_BONUS;
+    score += 300;
+    sfx.push({ name: 'levelUp', player: id });
   }
 
-  // roadside obstacles: one violent, once-only meeting each
-  const near = s.obstacles.some((o) => !o.hit && Math.abs(s.dist - o.d) < 1.2 && Math.abs(s.playerX - o.x) < 0.45 && s.speed > 15);
+  const near = obstacles.some((o) => !o.hit && Math.abs(dist - o.d) < 1.2 && Math.abs(x - o.x) < 0.45 && speed > 15);
   if (near) {
-    s = withSfx(
-      {
-        ...s,
-        speed: s.speed * 0.35,
-        obstacles: s.obstacles.map((o) =>
-          !o.hit && Math.abs(s.dist - o.d) < 1.2 && Math.abs(s.playerX - o.x) < 0.45 ? { ...o, hit: true } : o,
-        ),
-      },
-      { name: 'hit', player: id },
+    speed *= 0.35;
+    obstacles = obstacles.map((o) =>
+      !o.hit && Math.abs(dist - o.d) < 1.2 && Math.abs(x - o.x) < 0.45 ? { ...o, hit: true } : o,
     );
+    sfx.push({ name: 'hit', player: id });
   }
 
-  // the castle gate
-  if (s.dist >= TRACK_LEN) {
-    s = withSfx(
-      { ...s, scores: { ...s.scores, [id]: s.scores[id]! + 1000 }, clears: s.clears + 1 },
-      { name: 'goal', player: id },
-    );
-    return enterPhase(s, 'gameOver');
+  let over: 'goal' | 'time' | null = null;
+  let done = false;
+  if (dist >= TRACK_LEN) {
+    score += 1000;
+    sfx.push({ name: 'goal', player: id });
+    over = 'goal';
+    done = true;
+  } else if (timeLeft <= 0) {
+    sfx.push({ name: 'die', player: id });
+    over = 'time';
+    done = true;
   }
 
-  // the clock
-  if (s.timeLeft <= 0) {
-    s = withSfx({ ...s, deaths: s.deaths + 1 }, { name: 'die', player: id });
-    return enterPhase(s, 'gameOver');
+  return {
+    runner: { playerX: x, speed, dist, timeLeft, checkpoints, obstacles, done },
+    score,
+    sfx,
+    over,
+  };
+}
+
+function mirrorLead(state: CoastState, id: string, runner: CoastRunner): CoastState {
+  return {
+    ...state,
+    playerX: runner.playerX,
+    speed: runner.speed,
+    dist: runner.dist,
+    timeLeft: runner.timeLeft,
+    checkpoints: runner.checkpoints,
+    obstacles: runner.obstacles,
+    runners: { ...state.runners, [id]: runner },
+  };
+}
+
+const stepSolo = (state: CoastState, inputs: Record<string, PlayerInput>): CoastState => {
+  const s: CoastState = { ...state, sfx: [] };
+  const id = Object.keys(s.scores)[0];
+  if (!id) return s;
+  const base: CoastRunner = {
+    playerX: s.playerX,
+    speed: s.speed,
+    dist: s.dist,
+    timeLeft: s.timeLeft,
+    checkpoints: s.checkpoints,
+    obstacles: s.obstacles,
+    done: false,
+  };
+  const result = integrateCoast(base, id, s.scores[id] ?? 0, inputs[id]);
+  let next = mirrorLead(
+    { ...s, scores: { ...s.scores, [id]: result.score }, sfx: result.sfx },
+    id,
+    result.runner,
+  );
+  if (result.over === 'goal') return enterPhase({ ...next, clears: s.clears + 1 }, 'gameOver');
+  if (result.over === 'time') return enterPhase({ ...next, deaths: s.deaths + 1 }, 'gameOver');
+  return next;
+};
+
+const stepVersus = (state: CoastState, inputs: Record<string, PlayerInput>): CoastState => {
+  const ids = Object.keys(state.scores);
+  let scores = { ...state.scores };
+  let runners = { ...state.runners };
+  const sfx: SfxEvent[] = [];
+  let clears = state.clears;
+  let deaths = state.deaths;
+  for (const id of ids) {
+    const runner = runners[id] ?? freshRunner(state.obstacles);
+    const result = integrateCoast(runner, id, scores[id] ?? 0, inputs[id]);
+    runners = { ...runners, [id]: result.runner };
+    scores = { ...scores, [id]: result.score };
+    sfx.push(...result.sfx);
+    if (result.over === 'goal') clears += 1;
+    if (result.over === 'time') deaths += 1;
   }
-  return s;
+  const leadId = ids[0]!;
+  const lead = runners[leadId] ?? freshRunner(state.obstacles);
+  let next: CoastState = {
+    ...state,
+    sfx,
+    scores,
+    clears,
+    deaths,
+    runners,
+    playerX: lead.playerX,
+    speed: lead.speed,
+    dist: lead.dist,
+    timeLeft: lead.timeLeft,
+    checkpoints: lead.checkpoints,
+    obstacles: lead.obstacles,
+  };
+  if (!ids.every((id) => runners[id]?.done)) return next;
+  let best = -Infinity;
+  let winner: string | undefined;
+  let ties = 0;
+  for (const id of ids) {
+    const sc = scores[id] ?? 0;
+    if (sc > best) {
+      best = sc;
+      winner = id;
+      ties = 1;
+    } else if (sc === best) ties += 1;
+  }
+  if (ties !== 1) winner = undefined;
+  return enterPhase({ ...next, winner }, 'gameOver');
+};
+
+const step = (state: CoastState, inputs: Record<string, PlayerInput>): CoastState => {
+  if (state.phase !== 'playing') return tickPhase(state, 1 / 60).state;
+  if (state.mode === 'versus') return stepVersus(state, inputs);
+  return stepSolo(state, inputs);
 };
 
 /** attract bot: full throttle, feather the wheel toward the white line */
@@ -190,7 +307,7 @@ function demoCoast(state: CoastState, tick: number): PlayerInput {
 
 export const coastSpec: GameSpec<CoastState> = {
   id: 'coast',
-  supportsVersus: false,
+  supportsVersus: true,
   capacity: 2,
   turnBased: false,
   create: createCoast,

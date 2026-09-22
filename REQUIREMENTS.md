@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (620 tests, incl. real-WebSocket E2E for 2- and)
+  `npm test` green (631 tests, incl. real-WebSocket E2E for 2- and)
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7). The integer is this checkout; bump it here, in
   README, and in AGENTS in the same commit. Do not copy unmerged PR counts.
@@ -238,8 +238,9 @@ change R8.1–R8.5.
   Gothenburg (wooden fairytale castle silhouette on the horizon with
   parallax against the road curves) — never Mount Fuji or any
   Japan-mountain motif.
-- R22.3 Solo-only (like galaxy/river/myriad): time-chased run to LO
-  castle with checkpoint time extensions; versus stays disabled.
+- R22.3 Solo remains a time-chased run to LO castle with checkpoint
+  time extensions. The old solo-only rule (versus disabled) is replaced
+  by R61: a second human gets a top/bottom split of the same night road.
 - R22.4 Core mechanics (pure, deterministic, seeded): accelerate/brake/
   steer, curve centrifugal push, off-road slowdown, seeded roadside
   obstacles with collisions, checkpoint bonus time + score, goal at the
@@ -665,8 +666,9 @@ marquees, UI, i18n, or filenames.
   サーキット・ドール. Optional SV Guldvarvet is not a third language.
 - R55.2 Same house rules as every cabinet: pure `packages/core`,
   server-authoritative, canvas renderer, chiptune, EN/JA. Hall presence
-  like R22.5 (marquee, attract demo, high scores, map). Solo-first in
-  v1; versus is out of scope until a later R.
+  like R22.5 (marquee, attract demo, high scores, map). Solo remains
+  the one-player drive. R61 is the later versus: both cars share this
+  overview. The marquee stays Circuit d'Or.
 - R55.3 The hall has **eight** cabinets. `games/circuit` is live.
 - R55.4 Look: bright overview of the whole circuit, readable at speed.
   Fixed camera. Not Night Driver. Not the R22 Coast camera.
@@ -943,3 +945,27 @@ table rewrite (R58). R59 is the hall marquee clip / F-hint gutter
 - R60.6 The integer published in README, AGENTS `npm test` comment, and
   R7.2 is this checkout's `npm test` total, updated in the same commit.
   Do not copy counts from unmerged PRs.
+
+## R61 — Two-player racing
+
+Asked for after Coast Runner and Circuit d'Or were already on main.
+The presentations stay different. The player-facing name of the eighth
+cabinet stays Circuit d'Or. Le Mans is not a title, a marquee, or an id.
+
+- R61.1 Coast versus is a top/bottom split so each pane keeps the full
+  320-wide glass. Each human drives their own night road (position,
+  speed, clock, obstacle hits). Qualifying overlay, Swedish billboards
+  (Centerpartiet, Harpsund, Bommersvik, Valdebatt 1976, Palme/Castro),
+  LO-borgen, the seated car, and the TIME/GATE/KM/H row stay. Solo
+  still deals one player and ends when that run ends.
+- R61.2 Circuit d'Or versus is one shared overview. Both cars are on
+  the circuit at the same time. Not split screen. Not the Coast camera.
+  Title on the glass stays CIRCUIT D'OR / サーキット・ドール.
+- R61.3 The second human joins with `start` mode `versus`, the same
+  seat path snake already uses. That join does not debit the player
+  who is already seated. In coin mode the joiner spends one credit
+  (R17.2); with no credit the join is `insert-coin` and seats nobody.
+  freePlay stays open and seats both for nothing. Capacity is 2; a
+  third connection spectates. No new client message.
+- R61.4 A full versus table still waits out the READY window (R50)
+  before it deals. Solo `start` still deals immediately.
