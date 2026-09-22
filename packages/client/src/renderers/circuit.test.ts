@@ -3,6 +3,7 @@ import { circuitSpec, createCircuit } from '@arkad/core';
 import {
   ASPHALT,
   CAR,
+  CAR_P2,
   GRASS,
   circuitHudCopy,
   luma,
@@ -76,5 +77,45 @@ describe('circuit overview (R55.4)', () => {
     expect(texts).toContain("CIRCUIT D'OR");
     for (const text of texts) expect(text.toLowerCase()).not.toContain('le mans');
     expect(circuitSpec.id).toBe('circuit');
+  });
+
+  it('versus draws both cars on the one overview, title unchanged', () => {
+    const s = {
+      ...createCircuit({ mode: 'versus', playerIds: ['a', 'b'], seed: 1 }),
+      phase: 'playing' as const,
+    };
+    const fills: { color: string; x: number; y: number; w: number; h: number }[] = [];
+    const texts: string[] = [];
+    let fillStyle = '';
+    const ctx = {
+      get fillStyle() {
+        return fillStyle;
+      },
+      set fillStyle(v: string) {
+        fillStyle = String(v);
+      },
+      font: '',
+      textAlign: 'left' as CanvasTextAlign,
+      textBaseline: 'top' as CanvasTextBaseline,
+      fillRect(x: number, y: number, w: number, h: number) {
+        fills.push({ color: fillStyle, x, y, w, h });
+      },
+      fillText(text: string) {
+        texts.push(text);
+      },
+    };
+    renderCircuit(ctx as unknown as CanvasRenderingContext2D, s, 0, 'en', false);
+    const car = `rgb(${CAR[0]},${CAR[1]},${CAR[2]})`;
+    const rival = `rgb(${CAR_P2[0]},${CAR_P2[1]},${CAR_P2[2]})`;
+    const bodies = fills.filter((f) => f.color === car || f.color === rival);
+    expect(bodies.filter((f) => f.color === car).length).toBeGreaterThan(0);
+    expect(bodies.filter((f) => f.color === rival).length).toBeGreaterThan(0);
+    const ax = bodies.find((f) => f.color === car)!;
+    const bx = bodies.find((f) => f.color === rival)!;
+    expect(Math.hypot(ax.x - bx.x, ax.y - bx.y)).toBeGreaterThan(8);
+    expect(texts).toContain("CIRCUIT D'OR");
+    renderCircuit(ctx as unknown as CanvasRenderingContext2D, s, 0, 'ja', false);
+    expect(texts).toContain('サーキット・ドール');
+    for (const text of texts) expect(text.toLowerCase()).not.toContain('le mans');
   });
 });

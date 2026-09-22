@@ -114,6 +114,10 @@ Everyone else just opens the URL in a browser. Pick a game and mode; if a
 cabinet already has a duel running, extra players become spectators — just
 like real 1982. Snake is the one free-for-all cabinet: its table seats up to
 4 players (tables deal when full, or a couple of seconds after player two).
+Coast Runner versus is a top/bottom split of the night road. Circuit d'Or
+versus puts both cars on the same overview. Press `X` the way snake versus
+already seats a second player. The joiner does not debit the seated wallet;
+free play seats both for nothing. The marquee stays Circuit d'Or.
 
 ## Difficulty
 
@@ -138,7 +142,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 620 tests across engine, games, server, client
+npm test          # vitest: 631 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```

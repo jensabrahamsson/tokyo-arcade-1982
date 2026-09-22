@@ -108,6 +108,44 @@ describe('game server (real websockets)', () => {
     expect(existsSync(join(dir, 'scores.json'))).toBe(true);
   }, 30000);
 
+  it('free play seats a second coast and circuit racer over real sockets (R61)', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'arkad-race-'));
+    handle = await createGameServer({ port: 0, dataDir: dir });
+    const url = `ws://127.0.0.1:${handle.port}/ws`;
+    const a = await peer(url);
+    const b = await peer(url);
+    peers.push(a, b);
+    a.ws.send(JSON.stringify({ type: 'join', name: 'AKIRA', lang: 'en' }));
+    b.ws.send(JSON.stringify({ type: 'join', name: 'MIO', lang: 'ja' }));
+    await a.waitFor('welcome');
+    await b.waitFor('welcome');
+    a.ws.send(JSON.stringify({ type: 'freePlay', on: true }));
+
+    for (const game of ['coast', 'circuit'] as const) {
+      a.ws.send(JSON.stringify({ type: 'start', game, mode: 'versus' }));
+      b.ws.send(JSON.stringify({ type: 'start', game, mode: 'versus' }));
+      const started = Date.now();
+      let snap: SnapMsg & {
+        credits?: number;
+        table: { phase: string; game?: string; players: unknown[] };
+        data: { mode?: string; runners?: Record<string, unknown>; cars?: Record<string, unknown> };
+      };
+      for (;;) {
+        snap = await a.waitFor('snapshot', 15000);
+        if (snap.table.phase === 'playing' && snap.table.game === game) break;
+        if (Date.now() - started > 15000) throw new Error(`no playing ${game} snapshot`);
+      }
+      expect(snap.table.players).toHaveLength(2);
+      expect(snap.credits ?? 0).toBe(0);
+      expect(snap.data.mode).toBe('versus');
+      if (game === 'coast') expect(Object.keys(snap.data.runners ?? {})).toHaveLength(2);
+      else expect(Object.keys(snap.data.cars ?? {})).toHaveLength(2);
+      a.ws.send(JSON.stringify({ type: 'back' }));
+      b.ws.send(JSON.stringify({ type: 'back' }));
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }, 20000);
+
   it('hall subscription streams live demo cabinets over real sockets (R8)', async () => {
     dir = mkdtempSync(join(tmpdir(), 'arkad-hall-'));
     handle = await createGameServer({ port: 0, dataDir: dir });
