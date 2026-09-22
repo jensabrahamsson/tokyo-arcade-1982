@@ -160,3 +160,90 @@ describe('coast physics', () => {
     }
   });
 });
+
+describe('coast two-player split (R61)', () => {
+  const vsCfg: GameConfig = { mode: 'versus', playerIds: ['p1', 'p2'], seed: 7 };
+
+  it('seats a second runner on the same seeded road without changing solo', () => {
+    expect(coastSpec.supportsVersus).toBe(true);
+    expect(coastSpec.capacity).toBe(2);
+    const solo = createCoast(cfg);
+    expect(solo.mode).toBe('solo');
+    expect(Object.keys(solo.runners)).toEqual(['p1']);
+    const vs = createCoast(vsCfg);
+    expect(vs.mode).toBe('versus');
+    expect(Object.keys(vs.runners)).toEqual(['p1', 'p2']);
+    expect(vs.runners.p1!.dist).toBe(0);
+    expect(vs.runners.p2!.dist).toBe(0);
+    expect(vs.runners.p1!.obstacles.map((o) => o.d)).toEqual(vs.runners.p2!.obstacles.map((o) => o.d));
+    expect(vs.runners.p1!.obstacles).not.toBe(vs.runners.p2!.obstacles);
+  });
+
+  it('each driver steers only their own view', () => {
+    let s = play(createCoast(vsCfg));
+    s = coastSpec.step(s, {
+      p1: { dir: { dx: -1, dy: 0 }, button: true },
+      p2: NO_INPUT,
+    });
+    expect(s.runners.p1!.playerX).toBeLessThan(0);
+    expect(s.runners.p1!.speed).toBeGreaterThan(0);
+    expect(s.runners.p2!.playerX).toBe(0);
+    expect(s.runners.p2!.speed).toBe(0);
+    expect(s.phase).toBe('playing');
+  });
+
+  it('a hit on one runner leaves the other obstacle standing', () => {
+    const s0 = play(createCoast(vsCfg));
+    const obs = s0.runners.p1!.obstacles[0]!;
+    let s: CoastState = {
+      ...s0,
+      runners: {
+        p1: { ...s0.runners.p1!, dist: obs.d - 1, playerX: obs.x, speed: 120 },
+        p2: { ...s0.runners.p2!, dist: obs.d - 1, playerX: obs.x, speed: 0 },
+      },
+    };
+    s = coastSpec.step(s, { p1: pedal, p2: NO_INPUT });
+    expect(s.runners.p1!.obstacles[0]!.hit).toBe(true);
+    expect(s.runners.p2!.obstacles[0]!.hit).toBe(false);
+  });
+
+  it('one driver at the castle does not end the other runner', () => {
+    let s = play(createCoast(vsCfg));
+    s = {
+      ...s,
+      runners: {
+        ...s.runners,
+        p1: { ...s.runners.p1!, dist: TRACK_LEN - 3, speed: 100 },
+      },
+    };
+    for (let i = 0; i < 8 && s.phase === 'playing'; i++) {
+      s = coastSpec.step(s, { p1: pedal, p2: pedal });
+    }
+    expect(s.phase).toBe('playing');
+    expect(s.runners.p1!.done).toBe(true);
+    expect(s.runners.p2!.done).toBe(false);
+    expect(s.scores.p1).toBeGreaterThanOrEqual(1000);
+    expect(s.scores.p2).toBe(0);
+  });
+
+  it('the table ends when both runners are done and names the higher score', () => {
+    let s = play(createCoast(vsCfg));
+    s = {
+      ...s,
+      runners: {
+        p1: { ...s.runners.p1!, dist: TRACK_LEN - 3, speed: 100, timeLeft: 4000 },
+        p2: { ...s.runners.p2!, timeLeft: 1, speed: 0 },
+      },
+    };
+    for (let i = 0; i < 12 && s.phase === 'playing'; i++) {
+      s = coastSpec.step(s, { p1: pedal, p2: NO_INPUT });
+    }
+    expect(s.phase).toBe('gameOver');
+    expect(s.runners.p1!.done).toBe(true);
+    expect(s.runners.p2!.done).toBe(true);
+    expect(s.winner).toBe('p1');
+    const before = JSON.stringify(s);
+    coastSpec.step(s, { p1: pedal, p2: pedal });
+    expect(JSON.stringify(s)).toBe(before);
+  });
+});
