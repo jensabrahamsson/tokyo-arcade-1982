@@ -11,10 +11,11 @@ import { enterPhase, tickPhase } from '../../engine/phase';
 
 /**
  * Circuit d'Or — eighth cabinet (R55).
- * Overview of a short 1976-flavored endurance loop (long straight, chicane,
- * hairpin, gantry). The player-facing title is Circuit d'Or; this file does
- * not use that race's name as a title, id, or string the hall can show.
- * Fixed camera: the whole circuit is on screen. Not Coast's behind-car view.
+ * Fixed overview of a 1976 Sarthe loop: pit straight, arch bridge, a long
+ * uninterrupted straight, a hairpin, return curves, and a late chicane.
+ * The player-facing title is Circuit d'Or; this file does not use another
+ * race's name as a title, id, or string the hall can show.
+ * Not Coast's behind-car view.
  */
 
 export const CIRCUIT_CAMERA = 'overview' as const;
@@ -30,12 +31,6 @@ export const FINISH_BONUS = 1500;
 const STEER = 0.055;
 const LOOK = 0.04;
 
-/** World-space center of the right-hand hairpin and the long straight. */
-const LEFT = 78;
-const RIGHT = 242;
-const CY = 128;
-const RADIUS = 46;
-
 export interface TrackSample {
   x: number;
   y: number;
@@ -48,13 +43,6 @@ export interface CircuitMark {
   readonly u: number;
   readonly kind: 'gantry' | 'bridge' | 'pits';
 }
-
-/** Fixed scenery. No Coast billboards, no title text. */
-export const CIRCUIT_MARKS: readonly CircuitMark[] = [
-  { u: 0.02, kind: 'gantry' },
-  { u: 0.2, kind: 'bridge' },
-  { u: 0.58, kind: 'pits' },
-];
 
 /** One car on the shared overview. Versus keeps two; solo still reads the top-level pose. */
 export interface CircuitCar {
@@ -104,46 +92,69 @@ const wrapAngle = (a: number): number => {
   return x;
 };
 
-/** Nominal point on the endurance plan. t is 0..1 before arc-length resample. */
-function rawPoint(t: number): { x: number; y: number } {
-  const straight = RIGHT - LEFT;
-  const arc = Math.PI * RADIUS;
-  const per = 2 * straight + 2 * arc;
-  let d = (((t % 1) + 1) % 1) * per;
-  const yb = CY + RADIUS;
-  const yt = CY - RADIUS;
-  if (d <= straight) return { x: LEFT + d, y: yb };
-  d -= straight;
-  if (d <= arc) {
-    const theta = Math.PI / 2 - (d / arc) * Math.PI;
-    return { x: RIGHT + RADIUS * Math.cos(theta), y: CY + RADIUS * Math.sin(theta) };
+interface Pt {
+  x: number;
+  y: number;
+}
+
+/** Corner-cutting keeps the long straight straight and rounds the hairpin. */
+function chaikin(pts: readonly Pt[], iters: number): Pt[] {
+  let cur = pts.slice();
+  for (let n = 0; n < iters; n++) {
+    const next: Pt[] = [];
+    for (let i = 0; i < cur.length; i++) {
+      const a = cur[i]!;
+      const b = cur[(i + 1) % cur.length]!;
+      next.push({ x: 0.75 * a.x + 0.25 * b.x, y: 0.75 * a.y + 0.25 * b.y });
+      next.push({ x: 0.25 * a.x + 0.75 * b.x, y: 0.25 * a.y + 0.75 * b.y });
+    }
+    cur = next;
   }
-  d -= arc;
-  if (d <= straight) {
-    const along = d / straight;
-    const chicane = Math.sin(along * Math.PI * 2) * 12;
-    return { x: RIGHT - d, y: yt + chicane };
-  }
-  d -= straight;
-  const theta = -Math.PI / 2 - (d / arc) * Math.PI;
-  return { x: LEFT + RADIUS * Math.cos(theta), y: CY + RADIUS * Math.sin(theta) };
+  return cur;
+}
+
+/**
+ * 1976 schematic on the 320×240 overview. North straight is the pits,
+ * the lower edge is the long straight (no mid-straight kinks), the west
+ * end is the hairpin, and the return carries the late chicane.
+ */
+function sarthePlan(): Pt[] {
+  const straight = (t: number): Pt => ({ x: 268 + (78 - 268) * t, y: 156 + (184 - 156) * t });
+  const keys: Pt[] = [
+    { x: 118, y: 70 },
+    { x: 164, y: 64 },
+    { x: 206, y: 66 },
+    { x: 236, y: 86 },
+    { x: 258, y: 114 },
+    { x: 268, y: 142 },
+    straight(0.08),
+    straight(0.28),
+    straight(0.48),
+    straight(0.68),
+    straight(0.88),
+    { x: 62, y: 194 },
+    { x: 38, y: 168 },
+    { x: 52, y: 142 },
+    { x: 88, y: 118 },
+    { x: 46, y: 96 },
+    { x: 100, y: 76 },
+  ];
+  return chaikin(keys, 2);
 }
 
 function buildTrack(): TrackSample[] {
-  const n = 480;
-  const raw: { x: number; y: number }[] = [];
-  for (let i = 0; i <= n; i++) raw.push(rawPoint(i / n));
+  const raw = sarthePlan();
   const cum: number[] = [0];
-  for (let i = 1; i <= n; i++) {
+  for (let i = 1; i < raw.length; i++) {
     const a = raw[i - 1]!;
     const b = raw[i]!;
     cum.push(cum[i - 1]! + Math.hypot(b.x - a.x, b.y - a.y));
   }
-  const total = cum[n]!;
+  const total = cum[cum.length - 1]!;
   const samples: TrackSample[] = [];
   for (let s = 0; s < total - 1.5; s += 3) {
     let i = 1;
-    while (i < n && cum[i]! < s) i++;
+    while (i < raw.length && cum[i]! < s) i++;
     const c0 = cum[i - 1]!;
     const c1 = cum[i]!;
     const f = c1 === c0 ? 0 : (s - c0) / (c1 - c0);
@@ -165,8 +176,28 @@ function buildTrack(): TrackSample[] {
   return samples;
 }
 
+function nearestU(samples: readonly TrackSample[], x: number, y: number): number {
+  let best = samples[0]!;
+  let bestD = Infinity;
+  for (const p of samples) {
+    const d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  return best.u;
+}
+
 export const TRACK_SAMPLES: readonly TrackSample[] = buildTrack();
 export const TRACK_LENGTH = TRACK_SAMPLES.length === 0 ? 0 : TRACK_SAMPLES[TRACK_SAMPLES.length - 1]!.s + 3;
+
+/** Fixed scenery on the pit straight. No Coast boards, no title text. */
+export const CIRCUIT_MARKS: readonly CircuitMark[] = [
+  { u: nearestU(TRACK_SAMPLES, 150, 66), kind: 'gantry' },
+  { u: nearestU(TRACK_SAMPLES, 201, 67), kind: 'bridge' },
+  { u: nearestU(TRACK_SAMPLES, 117, 71), kind: 'pits' },
+];
 
 export function poseAt(u: number): TrackSample {
   const uu = ((u % 1) + 1) % 1;

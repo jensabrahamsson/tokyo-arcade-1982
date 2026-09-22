@@ -10,6 +10,7 @@ import {
   HALF_WIDTH,
   MAX_SPEED,
   TRACK_LENGTH,
+  TRACK_SAMPLES,
   WALL,
   circuitSpec,
   circuitSteer,
@@ -116,6 +117,141 @@ describe('circuit create (R55)', () => {
       circuitSpec.step(s, { p1: { dir: DIRS.left, button: true, seq: i } });
       expect(JSON.stringify(s)).toBe(before);
       s = circuitSpec.step(s, { p1: circuitSpec.demo!(s, i) });
+    }
+  });
+});
+
+/** Signed heading delta in (-π, π]. */
+const wrapDelta = (d: number): number => {
+  let x = d;
+  while (x > Math.PI) x -= Math.PI * 2;
+  while (x < -Math.PI) x += Math.PI * 2;
+  return x;
+};
+
+/**
+ * Greedy chord runs. A 1976 Mulsanne is one long uninterrupted straight;
+ * the 1990 chicanes would kick the chord deviation over `maxDev`.
+ */
+function straightRuns(
+  maxDev: number,
+): { i0: number; i1: number; len: number; u0: number; u1: number }[] {
+  const n = TRACK_SAMPLES.length;
+  const runs: { i0: number; i1: number; len: number; u0: number; u1: number }[] = [];
+  let i = 0;
+  while (i < n - 1) {
+    let j = i + 1;
+    while (j < n) {
+      const a = TRACK_SAMPLES[i]!;
+      const b = TRACK_SAMPLES[j]!;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const L = Math.hypot(dx, dy) || 1;
+      let ok = true;
+      for (let k = i + 1; k < j; k++) {
+        const p = TRACK_SAMPLES[k]!;
+        const dev = Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / L;
+        if (dev > maxDev) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok) break;
+      j++;
+    }
+    const end = Math.max(i, j - 1);
+    const len = TRACK_SAMPLES[end]!.s - TRACK_SAMPLES[i]!.s;
+    if (len >= 24) {
+      runs.push({
+        i0: i,
+        i1: end,
+        len,
+        u0: TRACK_SAMPLES[i]!.u,
+        u1: TRACK_SAMPLES[end]!.u,
+      });
+    }
+    i = end === i ? i + 1 : end;
+  }
+  return runs.sort((a, b) => b.len - a.len);
+}
+
+/** Absolute heading change over an arc of about `windowPx`. */
+function sharpestBend(windowPx: number): { turn: number; u: number } {
+  let best = { turn: 0, u: 0 };
+  const n = TRACK_SAMPLES.length;
+  for (let i = 0; i < n; i++) {
+    let j = i;
+    while (j + 1 < n && TRACK_SAMPLES[j + 1]!.s - TRACK_SAMPLES[i]!.s <= windowPx) j++;
+    if (TRACK_SAMPLES[j]!.s - TRACK_SAMPLES[i]!.s < windowPx * 0.75) continue;
+    let turn = 0;
+    for (let k = i; k < j; k++) {
+      turn += Math.abs(wrapDelta(TRACK_SAMPLES[k + 1]!.heading - TRACK_SAMPLES[k]!.heading));
+    }
+    if (turn > best.turn) best = { turn, u: TRACK_SAMPLES[Math.floor((i + j) / 2)]!.u };
+  }
+  return best;
+}
+
+/** Two opposite bends late in the lap: the ford chicane, not a constant-radius bowl. */
+function lateChicaneBends(): number {
+  let sign = 0;
+  let acc = 0;
+  let bends = 0;
+  const flush = () => {
+    if (Math.abs(acc) > 0.4) bends += 1;
+    acc = 0;
+    sign = 0;
+  };
+  for (let i = 0; i + 1 < TRACK_SAMPLES.length; i++) {
+    const a = TRACK_SAMPLES[i]!;
+    const b = TRACK_SAMPLES[i + 1]!;
+    if (a.u < 0.78 || a.u > 0.97) continue;
+    const d = wrapDelta(b.heading - a.heading);
+    if (Math.abs(d) < 0.004) continue;
+    const s = Math.sign(d);
+    if (sign === 0) sign = s;
+    if (s === sign) acc += d;
+    else {
+      flush();
+      sign = s;
+      acc = d;
+    }
+  }
+  flush();
+  return bends;
+}
+
+describe('circuit 1976 sarthe plan', () => {
+  it('is a fixed overview of the 1976 loop: long straight, hairpin, late chicane', () => {
+    const gantry = CIRCUIT_MARKS.find((m) => m.kind === 'gantry')!;
+    const bridge = CIRCUIT_MARKS.find((m) => m.kind === 'bridge')!;
+    const pits = CIRCUIT_MARKS.find((m) => m.kind === 'pits')!;
+    expect(gantry.u).toBeLessThan(0.06);
+    expect(bridge.u).toBeGreaterThan(gantry.u + 0.02);
+    expect(bridge.u).toBeLessThan(0.16);
+    const pitGap = Math.min(Math.abs(pits.u - gantry.u), 1 - Math.abs(pits.u - gantry.u));
+    expect(pitGap).toBeLessThan(0.12);
+
+    const runs = straightRuns(4);
+    const mulsanne = runs[0]!;
+    const next = runs.find((r) => r.i0 > mulsanne.i1 || r.i1 < mulsanne.i0);
+    expect(mulsanne.len).toBeGreaterThan(100);
+    expect(next).toBeTruthy();
+    expect(mulsanne.len).toBeGreaterThan(next!.len * 1.35);
+    // The long straight begins after the bridge. A stadium's straight is the start itself.
+    expect(mulsanne.u0).toBeGreaterThan(bridge.u);
+    expect(mulsanne.u1).toBeGreaterThan(mulsanne.u0);
+    expect(mulsanne.u1 - mulsanne.u0).toBeGreaterThan(0.18);
+
+    const hairpin = sharpestBend(52);
+    // A radius-46 bowl turns ~1.1 rad in 52 px. The hairpin is sharper.
+    expect(hairpin.turn).toBeGreaterThan(1.65);
+    expect(hairpin.u).toBeGreaterThan(mulsanne.u1 - 0.04);
+
+    expect(lateChicaneBends()).toBeGreaterThanOrEqual(2);
+
+    for (const mark of CIRCUIT_MARKS) {
+      expect(mark.kind).not.toMatch(/dunlop|porsche|martini|renault|elf|gulf/i);
     }
   });
 });

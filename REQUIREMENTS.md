@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (631 tests, incl. real-WebSocket E2E for 2- and)
+  `npm test` green (633 tests, incl. real-WebSocket E2E for 2- and)
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7). The integer is this checkout; bump it here, in
   README, and in AGENTS in the same commit. Do not copy unmerged PR counts.
@@ -671,7 +671,12 @@ marquees, UI, i18n, or filenames.
   overview. The marquee stays Circuit d'Or.
 - R55.3 The hall has **eight** cabinets. `games/circuit` is live.
 - R55.4 Look: bright overview of the whole circuit, readable at speed.
-  Fixed camera. Not Night Driver. Not the R22 Coast camera.
+  Fixed camera. Not Night Driver. Not the R22 Coast camera. The plan
+  reads as the 1976 Sarthe loop on that one screen: an arch over the
+  road (no wordmark), the pit straight and start gantry, one long
+  uninterrupted straight, a hairpin, return curves, a late chicane,
+  armco and grass. Cars are long, low prototypes with a rear wing.
+  The marquee stays Circuit d'Or.
 - R55.5 Short solo drive: sit, steer, score, finish the scheduled laps
   or run out of time / lives, game over, return to the hall. 60 Hz.
   No traffic product, no gears, no radio.
