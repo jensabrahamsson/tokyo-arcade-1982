@@ -114,32 +114,42 @@ function chaikin(pts: readonly Pt[], iters: number): Pt[] {
 }
 
 /**
- * 1976 schematic on the 320×240 overview. North straight is the pits,
- * the lower edge is the long straight (no mid-straight kinks), the west
- * end is the hairpin, and the return carries the late chicane.
+ * 1976 overview on the 320×240 glass. One chaikin pass keeps the long
+ * straight straight and leaves the west hook tight. The return wave is
+ * the esses, then the late chicane, back onto the pit straight.
  */
 function sarthePlan(): Pt[] {
-  const straight = (t: number): Pt => ({ x: 268 + (78 - 268) * t, y: 156 + (184 - 156) * t });
+  const straight = (t: number): Pt => ({
+    x: 268 + (100 - 268) * t,
+    y: 148 + (186 - 148) * t,
+  });
+  const hook: Pt[] = [];
+  for (let i = 0; i <= 8; i++) {
+    const a = 1.15 + (4.4 - 1.15) * (i / 8);
+    hook.push({ x: 62 + Math.cos(a) * 18, y: 164 + Math.sin(a) * 18 });
+  }
+  const wave: Pt[] = [];
+  for (let i = 0; i <= 12; i++) {
+    const t = i / 12;
+    wave.push({ x: 100 + Math.sin(t * Math.PI * 2) * 16, y: 146 - t * 98 });
+  }
   const keys: Pt[] = [
-    { x: 118, y: 70 },
-    { x: 164, y: 64 },
-    { x: 206, y: 66 },
-    { x: 236, y: 86 },
-    { x: 258, y: 114 },
-    { x: 268, y: 142 },
-    straight(0.08),
-    straight(0.28),
-    straight(0.48),
-    straight(0.68),
-    straight(0.88),
-    { x: 62, y: 194 },
-    { x: 38, y: 168 },
-    { x: 52, y: 142 },
-    { x: 88, y: 118 },
-    { x: 46, y: 96 },
-    { x: 100, y: 76 },
+    { x: 108, y: 48 },
+    { x: 148, y: 46 },
+    { x: 190, y: 48 },
+    { x: 222, y: 58 },
+    { x: 248, y: 82 },
+    { x: 264, y: 114 },
+    straight(0),
+    straight(0.2),
+    straight(0.4),
+    straight(0.6),
+    straight(0.8),
+    straight(1),
+    ...hook,
+    ...wave,
   ];
-  return chaikin(keys, 2);
+  return chaikin(keys, 1);
 }
 
 function buildTrack(): TrackSample[] {
@@ -194,9 +204,9 @@ export const TRACK_LENGTH = TRACK_SAMPLES.length === 0 ? 0 : TRACK_SAMPLES[TRACK
 
 /** Fixed scenery on the pit straight. No Coast boards, no title text. */
 export const CIRCUIT_MARKS: readonly CircuitMark[] = [
-  { u: nearestU(TRACK_SAMPLES, 150, 66), kind: 'gantry' },
-  { u: nearestU(TRACK_SAMPLES, 201, 67), kind: 'bridge' },
-  { u: nearestU(TRACK_SAMPLES, 117, 71), kind: 'pits' },
+  { u: nearestU(TRACK_SAMPLES, 148, 46), kind: 'gantry' },
+  { u: nearestU(TRACK_SAMPLES, 196, 50), kind: 'bridge' },
+  { u: nearestU(TRACK_SAMPLES, 108, 48), kind: 'pits' },
 ];
 
 export function poseAt(u: number): TrackSample {

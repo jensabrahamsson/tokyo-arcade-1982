@@ -247,6 +247,13 @@ describe('circuit 1976 sarthe plan', () => {
     // A radius-46 bowl turns ~1.1 rad in 52 px. The hairpin is sharper.
     expect(hairpin.turn).toBeGreaterThan(1.65);
     expect(hairpin.u).toBeGreaterThan(mulsanne.u1 - 0.04);
+    // The schematic's sharpest kink sat on the late return, away from the
+    // western tip, so the hook read as part of a rounded blob. The hairpin
+    // is the west end of the loop.
+    let west = TRACK_SAMPLES[0]!;
+    for (const p of TRACK_SAMPLES) if (p.x < west.x) west = p;
+    expect(Math.abs(west.u - hairpin.u)).toBeLessThan(0.08);
+    expect(west.x).toBeLessThan(70);
 
     expect(lateChicaneBends()).toBeGreaterThanOrEqual(2);
 
