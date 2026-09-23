@@ -62,6 +62,7 @@ export const EN = {
   'coast.time': 'TIME',
   'coast.mph': 'KM/H',
   'coast.gate': 'GATE',
+  'coast.bonus': 'BONUS',
   'coast.offRoad': 'OFF ROAD!',
   'hud.score': 'SCORE',
   'hud.level': 'LEVEL',

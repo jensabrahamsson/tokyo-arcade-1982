@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (634 tests, incl. real-WebSocket E2E for 2- and)
+  `npm test` green (643 tests, incl. real-WebSocket E2E for 2- and)
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7). The integer is this checkout; bump it here, in
   README, and in AGENTS in the same commit. Do not copy unmerged PR counts.
@@ -976,3 +976,25 @@ cabinet stays Circuit d'Or. Le Mans is not a title, a marquee, or an id.
   third connection spectates. No new client message.
 - R61.4 A full versus table still waits out the READY window (R50)
   before it deals. Solo `start` still deals immediately.
+
+## R62 — Coast bonus stage, 1984
+
+Asked for after the coast run already ended at LO castle. The castle
+still pays the goal bonus and plays the goal sting. Solo and versus
+then continue on a shorter bonus road instead of retiring the car.
+Time running out on either road still ends the run.
+
+- R62.1 The bonus car is a white 1984 Volvo 740-series estate (the
+  box, not the orange Datsun). Long roof, tall rear lamps, rear glass.
+  No Volvo wordmark. The Datsun plate stays on the coast road.
+- R62.2 A dog sits in the back seat and slides outward in a bend
+  (`dogSlide`: a right-hand curve slides the dog left). A straight or
+  a crawl leaves the dog centered.
+- R62.3 Other cars on that road are a 1984 BMW and a 1984 Mercedes,
+  seeded, both kinds always present, moving, hittable once. No
+  roundel, no star, no wordmark — the rear shape is the homage.
+  They are not on the coast road.
+- R62.4 Clearing the bonus road pays a goal bonus and ends the run.
+  Versus still waits until every runner is done (bonus cleared or
+  timed out). One driver reaching the castle opens only their bonus
+  stage.
