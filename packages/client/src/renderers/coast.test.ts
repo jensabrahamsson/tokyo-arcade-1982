@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { OBSTACLE_KINDS, coastSpec } from '@arkad/core';
+import { OBSTACLE_KINDS, coastSpec, dogSlide, BONUS_LEN } from '@arkad/core';
 import { COAST_BILLBOARDS } from '@arkad/core';
 import { FONT, PAL } from '../ui';
 import {
@@ -11,6 +11,7 @@ import {
   luma, renderCoast, coastSplitPanes, drawCoastQualifyingBanner, coastCastleRect, coastQualifyingOverlayY,
   coastQualifyingClearOfCastle, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER, COAST_QUALIFYING_LINE_GAP,
   coastCarSprite, drawCoastCar, coastCarScreenRect, coastHudSlots, COAST_HUD_BAR, COAST_HUD_PLATE, COAST_MOON,
+  volvoSprite, eraCarSprite, VOLVO_BODY, BMW_BODY, MERC_BODY, DOG_BODY,
   coastBillboardScreen, COAST_BOARD_SKIN,
 } from './coast';
 
@@ -499,7 +500,89 @@ describe('Coast Pole Position silhouette (R56, not C64 Night Rider)', () => {
   });
 });
 
-function recordCoastFrame(): { rectCount: number; maxBodyW: number; darkRatio: number; used: string[]; texts: string[] } {
+describe('1984 bonus stage (white Volvo, dog, BMW, Mercedes)', () => {
+  it('the bonus car is a white long-roof 740, not the orange sedan', () => {
+    const orange = coastCarSprite();
+    const volvo = volvoSprite(CAR_DRAW.w, CAR_DRAW.h, 0);
+    const body = volvo.filter((p) => p.role === 'body');
+    expect(body.length).toBeGreaterThan(0);
+    expect(body.every((p) => p.color === VOLVO_BODY)).toBe(true);
+    expect(VOLVO_BODY).not.toBe(CAR_BODY);
+    const shell = body.reduce((a, p) => (p.w > a.w ? p : a));
+    const roof = body.reduce((a, p) => (p.dy < a.dy ? p : a));
+    // The orange sedan's cabin is a short lid. The 740 container's roof
+    // runs most of the body so the car reads as a box, not a wedge.
+    const orangeBody = orange.filter((p) => p.role === 'body');
+    const orangeShell = orangeBody.reduce((a, p) => (p.w > a.w ? p : a));
+    const orangeRoof = orangeBody.reduce((a, p) => (p.dy < a.dy ? p : a));
+    expect(roof.w / shell.w).toBeGreaterThan(orangeRoof.w / orangeShell.w);
+    expect(roof.w).toBeGreaterThanOrEqual(shell.w * 0.7);
+    const lamps = volvo.filter((p) => p.role === 'lamp');
+    expect(lamps).toHaveLength(2);
+    expect(lamps.every((p) => p.h > p.w)).toBe(true);
+    expect(volvo.some((p) => p.role === 'dog' && p.color === DOG_BODY)).toBe(true);
+    expect(volvo.some((p) => p.role === 'glass')).toBe(true);
+  });
+
+  it('the dog slides across the rear glass when the road bends', () => {
+    const centerOf = (slide: number) => {
+      const dogs = volvoSprite(CAR_DRAW.w, CAR_DRAW.h, slide).filter((p) => p.role === 'dog' && p.color === DOG_BODY);
+      const dog = dogs[0]!;
+      return dog.dx + dog.w / 2;
+    };
+    const straight = centerOf(0);
+    const rightBend = centerOf(dogSlide(0.8, 120));
+    const leftBend = centerOf(dogSlide(-0.8, 120));
+    expect(rightBend).toBeLessThan(straight - 4);
+    expect(leftBend).toBeGreaterThan(straight + 4);
+  });
+
+  it('BMW and Mercedes are two 1984 rears, with no wordmark', () => {
+    const bmw = eraCarSprite('bmw', 0.2);
+    const merc = eraCarSprite('mercedes', 0.2);
+    const bodyOf = (parts: { role: string; color: string; w: number; h: number }[]) =>
+      parts.filter((p) => p.role === 'body');
+    expect(bodyOf(bmw.parts).every((p) => p.color === BMW_BODY)).toBe(true);
+    expect(bodyOf(merc.parts).every((p) => p.color === MERC_BODY)).toBe(true);
+    expect(BMW_BODY).not.toBe(MERC_BODY);
+    expect(BMW_BODY).not.toBe(VOLVO_BODY);
+    expect(MERC_BODY).not.toBe(VOLVO_BODY);
+    const bmwLamps = bmw.parts.filter((p) => p.role === 'lamp');
+    const mercLamps = merc.parts.filter((p) => p.role === 'lamp');
+    expect(bmwLamps.length).toBeGreaterThanOrEqual(2);
+    expect(bmwLamps.every((p) => p.w > p.h)).toBe(true);
+    expect(mercLamps.length).toBeGreaterThanOrEqual(4);
+    const texts = JSON.stringify([bmw.parts, merc.parts, volvoSprite()]);
+    expect(texts.toLowerCase()).not.toMatch(/volvo|bmw|mercedes|sosse|dunlop/);
+  });
+
+  it('the bonus glass shows the white car, the dog and both era cars', () => {
+    const s = coastSpec.create({ mode: 'solo', playerIds: ['p1'], seed: 7 });
+    const frame = recordCoastFrame({
+      ...s,
+      phase: 'playing',
+      stage: 'bonus',
+      dist: 20,
+      speed: 90,
+      traffic: [
+        { d: 70, x: -0.7, speed: 40, kind: 'bmw', hit: false },
+        { d: 110, x: 0.7, speed: 36, kind: 'mercedes', hit: false },
+      ],
+    });
+    expect(frame.used).toContain(VOLVO_BODY);
+    expect(frame.used).not.toContain(CAR_BODY);
+    expect(frame.used).toContain(DOG_BODY);
+    expect(frame.used).toContain(BMW_BODY);
+    expect(frame.used).toContain(MERC_BODY);
+    expect(frame.texts.some((t) => t.startsWith('BONUS'))).toBe(true);
+    const ja = coastHudCopy('ja', { timeLeft: 60, speed: 0, dist: 0, playerX: 0, phase: 'playing', stage: 'bonus' });
+    expect(ja.gate.startsWith('ボーナス')).toBe(true);
+    expect(frame.texts.join(' ').toLowerCase()).not.toMatch(/volvo|bmw|mercedes|sosse/);
+    expect(BONUS_LEN).toBeGreaterThan(200);
+  });
+});
+
+function recordCoastFrame(state?: Parameters<typeof renderCoast>[1]): { rectCount: number; maxBodyW: number; darkRatio: number; used: string[]; texts: string[] } {
   const rects: { w: number; h: number; fill: string }[] = [];
   const texts: string[] = [];
   const ctx = {
@@ -529,8 +612,8 @@ function recordCoastFrame(): { rectCount: number; maxBodyW: number; darkRatio: n
     drawImage() { /* art atlas empty in unit tests */ },
     fillText(t: string) { texts.push(t); },
   };
-  const s = coastSpec.create({ mode: 'solo', playerIds: ['p1'], seed: 7 });
-  renderCoast(ctx as unknown as CanvasRenderingContext2D, { ...s, phase: 'playing', dist: 40, speed: 80 }, 0, 'en', false);
+  const s = state ?? { ...coastSpec.create({ mode: 'solo', playerIds: ['p1'], seed: 7 }), phase: 'playing' as const, dist: 40, speed: 80 };
+  renderCoast(ctx as unknown as CanvasRenderingContext2D, s, 0, 'en', false);
   const used = rects.map((r) => r.fill);
   const dark = rects.filter((r) => r.fill === '#1c1c28' || r.fill === '#10131f' || r.fill === '#000000').length;
   const body = rects.filter((r) => r.fill === CAR_BODY);
