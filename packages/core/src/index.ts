@@ -26,7 +26,7 @@ export { riverSpec, HOME_ROWS, type RiverState, type Lane } from './games/river/
 export { myriadSpec, MYRIAD_W, MYRIAD_H, type MyriadState } from './games/myriad/myriad';
 export { attractDemoTier, demoRuns, type DemoTier } from './engine/attract';
 export { RIVER_W } from './games/river/river';
-export { coastSpec, curveAt, TRACK_LEN, CHECKPOINTS, MAX_SPEED, OFF_ROAD_X, COAST_BILLBOARDS, OBSTACLE_KINDS, type CoastBillboard, type CoastState, type Obstacle, type ObstacleKind } from './games/coast/coast';
+export { coastSpec, curveAt, dogSlide, TRACK_LEN, BONUS_LEN, CHECKPOINTS, MAX_SPEED, OFF_ROAD_X, COAST_BILLBOARDS, OBSTACLE_KINDS, TRAFFIC_KINDS, type CoastBillboard, type CoastState, type Obstacle, type ObstacleKind, type TrafficCar, type TrafficKind, type CoastStage } from './games/coast/coast';
 export {
   circuitSpec,
   createCircuit,

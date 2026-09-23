@@ -64,6 +64,7 @@ export const JA: Record<keyof typeof EN, string> = {
   'coast.time': 'タイム',
   'coast.mph': 'キロ',
   'coast.gate': 'ゲート',
+  'coast.bonus': 'ボーナス',
   'coast.offRoad': 'オフロード！',
   'hud.score': 'スコア',
   'hud.level': 'レベル',

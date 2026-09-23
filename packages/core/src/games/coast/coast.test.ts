@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { coastSpec, createCoast, curveAt, TRACK_LEN, CHECKPOINTS, COAST_BILLBOARDS, OBSTACLE_KINDS, type CoastState } from './coast';
+import {
+  coastSpec,
+  createCoast,
+  curveAt,
+  dogSlide,
+  TRACK_LEN,
+  BONUS_LEN,
+  CHECKPOINTS,
+  COAST_BILLBOARDS,
+  OBSTACLE_KINDS,
+  TRAFFIC_KINDS,
+  type CoastState,
+} from './coast';
 import { NO_INPUT, type GameConfig, type PlayerInput } from '../../engine/types';
 
 const cfg: GameConfig = { mode: 'solo', playerIds: ['p1'], seed: 7 };
@@ -138,11 +150,24 @@ describe('coast physics', () => {
     expect(s.scores['p1']).toBe(before);
   });
 
-  it('reaching LO castle ends the run with a goal bonus', () => {
-    let s = run({ ...play(createCoast(cfg)), dist: TRACK_LEN - 3, speed: 100 }, pedal, 8);
-    expect(s.phase).toBe('gameOver');
+  it('reaching LO castle pays the goal bonus and opens the bonus stage', () => {
+    // The castle used to freeze the run (phase gameOver, goal sting left on
+    // that frame). The gate still pays the same bonus and fires the same
+    // sting, then the car continues onto the 1984 bonus stage. Later ticks
+    // replace `sfx`, so the sting is collected on the way through.
+    let s = { ...play(createCoast(cfg)), dist: TRACK_LEN - 3, speed: 100 };
+    let sawGoal = false;
+    for (let i = 0; i < 8 && s.phase === 'playing' && s.stage !== 'bonus'; i++) {
+      s = coastSpec.step(s, { p1: pedal });
+      if (s.sfx.some((e) => e.name === 'goal')) sawGoal = true;
+    }
+    expect(sawGoal).toBe(true);
+    expect(s.phase).toBe('playing');
+    expect(s.stage).toBe('bonus');
+    expect(s.dist).toBeLessThan(50);
     expect(s.scores['p1']).toBeGreaterThanOrEqual(1000);
-    expect(s.sfx.some((e) => e.name === 'goal')).toBe(true);
+    expect(s.timeLeft).toBeGreaterThan(3600);
+    expect(s.traffic.map((c) => c.kind).sort()).toEqual(['bmw', 'bmw', 'bmw', 'mercedes', 'mercedes', 'mercedes']);
   });
 
   it('running out of time ends the run', () => {
@@ -220,18 +245,25 @@ describe('coast two-player split (R61)', () => {
       s = coastSpec.step(s, { p1: pedal, p2: pedal });
     }
     expect(s.phase).toBe('playing');
-    expect(s.runners.p1!.done).toBe(true);
+    // Castle used to retire the runner (done). It now opens that driver's
+    // bonus stage; the other human is still on the coast road.
+    expect(s.runners.p1!.done).toBe(false);
+    expect(s.runners.p1!.stage).toBe('bonus');
+    expect(s.runners.p2!.stage).toBe('coast');
     expect(s.runners.p2!.done).toBe(false);
     expect(s.scores.p1).toBeGreaterThanOrEqual(1000);
     expect(s.scores.p2).toBe(0);
   });
 
   it('the table ends when both runners are done and names the higher score', () => {
+    // Castle arrival used to set done. A finished runner is now one who has
+    // cleared the bonus stage (or run out of time). p2 still times out on
+    // the coast; p1 is placed at the end of the bonus road.
     let s = play(createCoast(vsCfg));
     s = {
       ...s,
       runners: {
-        p1: { ...s.runners.p1!, dist: TRACK_LEN - 3, speed: 100, timeLeft: 4000 },
+        p1: { ...s.runners.p1!, stage: 'bonus', dist: BONUS_LEN - 3, speed: 100, timeLeft: 4000, traffic: [] },
         p2: { ...s.runners.p2!, timeLeft: 1, speed: 0 },
       },
     };
@@ -245,5 +277,104 @@ describe('coast two-player split (R61)', () => {
     const before = JSON.stringify(s);
     coastSpec.step(s, { p1: pedal, p2: pedal });
     expect(JSON.stringify(s)).toBe(before);
+  });
+});
+
+describe('coast bonus stage (1984 sosse-container)', () => {
+  it('the back-seat dog slides outward in a bend and sits still on a straight', () => {
+    expect(dogSlide(0, 120)).toBe(0);
+    expect(dogSlide(0.8, 0)).toBe(0);
+    // +curve is a right-hand bend, so the dog slides left.
+    expect(dogSlide(0.8, 120)).toBeLessThan(-0.7);
+    expect(dogSlide(-0.8, 120)).toBeGreaterThan(0.7);
+    expect(Math.abs(dogSlide(0.8, 30))).toBeLessThan(Math.abs(dogSlide(0.8, 120)));
+    expect(dogSlide(4, 200)).toBe(-1);
+    expect(dogSlide(-4, 200)).toBe(1);
+  });
+
+  it('the bonus road carries a BMW and a Mercedes from the same seed', () => {
+    expect(TRAFFIC_KINDS).toEqual(['bmw', 'mercedes']);
+    const a = createCoast(cfg);
+    const b = createCoast(cfg);
+    const c = createCoast({ ...cfg, seed: 99 });
+    const enter = (s: CoastState): CoastState => {
+      let cur = { ...play(s), dist: TRACK_LEN - 3, speed: 100 };
+      for (let i = 0; i < 8 && cur.stage !== 'bonus'; i++) cur = coastSpec.step(cur, { p1: pedal });
+      return cur;
+    };
+    const left = enter(a);
+    const right = enter(b);
+    const other = enter(c);
+    expect(left.traffic.map((car) => car.kind)).toEqual(right.traffic.map((car) => car.kind));
+    expect(left.traffic.map((car) => car.x)).toEqual(right.traffic.map((car) => car.x));
+    expect(JSON.stringify(left.traffic.map((car) => ({ d: car.d, x: car.x, speed: car.speed })))).not.toBe(
+      JSON.stringify(other.traffic.map((car) => ({ d: car.d, x: car.x, speed: car.speed }))),
+    );
+    expect(left.stage).toBe('bonus');
+    expect(a.stage).toBe('coast');
+    expect(a.traffic).toEqual([]);
+  });
+
+  it('era traffic drives ahead and a catch slows the Volvo once', () => {
+    let s = play(createCoast(cfg));
+    s = {
+      ...s,
+      stage: 'bonus',
+      dist: 40,
+      speed: 100,
+      playerX: 0.7,
+      traffic: [
+        { d: 40, x: 0.7, speed: 30, kind: 'bmw', hit: false },
+        { d: 80, x: -0.7, speed: 30, kind: 'mercedes', hit: false },
+      ],
+    };
+    const before = JSON.stringify(s);
+    const next = coastSpec.step(s, { p1: pedal });
+    expect(JSON.stringify(s)).toBe(before);
+    expect(next.speed).toBeLessThan(50);
+    expect(next.traffic.find((c) => c.kind === 'bmw')!.hit).toBe(true);
+    expect(next.traffic.find((c) => c.kind === 'mercedes')!.hit).toBe(false);
+    expect(next.sfx.some((e) => e.name === 'hit')).toBe(true);
+    const rolling = coastSpec.step(
+      { ...play(createCoast(cfg)), stage: 'bonus', dist: 10, speed: 80, playerX: 0, traffic: [{ d: 60, x: 0.7, speed: 40, kind: 'mercedes', hit: false }] },
+      { p1: pedal },
+    );
+    expect(rolling.traffic[0]!.d).toBeGreaterThan(60);
+    expect(rolling.traffic[0]!.hit).toBe(false);
+  });
+
+  it('a coast-stage car does not collide with bonus traffic', () => {
+    const s = coastSpec.step(
+      {
+        ...play(createCoast(cfg)),
+        stage: 'coast',
+        dist: 40,
+        speed: 100,
+        playerX: 0,
+        traffic: [{ d: 40, x: 0, speed: 10, kind: 'bmw', hit: false }],
+      },
+      { p1: pedal },
+    );
+    expect(s.stage).toBe('coast');
+    expect(s.traffic[0]!.hit).toBe(false);
+    expect(s.speed).toBeGreaterThan(90);
+  });
+
+  it('clearing the bonus stage ends the run, and so does the clock', () => {
+    const won = run(
+      { ...play(createCoast(cfg)), stage: 'bonus', dist: BONUS_LEN - 3, speed: 100, traffic: [], timeLeft: 4000 },
+      pedal,
+      8,
+    );
+    expect(won.phase).toBe('gameOver');
+    expect(won.scores['p1']).toBeGreaterThanOrEqual(1000);
+    expect(won.sfx.some((e) => e.name === 'goal')).toBe(true);
+    const timed = run(
+      { ...play(createCoast(cfg)), stage: 'bonus', dist: 10, speed: 40, traffic: [], timeLeft: 3 },
+      pedal,
+      10,
+    );
+    expect(timed.phase).toBe('gameOver');
+    expect(timed.scores['p1']).toBe(0);
   });
 });

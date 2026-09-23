@@ -1,5 +1,5 @@
-import type { CoastState, ObstacleKind } from '@arkad/core';
-import { COAST_BILLBOARDS, curveAt, OFF_ROAD_X, TRACK_LEN, MAX_SPEED, t as translate, type Lang } from '@arkad/core';
+import type { CoastState, ObstacleKind, TrafficKind } from '@arkad/core';
+import { COAST_BILLBOARDS, curveAt, dogSlide, OFF_ROAD_X, TRACK_LEN, BONUS_LEN, MAX_SPEED, t as translate, type Lang } from '@arkad/core';
 import { PAL, px, blink } from '../ui';
 import { art, type ArtFile } from '../art';
 
@@ -210,6 +210,14 @@ export function drawCoastQualifyingBanner(ctx: CanvasRenderingContext2D, text: s
  *  sticker; the seated sedan is a third of the 320 glass. Aspect matches
  *  coast-datsun.png (160×105). */
 export const CAR_BODY = '#ff7a18';
+/** White 740-series estate. Off the orange sedan so the bonus car reads at a glance. */
+export const VOLVO_BODY = '#f4f4ee';
+/** 1984 3-series rear, arcade blue. No roundel. */
+export const BMW_BODY = '#204a8a';
+/** 1984 silver saloon (190 / W123). No star. */
+export const MERC_BODY = '#c2c3c7';
+/** The dog in the back seat. */
+export const DOG_BODY = '#d8a15a';
 export const CAR_DRAW = { w: 120, h: 79 } as const;
 /** Tires rest just inside the glass so the bumper is not clipped. */
 export const CAR_BOTTOM_INSET = 4;
@@ -220,7 +228,7 @@ export const COAST_MOON = { x: 72, y: 26, r: 8 } as const;
 export const COAST_HUD_BAR = { x: 0, y: 0, w: W, h: 16 } as const;
 export const COAST_HUD_PLATE = '#05060c';
 
-export type CoastCarRole = 'shadow' | 'wheel' | 'body' | 'glass' | 'lamp' | 'bumper' | 'plate';
+export type CoastCarRole = 'shadow' | 'wheel' | 'body' | 'glass' | 'lamp' | 'bumper' | 'plate' | 'dog';
 
 export interface CoastCarPart {
   dx: number;
@@ -251,6 +259,84 @@ export function coastCarSprite(w: number = CAR_DRAW.w, h: number = CAR_DRAW.h): 
     { role: 'lamp', dx: Math.round(bodyW * 0.44) - lampW, dy: -Math.round(h * 0.32), w: lampW, h: 7, color: '#ff004d' },
     { role: 'plate', dx: -9, dy: -Math.round(h * 0.4), w: 18, h: 7, color: '#f7e766' },
   ];
+}
+
+/** White 740 estate — the box the orange sedan is not. `slide` is dogSlide:
+ *  -1 puts the dog on the left of the rear glass, +1 on the right. */
+export function volvoSprite(w: number = CAR_DRAW.w, h: number = CAR_DRAW.h, slide = 0): CoastCarPart[] {
+  const bodyW = Math.round(w * 0.9);
+  const roofW = Math.round(w * 0.74);
+  const glassW = Math.round(roofW * 0.84);
+  const glassH = Math.round(h * 0.22);
+  const glassX = -Math.round(glassW / 2);
+  const glassY = -h + 4;
+  const wheelW = Math.max(10, Math.round(w * 0.14));
+  const wheelH = Math.round(h * 0.34);
+  const lampW = Math.max(4, Math.round(w * 0.06));
+  const lampH = Math.round(h * 0.22);
+  const dogW = Math.max(6, Math.round(glassW * 0.22));
+  const dogH = Math.max(5, Math.round(glassH * 0.7));
+  const travel = Math.round((glassW - dogW) / 2) - 1;
+  const clamped = Math.max(-1, Math.min(1, slide));
+  const dogX = glassX + Math.round(glassW / 2 - dogW / 2 + clamped * travel);
+  return [
+    { role: 'shadow', dx: Math.round(-w * 0.4), dy: -6, w: Math.round(w * 0.8), h: 6, color: 'rgba(20,16,32,0.45)' },
+    { role: 'wheel', dx: -Math.round(w / 2), dy: -wheelH - 2, w: wheelW, h: wheelH, color: '#1c1c28' },
+    { role: 'wheel', dx: Math.round(w / 2) - wheelW, dy: -wheelH - 2, w: wheelW, h: wheelH, color: '#1c1c28' },
+    { role: 'body', dx: -Math.round(bodyW / 2), dy: -Math.round(h * 0.62), w: bodyW, h: Math.round(h * 0.62), color: VOLVO_BODY },
+    { role: 'body', dx: -Math.round(roofW / 2), dy: -h, w: roofW, h: Math.round(h * 0.48), color: VOLVO_BODY },
+    { role: 'glass', dx: glassX, dy: glassY, w: glassW, h: glassH, color: '#243056' },
+    { role: 'dog', dx: dogX, dy: glassY + 2, w: dogW, h: dogH, color: DOG_BODY },
+    { role: 'dog', dx: dogX + 1, dy: glassY, w: Math.max(3, Math.round(dogW * 0.45)), h: 3, color: '#ab5236' },
+    { role: 'bumper', dx: -Math.round(bodyW * 0.48), dy: -Math.round(h * 0.14), w: Math.round(bodyW * 0.96), h: 6, color: '#8a8c90' },
+    { role: 'lamp', dx: -Math.round(bodyW * 0.42), dy: -Math.round(h * 0.4), w: lampW, h: lampH, color: '#ff004d' },
+    { role: 'lamp', dx: Math.round(bodyW * 0.42) - lampW, dy: -Math.round(h * 0.4), w: lampW, h: lampH, color: '#ff004d' },
+    { role: 'plate', dx: -8, dy: -Math.round(h * 0.28), w: 16, h: 6, color: '#f7e766' },
+  ];
+}
+
+/** Rear of a 1984 saloon ahead on the bonus road. Shape only, no badge. */
+export function eraCarSprite(kind: TrafficKind, scale: number): { w: number; h: number; parts: CoastCarPart[] } {
+  const u = Math.max(8, scale * 420);
+  if (kind === 'bmw') {
+    const w = u * 0.92;
+    const h = u * 0.46;
+    const lampW = u * 0.28;
+    const lampH = u * 0.07;
+    return {
+      w, h,
+      parts: [
+        { role: 'body', dx: -w / 2, dy: -h, w, h, color: BMW_BODY },
+        { role: 'glass', dx: -w * 0.28, dy: -h - u * 0.08, w: w * 0.56, h: u * 0.1, color: '#243056' },
+        { role: 'lamp', dx: -w * 0.46, dy: -h * 0.42, w: lampW, h: lampH, color: '#ff004d' },
+        { role: 'lamp', dx: w * 0.46 - lampW, dy: -h * 0.42, w: lampW, h: lampH, color: '#ff004d' },
+        { role: 'bumper', dx: -w * 0.48, dy: -u * 0.06, w: w * 0.96, h: u * 0.05, color: '#8a8c90' },
+      ],
+    };
+  }
+  const w = u * 0.9;
+  const h = u * 0.5;
+  const lampW = u * 0.16;
+  const strip = Math.max(1, u * 0.025);
+  const parts: CoastCarPart[] = [
+    { role: 'body', dx: -w / 2, dy: -h, w, h, color: MERC_BODY },
+    { role: 'glass', dx: -w * 0.26, dy: -h - u * 0.07, w: w * 0.52, h: u * 0.09, color: '#243056' },
+    { role: 'bumper', dx: -w * 0.5, dy: -u * 0.07, w, h: u * 0.06, color: '#e8e6dc' },
+  ];
+  for (const side of [-1, 1]) {
+    const x = side < 0 ? -w * 0.44 : w * 0.44 - lampW;
+    for (let i = 0; i < 3; i++) {
+      parts.push({
+        role: 'lamp',
+        dx: x,
+        dy: -h * 0.62 + i * strip * 2.2,
+        w: lampW,
+        h: strip,
+        color: '#ff004d',
+      });
+    }
+  }
+  return { w, h, parts };
 }
 
 /** Where the seated car is painted. Bottom inset keeps the tires on the glass. */
@@ -345,13 +431,16 @@ export function obstacleSprite(kind: ObstacleKind, scale: number): { w: number; 
 
 export function coastHudCopy(
   lang: Lang,
-  s: { timeLeft: number; speed: number; dist: number; playerX: number; phase: string },
+  s: { timeLeft: number; speed: number; dist: number; playerX: number; phase: string; stage?: 'coast' | 'bonus' },
 ): { time: string; speed: string; gate: string; offRoad: string | null } {
   const secs = Math.ceil(s.timeLeft / 60);
+  const bonus = s.stage === 'bonus';
+  const len = bonus ? BONUS_LEN : TRACK_LEN;
+  const gateLabel = translate(lang, bonus ? 'coast.bonus' : 'coast.gate');
   return {
     time: `${translate(lang, 'coast.time')} ${secs}`,
     speed: `${Math.round((s.speed / MAX_SPEED) * COAST_SPEED_SCALE)} ${translate(lang, 'coast.mph')}`,
-    gate: `${translate(lang, 'coast.gate')} ${Math.min(Math.floor(s.dist), TRACK_LEN)}/${TRACK_LEN}`,
+    gate: `${gateLabel} ${Math.min(Math.floor(s.dist), len)}/${len}`,
     offRoad: Math.abs(s.playerX) > OFF_ROAD_X && s.phase === 'playing' ? translate(lang, 'coast.offRoad') : null,
   };
 }
@@ -590,6 +679,22 @@ export function drawCoastCar(
   ctx.restore();
 }
 
+/** Bonus-stage Volvo. Always procedural — the Datsun plate would hide the dog. */
+function drawVolvo(
+  ctx: CanvasRenderingContext2D,
+  opts: { slide: number; steer: number; tMs: number; speed: number },
+): void {
+  const rect = coastCarScreenRect(opts.tMs, opts.speed);
+  ctx.save();
+  ctx.translate(rect.x + rect.w / 2, rect.y + rect.h);
+  ctx.transform(1, 0, -opts.steer * 0.1, 1, 0, 0);
+  for (const part of volvoSprite(rect.w, rect.h, opts.slide)) {
+    ctx.fillStyle = part.color;
+    ctx.fillRect(part.dx, part.dy, part.w, part.h);
+  }
+  ctx.restore();
+}
+
 /** Top/bottom panes keep the full 320-wide road. A left/right split would be 160 and unreadable. */
 export function coastSplitPanes(w = W, h = H): { x: number; y: number; w: number; h: number }[] {
   const half = Math.floor(h / 2);
@@ -661,8 +766,25 @@ function renderCoastPane(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 0, 
     }
   }
 
+  if (s.stage === 'bonus') {
+    for (const car of s.traffic) {
+      if (car.d < cam + 1 || car.d > cam + 140) continue;
+      const p = project(car.d, cam, s.playerX);
+      const spr = eraCarSprite(car.kind, p.scale);
+      const x = p.offX + car.x * p.roadW * 0.55;
+      for (const part of spr.parts) {
+        ctx.fillStyle = part.color;
+        ctx.fillRect(x + part.dx, p.y + part.dy, part.w, part.h);
+      }
+    }
+  }
+
   const steer = Math.max(-1, Math.min(1, (s.playerX % 1) * 0.4 + curveAt(s.dist) * 0.3));
-  drawCoastCar(ctx, { img: art()['coast-datsun.png'], steer, tMs, speed: s.speed });
+  if (s.stage === 'bonus') {
+    drawVolvo(ctx, { slide: dogSlide(curveAt(s.dist), s.speed), steer, tMs, speed: s.speed });
+  } else {
+    drawCoastCar(ctx, { img: art()['coast-datsun.png'], steer, tMs, speed: s.speed });
+  }
 
   if (!mini) drawCoastHud(ctx, coastHudCopy(lang, s));
 }
@@ -690,6 +812,8 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
         timeLeft: r.timeLeft,
         checkpoints: r.checkpoints,
         obstacles: r.obstacles,
+        stage: r.stage,
+        traffic: r.traffic,
       }, tMs, lang, false);
       ctx.restore();
     }

@@ -17,6 +17,33 @@ export const OFF_ROAD_X = 1.15;
 export const OFF_MAX_SPEED = 45;
 export const START_TIME = 3600;
 export const CHECKPOINT_BONUS = 1500;
+/** Shorter second road after LO castle. The 740 still has to finish it. */
+export const BONUS_LEN = 520;
+/** Clock added when the castle opens the bonus stage. */
+export const BONUS_TIME = 1200;
+
+/** 1984 traffic on the bonus road. Ids only — the glass draws the shape. */
+export const TRAFFIC_KINDS = ['bmw', 'mercedes'] as const;
+export type TrafficKind = (typeof TRAFFIC_KINDS)[number];
+
+export interface TrafficCar {
+  d: number;
+  x: number;
+  speed: number;
+  kind: TrafficKind;
+  hit: boolean;
+}
+
+export type CoastStage = 'coast' | 'bonus';
+
+/** Outward slide of the dog in the back seat. +curve is a right-hand bend
+ *  (the car is pushed left), so the dog slides left, toward -1. A straight
+ *  or a crawl leaves the dog in the middle of the glass. */
+export function dogSlide(curve: number, speed: number): number {
+  if (speed <= 0 || curve === 0) return 0;
+  const lean = -curve * Math.min(1, speed / 60);
+  return Math.max(-1, Math.min(1, lean));
+}
 
 /** R54.7: drive-past billboard copy along the coast road — stylized Swedish
  * 1982 nostalgia tableaux (arcade-homage scenery, not campaign material).
@@ -70,6 +97,8 @@ export interface CoastRunner {
   checkpoints: number;
   obstacles: Obstacle[];
   done: boolean;
+  stage: CoastStage;
+  traffic: TrafficCar[];
 }
 
 export interface CoastState extends GameStateBase {
@@ -83,6 +112,9 @@ export interface CoastState extends GameStateBase {
   deaths: number;
   clears: number;
   runners: Record<string, CoastRunner>;
+  stage: CoastStage;
+  traffic: TrafficCar[];
+  seed: number;
 }
 
 const makeObstacles = (seed: number): Obstacle[] => {
@@ -108,7 +140,26 @@ function freshRunner(obstacles: Obstacle[]): CoastRunner {
     checkpoints: 0,
     obstacles: obstacles.map((o) => ({ ...o })),
     done: false,
+    stage: 'coast',
+    traffic: [],
   };
+}
+
+/** Same-era saloons ahead of the Volvo. Both kinds always appear;
+ *  lane and cruise speed come from the table seed. */
+function makeTraffic(seed: number): TrafficCar[] {
+  const rng = createRng(seed + 740);
+  const out: TrafficCar[] = [];
+  for (let i = 0; i < 6; i++) {
+    out.push({
+      d: 70 + i * 70,
+      x: rng.next() < 0.5 ? -0.7 : 0.7,
+      speed: 36 + rng.int(24),
+      kind: i % 2 === 0 ? 'bmw' : 'mercedes',
+      hit: false,
+    });
+  }
+  return out;
 }
 
 export function createCoast(config: GameConfig): CoastState {
@@ -139,6 +190,9 @@ export function createCoast(config: GameConfig): CoastState {
     deaths: 0,
     clears: 0,
     runners,
+    stage: lead.stage,
+    traffic: lead.traffic.map((c) => ({ ...c })),
+    seed: config.seed,
   };
 }
 
@@ -148,6 +202,7 @@ function integrateCoast(
   id: string,
   score: number,
   input: PlayerInput | undefined,
+  seed: number,
 ): { runner: CoastRunner; score: number; sfx: SfxEvent[]; over: 'goal' | 'time' | null } {
   if (k.done) return { runner: k, score, sfx: [], over: null };
   let speed = k.speed;
@@ -187,9 +242,31 @@ function integrateCoast(
     sfx.push({ name: 'hit', player: id });
   }
 
+  let stage = k.stage;
+  let traffic = k.traffic;
+  if (stage === 'bonus') {
+    traffic = traffic.map((c) => (c.hit ? c : { ...c, d: c.d + c.speed * 0.011 }));
+    const overlap = (c: TrafficCar) =>
+      !c.hit && Math.abs(dist - c.d) < 1.2 && Math.abs(x - c.x) < 0.45 && speed > 15;
+    if (traffic.some(overlap)) {
+      speed *= 0.35;
+      traffic = traffic.map((c) => (overlap(c) ? { ...c, hit: true } : c));
+      sfx.push({ name: 'hit', player: id });
+    }
+  }
+
+  const trackLen = stage === 'bonus' ? BONUS_LEN : TRACK_LEN;
   let over: 'goal' | 'time' | null = null;
   let done = false;
-  if (dist >= TRACK_LEN) {
+  if (dist >= trackLen && stage === 'coast') {
+    score += 1000;
+    sfx.push({ name: 'goal', player: id });
+    timeLeft += BONUS_TIME;
+    stage = 'bonus';
+    dist = Math.max(0, dist - TRACK_LEN);
+    obstacles = [];
+    traffic = makeTraffic(seed);
+  } else if (dist >= trackLen) {
     score += 1000;
     sfx.push({ name: 'goal', player: id });
     over = 'goal';
@@ -201,7 +278,7 @@ function integrateCoast(
   }
 
   return {
-    runner: { playerX: x, speed, dist, timeLeft, checkpoints, obstacles, done },
+    runner: { playerX: x, speed, dist, timeLeft, checkpoints, obstacles, done, stage, traffic },
     score,
     sfx,
     over,
@@ -217,6 +294,8 @@ function mirrorLead(state: CoastState, id: string, runner: CoastRunner): CoastSt
     timeLeft: runner.timeLeft,
     checkpoints: runner.checkpoints,
     obstacles: runner.obstacles,
+    stage: runner.stage,
+    traffic: runner.traffic,
     runners: { ...state.runners, [id]: runner },
   };
 }
@@ -233,8 +312,10 @@ const stepSolo = (state: CoastState, inputs: Record<string, PlayerInput>): Coast
     checkpoints: s.checkpoints,
     obstacles: s.obstacles,
     done: false,
+    stage: s.stage,
+    traffic: s.traffic,
   };
-  const result = integrateCoast(base, id, s.scores[id] ?? 0, inputs[id]);
+  const result = integrateCoast(base, id, s.scores[id] ?? 0, inputs[id], s.seed);
   let next = mirrorLead(
     { ...s, scores: { ...s.scores, [id]: result.score }, sfx: result.sfx },
     id,
@@ -254,7 +335,7 @@ const stepVersus = (state: CoastState, inputs: Record<string, PlayerInput>): Coa
   let deaths = state.deaths;
   for (const id of ids) {
     const runner = runners[id] ?? freshRunner(state.obstacles);
-    const result = integrateCoast(runner, id, scores[id] ?? 0, inputs[id]);
+    const result = integrateCoast(runner, id, scores[id] ?? 0, inputs[id], state.seed);
     runners = { ...runners, [id]: result.runner };
     scores = { ...scores, [id]: result.score };
     sfx.push(...result.sfx);
@@ -276,6 +357,8 @@ const stepVersus = (state: CoastState, inputs: Record<string, PlayerInput>): Coa
     timeLeft: lead.timeLeft,
     checkpoints: lead.checkpoints,
     obstacles: lead.obstacles,
+    stage: lead.stage,
+    traffic: lead.traffic,
   };
   if (!ids.every((id) => runners[id]?.done)) return next;
   let best = -Infinity;
