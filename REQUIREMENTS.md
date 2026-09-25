@@ -89,7 +89,7 @@ not a substitute — if it is not written here, it is not the contract.
 
 - R7.1 TypeScript strict, zero `any` in public APIs; `tsc -b` clean.
 - R7.2 Test-first culture: every bug-fix ships with a regression test.
-  `npm test` green (634 tests, incl. real-WebSocket E2E for 2- and)
+  `npm test` green (638 tests, incl. real-WebSocket E2E for 2- and)
   4-player snake versus, plus integration surfaces for puck turn-handoff
   and block first-to-7). The integer is this checkout; bump it here, in
   README, and in AGENTS in the same commit. Do not copy unmerged PR counts.
@@ -125,7 +125,10 @@ change R8.1–R8.5.
 
 - R9.1 Cursor keys (arrows) work everywhere a stick/menu/namepad input
   is expected, always paired with WASD: hall navigation, cabinet select,
-  name keyboard, score screens, map, credits, and in-game stick.
+  score screens, map, credits, and in-game stick. On the name pad, arrows
+  move the cursor and letter keys spell the tag. Space and Enter choose
+  the highlighted cell. WASD spell A/S/D/W there, because the tag has to
+  be typable.
 - R9.2 Menu navigation is a pure, tested helper (`nav.ts`); the namepad
   and table-scene tests already cover arrows.
 

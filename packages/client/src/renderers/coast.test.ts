@@ -8,7 +8,7 @@ import { FONT, PAL } from '../ui';
 import {
   coastLodStride, CASTLE_DRAW, CAR_DRAW, CAR_BODY, obstacleSprite, coastHudCopy, COAST_SPEED_SCALE,
   SKY_TOP, SKY_BOT, GRASS_A, GRASS_B, ROAD_A, ROAD_WIDTH_K, ROADSIDE_POST_STEP, ROADSIDE_TREE_STEP,
-  luma, renderCoast, coastSplitPanes, drawCoastQualifyingBanner, coastCastleRect, coastQualifyingOverlayY,
+  luma, renderCoast, projectCoast, coastSplitPanes, drawCoastQualifyingBanner, coastCastleRect, coastQualifyingOverlayY,
   coastQualifyingClearOfCastle, COAST_QUALIFYING_FONT, COAST_QUALIFYING_GUTTER, COAST_QUALIFYING_LINE_GAP,
   coastCarSprite, drawCoastCar, coastCarScreenRect, coastHudSlots, COAST_HUD_BAR, COAST_HUD_PLATE, COAST_MOON,
   coastBillboardScreen, COAST_BOARD_SKIN,
@@ -204,11 +204,12 @@ describe('Coast HUD plates (R56.6, not a muddy overlay)', () => {
         }
       },
       strokeRect() { /* board */ },
-      beginPath() { /* sun */ },
-      moveTo() { /* keep */ },
-      lineTo() { /* keep */ },
+      beginPath() { /* sun / road */ },
+      moveTo() { /* road */ },
+      lineTo() { /* road */ },
+      closePath() { /* road */ },
       arc() { /* sun */ },
-      fill() { /* sun */ },
+      fill() { /* sun / road */ },
       save() { /* car */ },
       restore() { /* car */ },
       translate() { /* car */ },
@@ -253,13 +254,14 @@ describe('Coast HUD plates (R56.6, not a muddy overlay)', () => {
       createRadialGradient: () => ({ addColorStop() { /* halo */ } }),
       fillRect() { /* glass */ },
       strokeRect() { /* board */ },
-      beginPath() { /* clip / sun */ },
+      beginPath() { /* clip / sun / road */ },
       rect() { /* pane */ },
       clip() { /* pane */ },
-      moveTo() { /* keep */ },
-      lineTo() { /* keep */ },
+      moveTo() { /* road */ },
+      lineTo() { /* road */ },
+      closePath() { /* road */ },
       arc() { /* sun */ },
-      fill() { /* sun */ },
+      fill() { /* sun / road */ },
       save() { /* pane */ },
       restore() { /* pane */ },
       translate() { /* pane */ },
@@ -394,6 +396,31 @@ describe('Coast Pole Position silhouette (R56, not C64 Night Rider)', () => {
     expect(Math.floor(140 / ROADSIDE_POST_STEP) * 2).toBeGreaterThanOrEqual(20);
   });
 
+  it('a hard right keeps the asphalt on screen and bends the horizon to the right', () => {
+    // Old project() multiplied curveAt(camera) by depth twice, so a 0.6 bend
+    // parked the road center near x=-180 by mid-screen and off-canvas at the
+    // horizon. The bend is the integral of the curve ahead: near the car the
+    // road stays centered, and a right-hand curve (positive) shifts the
+    // vanishing point right, still inside the 320 glass.
+    const cam = 80;
+    const near = projectCoast(cam + 14, cam, 0);
+    const mid = projectCoast(cam + 40, cam, 0);
+    const far = projectCoast(cam + 140, cam, 0);
+    expect(Math.abs(near.offX - 160)).toBeLessThan(20);
+    expect(mid.offX).toBeGreaterThan(near.offX);
+    expect(mid.offX).toBeLessThan(230);
+    expect(far.offX - far.roadW / 2).toBeGreaterThan(40);
+    expect(far.offX + far.roadW / 2).toBeLessThan(280);
+  });
+
+  it('a bend still ahead shows at the horizon while the road under the car stays centered', () => {
+    const near = projectCoast(14, 0, 0);
+    const far = projectCoast(140, 0, 0);
+    expect(Math.abs(near.offX - 160)).toBeLessThan(8);
+    expect(far.offX).toBeGreaterThan(190);
+    expect(far.offX).toBeLessThan(260);
+  });
+
   it('a frozen playfield paints sky + road + chunky car + roadside, not a black tunnel (R56.7)', () => {
     const rec = recordCoastFrame();
     expect(rec.rectCount).toBeGreaterThan(80);
@@ -517,11 +544,15 @@ function recordCoastFrame(): { rectCount: number; maxBodyW: number; darkRatio: n
       rects.push({ w, h, fill });
     },
     strokeRect() { /* board chrome */ },
-    beginPath() { /* sun */ },
-    moveTo() { /* keep roof */ },
-    lineTo() { /* keep roof */ },
+    beginPath() { /* sun / road */ },
+    moveTo() { /* road */ },
+    lineTo() { /* road */ },
+    closePath() { /* road */ },
     arc() { /* sun */ },
-    fill() { /* sun */ },
+    fill() {
+      const fill = typeof ctx.fillStyle === 'string' ? ctx.fillStyle : 'gradient';
+      rects.push({ w: 1, h: 1, fill });
+    },
     save() { /* car */ },
     restore() { /* car */ },
     translate() { /* car */ },
