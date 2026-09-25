@@ -166,7 +166,10 @@ function step(state: MyriadState, inputs: Record<string, PlayerInput>): MyriadSt
 
   // wave cleared
   if (s.segments.length === 0) {
-    s = withSfx({ ...s, level: s.level + 1, clears: s.clears + 1 }, { name: 'goal', player: id });
+    s = withSfx(
+      { ...s, level: s.level + 1, clears: s.clears + 1, scores: { ...s.scores, [id]: (s.scores[id] ?? 0) + 100 } },
+      { name: 'goal', player: id },
+    );
     s = resetBug(s);
     s = enterPhase(s, 'roundOver');
   }

@@ -68,6 +68,15 @@ const spawnFood = (state: SnakeState): { food: Cell | null; rngSeed: number } =>
     const cell = { x: rng.int(GRID.w), y: rng.int(GRID.h) };
     if (!occupied.has(`${cell.x},${cell.y}`)) return { food: cell, rngSeed: seed };
   }
+  const freeCells: Cell[] = [];
+  for (let y = 0; y < GRID.h; y++) {
+    for (let x = 0; x < GRID.w; x++) {
+      if (!occupied.has(`${x},${y}`)) freeCells.push({ x, y });
+    }
+  }
+  if (freeCells.length > 0) {
+    return { food: freeCells[rng.int(freeCells.length)]!, rngSeed: seed };
+  }
   return { food: null, rngSeed: seed };
 };
 

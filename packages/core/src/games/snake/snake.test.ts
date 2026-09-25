@@ -116,6 +116,37 @@ describe('snake eating', () => {
     expect(s.level).toBe(2);
     expect(moveTicks(s)).toBeLessThan(startInterval);
   });
+
+  it('guarantees food spawns on the remaining free cell even on a crowded board', () => {
+    let s = play(snakeSpec.create(soloCfg));
+    // Leave cell (2, 0) free, food at (0, 0), head at (1, 0) moving left
+    const crowdedBody: { x: number; y: number }[] = [{ x: 1, y: 0 }];
+    for (let y = 0; y < GRID.h; y++) {
+      for (let x = 0; x < GRID.w; x++) {
+        if (!((x === 0 && y === 0) || (x === 1 && y === 0) || (x === 2 && y === 0))) {
+          crowdedBody.push({ x, y });
+        }
+      }
+    }
+    s = {
+      ...s,
+      snakes: {
+        p1: {
+          body: crowdedBody,
+          dir: DIRS.left,
+          pendingDir: null,
+          queuedDir: null,
+          alive: true,
+          respawnTimer: 0,
+        },
+      },
+      food: { x: 0, y: 0 },
+      rngSeed: 42,
+    };
+    const moved = advance(s, { p1: NO_INPUT }, moveTicks(s));
+    expect(moved.scores['p1']).toBe(10);
+    expect(moved.food).toEqual({ x: 2, y: 0 });
+  });
 });
 
 describe('snake death (solo)', () => {

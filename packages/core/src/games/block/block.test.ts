@@ -99,6 +99,13 @@ describe('block physics', () => {
     expect(moved.ball.dx).toBeLessThan(0);
   });
 
+  it('brick hits slightly increase vertical ball speed during a rally', () => {
+    let s = play(createBlock(soloCfg));
+    s = { ...s, serveTimer: 0, bricks: { '10,3': 1 }, ball: { x: 10.5, y: 2.7, dx: 0, dy: 0.3 } };
+    const moved = blockSpec.step(s, { p1: none });
+    expect(Math.abs(moved.ball.dy)).toBeGreaterThan(0.3);
+  });
+
   it('clearing all bricks levels up and renews the wall', () => {
     let s = play(createBlock(soloCfg));
     s = { ...s, bricks: { '15,4': 1 }, serveTimer: 0 };

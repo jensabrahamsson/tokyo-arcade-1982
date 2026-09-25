@@ -149,7 +149,13 @@ const step = (state: RiverState, inputs: Record<string, PlayerInput>): RiverStat
       let next = withSfx({ ...s, homes, scores: { ...s.scores, [id]: s.scores[id]! + 50 + 10 * s.level } }, { name: 'goal', player: id });
       next = { ...next, frog: { ...FROG_START }, drownTimer: 0, pendingHop: null };
       if (homes.every(Boolean)) {
-        next = { ...next, level: next.level + 1, clears: next.clears + 1, homes: HOME_ROWS.map(() => false) };
+        next = {
+          ...next,
+          level: next.level + 1,
+          clears: next.clears + 1,
+          scores: { ...next.scores, [id]: (next.scores[id] ?? 0) + 1000 },
+          homes: HOME_ROWS.map(() => false),
+        };
         next = enterPhase(next, 'roundOver');
       }
       return next;

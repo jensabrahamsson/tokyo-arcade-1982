@@ -159,6 +159,14 @@ describe('coast physics', () => {
     expect(s.sfx.some((e) => e.name === 'goal')).toBe(true);
   });
 
+  it('awards a higher goal bonus when finishing with more time remaining', () => {
+    const fast = run({ ...play(createCoast(cfg)), dist: TRACK_LEN - 3, speed: 100, timeLeft: 2000 }, pedal, 8);
+    const slow = run({ ...play(createCoast(cfg)), dist: TRACK_LEN - 3, speed: 100, timeLeft: 1000 }, pedal, 8);
+    expect(fast.phase).toBe('gameOver');
+    expect(slow.phase).toBe('gameOver');
+    expect(fast.scores['p1']!).toBeGreaterThan(slow.scores['p1']!);
+  });
+
   it('running out of time ends the run', () => {
     const s = run({ ...play(createCoast(cfg)), timeLeft: 3 }, pedal, 10);
     expect(s.phase).toBe('gameOver');
