@@ -72,6 +72,17 @@ describe('snake movement', () => {
     expect(moved.snakes['p1']!.dir).toEqual(DIRS.right);
   });
 
+  it('buffers rapid cornering (right -> up -> left) across moves', () => {
+    let s = play(snakeSpec.create(soloCfg));
+    expect(s.snakes['p1']!.dir).toEqual(DIRS.right);
+    s = snakeSpec.step(s, { p1: input(DIRS.up) });
+    s = snakeSpec.step(s, { p1: input(DIRS.left) });
+    s = advance(s, { p1: NO_INPUT }, moveTicks(s) - 2);
+    expect(s.snakes['p1']!.dir).toEqual(DIRS.up);
+    s = advance(s, { p1: NO_INPUT }, moveTicks(s));
+    expect(s.snakes['p1']!.dir).toEqual(DIRS.left);
+  });
+
   it('wraps around in solo mode', () => {
     const s = play(snakeSpec.create(soloCfg));
     const w = GRID.w;

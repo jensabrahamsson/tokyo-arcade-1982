@@ -72,6 +72,27 @@ describe('myriad combat', () => {
     expect(Object.keys(moved.mushrooms)).toContain(`${seg.x},${seg.y}`);
   });
 
+  it('headshot awards 50 points while body segment awards 10 points', () => {
+    let s = play(createMyriad(cfg));
+    s.segments[0]!.x = 10;
+    s.segments[0]!.y = 10;
+    s.segments.forEach((p, i) => {
+      if (i > 0) {
+        p.y = -10;
+      }
+    });
+    s = { ...s, bullets: [{ x: 10.5, y: 11.5, dy: -0.9 }] };
+    let moved = run(s, { p1: none }, 2);
+    expect(moved.scores['p1']).toBe(50);
+
+    const bodySeg = moved.segments[1]!;
+    bodySeg.x = 15;
+    bodySeg.y = 10;
+    moved = { ...moved, bullets: [{ x: 15.5, y: 11.5, dy: -0.9 }] };
+    const moved2 = run(moved, { p1: none }, 2);
+    expect(moved2.scores['p1']).toBe(50 + 10);
+  });
+
   it('mushrooms take four hits', () => {
     let s = play(createMyriad(cfg));
     const mKey = Object.keys(s.mushrooms)[0]!;

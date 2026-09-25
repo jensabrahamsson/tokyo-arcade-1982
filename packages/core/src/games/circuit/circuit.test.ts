@@ -283,6 +283,17 @@ describe('circuit drive', () => {
     expect(right.heading).toBeGreaterThan(moving.heading);
   });
 
+  it('speed-dependent steering: steering response is sharper at low speed than at max speed', () => {
+    const s = play(createCircuit(cfg));
+    const slow = play({ ...s, speed: 0.2 });
+    const fast = play({ ...s, speed: MAX_SPEED });
+    const leftSlow = circuitSpec.step(slow, { p1: { dir: DIRS.left, button: true, seq: 1 } });
+    const leftFast = circuitSpec.step(fast, { p1: { dir: DIRS.left, button: true, seq: 1 } });
+    const dSlow = Math.abs(leftSlow.heading - slow.heading);
+    const dFast = Math.abs(leftFast.heading - fast.heading);
+    expect(dSlow).toBeGreaterThan(dFast);
+  });
+
   it('scores while the car is on the asphalt', () => {
     const scored = run(play(createCircuit(cfg)), gas, 40);
     expect(scored.scores['p1']).toBeGreaterThan(0);

@@ -181,7 +181,8 @@ function step(state: GalaxyState, inputs: Record<string, PlayerInput>): GalaxySt
     if (hit) {
       aliens = aliens.filter((a) => a.id !== hit.id);
       b.y = -99;
-      s = { ...s, scores: { ...s.scores, [id]: s.scores[id]! + 10 * (hit.row + 1) } };
+      const multiplier = hit.mode === 'dive' ? 2 : 1;
+      s = { ...s, scores: { ...s.scores, [id]: s.scores[id]! + 10 * (hit.row + 1) * multiplier } };
       s = withSfx(s, { name: 'hit', player: id });
     }
   }
@@ -198,7 +199,9 @@ function step(state: GalaxyState, inputs: Record<string, PlayerInput>): GalaxySt
 
   // wave cleared
   if (s.aliens.length === 0) {
-    s = withSfx({ ...s, level: s.level + 1, clears: s.clears + 1 }, { name: 'goal', player: id });
+    const nextLevel = s.level + 1;
+    const nextInterval = Math.max(60, DIVE_INTERVAL - (nextLevel - 1) * 15);
+    s = withSfx({ ...s, level: nextLevel, diveInterval: nextInterval, clears: s.clears + 1 }, { name: 'goal', player: id });
     s = resetWave(s);
     s = enterPhase(s, 'roundOver');
   }

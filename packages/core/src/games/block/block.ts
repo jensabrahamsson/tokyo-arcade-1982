@@ -134,9 +134,10 @@ function step(state: BlockState, inputs: Record<string, PlayerInput>): BlockStat
     const hitRow = p.y + 0.4 * toward;
     if (moving && (prevY - hitRow) * (ball.y - hitRow) <= 0 && Math.abs(ball.y - hitRow) < 1) {
       if (ball.x >= p.x - 0.5 && ball.x <= p.x + p.span + 0.5) {
-        const offset = (ball.x - (p.x + p.span / 2)) / (p.span / 2);
+        const offset = Math.max(-1, Math.min(1, (ball.x - (p.x + p.span / 2)) / (p.span / 2)));
+        const paddleDir = inputs[id]?.dir?.dx ?? 0;
         ball.dy = -toward * Math.abs(ball.dy);
-        ball.dx = Math.max(-0.22, Math.min(0.22, ball.dx + offset * 0.05));
+        ball.dx = Math.max(-0.24, Math.min(0.24, offset * 0.18 + paddleDir * 0.05 + ball.dx * 0.25));
         ball.y = hitRow + 0.42 * toward;
         s = withSfx(s, { name: 'bounce', player: id });
       }
@@ -159,7 +160,13 @@ function step(state: BlockState, inputs: Record<string, PlayerInput>): BlockStat
         { name: 'hit', player: s.turn! },
       );
       destroyed = true;
-      ball.dy = -ball.dy;
+      const prevCellX = Math.floor(ball.x - ball.dx);
+      const prevCellY = Math.floor(ball.y - ball.dy);
+      if (prevCellX !== cx && prevCellY === cy) {
+        ball.dx = -ball.dx;
+      } else {
+        ball.dy = -ball.dy;
+      }
     }
   }
 

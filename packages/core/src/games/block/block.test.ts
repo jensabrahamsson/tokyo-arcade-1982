@@ -62,6 +62,20 @@ describe('block physics', () => {
     expect(moved.ball.dy).toBeLessThan(0);
   });
 
+  it('paddle English: hitting the left edge aims the ball left even when incoming dx is positive', () => {
+    let s = play(createBlock(soloCfg));
+    const p = s.paddles['p1']!;
+    s = {
+      ...s,
+      serveTimer: 0,
+      bricks: {},
+      ball: { x: p.x + 0.3, y: p.y + 0.2, dx: 0.15, dy: 0.3 },
+    };
+    const moved = blockSpec.step(s, { p1: none });
+    expect(moved.ball.dy).toBeLessThan(0);
+    expect(moved.ball.dx).toBeLessThan(0);
+  });
+
   it('ball falling past the paddle costs a life in solo', () => {
     let s = play(createBlock(soloCfg));
     s = { ...s, serveTimer: 0, bricks: {}, ball: { ...s.ball, x: 1, y: 12, dx: 0.1, dy: 0.3 } };
@@ -76,6 +90,13 @@ describe('block physics', () => {
     s = { ...s, serveTimer: 0, ball: { ...s.ball, x: bx! + 0.5, y: by! - 1, dx: 0, dy: 0.3 } };
     const moved = run(s, { p1: none }, 6);
     expect(moved.scores['p1']).toBeGreaterThan(0);
+  });
+
+  it('ball hitting brick side bounces horizontally', () => {
+    let s = play(createBlock(soloCfg));
+    s = { ...s, serveTimer: 0, bricks: { '10,3': 1 }, ball: { x: 9.9, y: 3.5, dx: 0.2, dy: 0 } };
+    const moved = blockSpec.step(s, { p1: none });
+    expect(moved.ball.dx).toBeLessThan(0);
   });
 
   it('clearing all bricks levels up and renews the wall', () => {

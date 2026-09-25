@@ -90,6 +90,28 @@ describe('puck movement', () => {
     expect(moved.player.y).toBe(17);
   });
 
+  it('pre-buffers turn approaching an upcoming junction', () => {
+    let s = play(create(soloCfg));
+    s = { ...s, player: { ...s.player, x: 5, y: 16, dir: DIRS.left, pendingDir: DIRS.left, progress: 0 } };
+    const moved = run(s, { p1: { dir: DIRS.down, button: false } }, 16);
+    expect(moved.player.x).toBe(4);
+    expect(moved.player.y).toBe(17);
+    expect(moved.player.dir).toEqual(DIRS.down);
+  });
+
+  it('instantly reverses direction when opposite direction is pressed without stepping into danger', () => {
+    let s = play(create(soloCfg));
+    s = {
+      ...s,
+      player: { x: 9, y: 16, dir: DIRS.left, pendingDir: DIRS.left, progress: 0.5 },
+      ghosts: [{ ...s.ghosts[0]!, x: 8, y: 16, dir: DIRS.right, mode: 'chase', progress: 0 }, s.ghosts[1]!, s.ghosts[2]!, s.ghosts[3]!],
+    };
+    const moved = puckSpec.step(s, { p1: { dir: DIRS.right, button: false } });
+    expect(moved.player.dir).toEqual(DIRS.right);
+    expect(moved.player.x).toBe(9);
+    expect(moved.lives['p1']).toBe(3);
+  });
+
   it('player eats a dot', () => {
     let s = play(create(soloCfg));
     const cellKey = '8,16';

@@ -87,6 +87,16 @@ describe('galaxy combat', () => {
     expect(moved.aliens.some((a) => a.id === target.id)).toBe(false);
   });
 
+  it('shooting a diving alien awards double score (Galaga bonus)', () => {
+    let s = play(createGalaxy(cfg));
+    const target = s.aliens[0]!;
+    const gridScore = 10 * (target.row + 1);
+    const diveAlien = { ...target, mode: 'dive' as const, x: 12, y: 15 };
+    s = { ...s, aliens: [diveAlien], bullets: [{ x: 12, y: 16, dy: -0.7 }] };
+    const moved = galaxySpec.step(s, { p1: none });
+    expect(moved.scores['p1']).toBe(gridScore * 2);
+  });
+
   it('destroying the whole wave levels up', () => {
     let s = play(createGalaxy(cfg));
     for (let id = 23; id >= 0; id--) {

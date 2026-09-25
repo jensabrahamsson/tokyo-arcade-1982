@@ -107,10 +107,11 @@ function step(state: MyriadState, inputs: Record<string, PlayerInput>): MyriadSt
     if (ci >= 0) {
       const seg = s.segments[ci]!;
       b.y = -99;
+      const points = ci === 0 ? 50 : 10;
       s = {
         ...s,
         segments: s.segments.filter((_, i) => i !== ci),
-        scores: { ...s.scores, [id]: s.scores[id]! + 10 },
+        scores: { ...s.scores, [id]: s.scores[id]! + points },
         mushrooms: seg.y >= 0 ? { ...s.mushrooms, [key(Math.floor(seg.x), Math.floor(seg.y))]: 2 } : s.mushrooms,
       };
       s = withSfx(s, { name: 'hit', player: id });

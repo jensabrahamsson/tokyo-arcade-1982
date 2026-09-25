@@ -26,8 +26,8 @@ export function renderSnake(ctx: CanvasRenderingContext2D, data: SnakeState, tMs
   }
 
   // food
-  if (data.food && blinkWrap(tMs, 500)) {
-    ctx.fillStyle = PAL.orange;
+  if (data.food) {
+    ctx.fillStyle = blinkWrap(tMs, 400) ? PAL.orange : PAL.yellow;
     ctx.fillRect(ox + data.food.x * CELL + 1, oy + data.food.y * CELL + 1, CELL - 2, CELL - 2);
   }
 
