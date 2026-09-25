@@ -47,7 +47,12 @@ export const CURVE: readonly number[] = [
 ];
 
 export function curveAt(dist: number): number {
-  return CURVE[Math.max(0, Math.floor(dist / SEG)) % CURVE.length]!;
+  const i = Math.floor(dist / SEG);
+  if (i <= 0) return CURVE[0]!;
+  // The table is shorter than the run. Past the last segment the road is
+  // straight into the castle, instead of repeating the opening bends.
+  if (i >= CURVE.length) return 0;
+  return CURVE[i]!;
 }
 
 /** roadside prop kinds — positions live in core; the client draws the sprite */

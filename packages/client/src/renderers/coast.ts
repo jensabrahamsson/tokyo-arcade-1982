@@ -31,14 +31,66 @@ export const ROADSIDE_TREE_STEP = 20;
 export const luma = (rgb: readonly number[]): number =>
   0.299 * rgb[0]! + 0.587 * rgb[1]! + 0.114 * rgb[2]!;
 
-function project(dist: number, camDist: number, playerX: number): { y: number; scale: number; roadW: number; offX: number } {
+/** Heading change per unit of `curveAt`. A hard bend shifts the horizon by
+ *  tens of pixels and leaves the asphalt inside the 320 glass. */
+export const COAST_CURVE_K = 0.22;
+
+/** Lateral world position of the road center `ahead` units in front of the
+ *  camera. Piecewise-constant curvature, so the ribbon turns into the next
+ *  bend instead of shearing with the curve under the car. */
+export function coastRoadWorldX(cam: number, ahead: number): number {
+  if (ahead <= 0) return 0;
+  const steps = Math.ceil(ahead);
+  const ds = ahead / steps;
+  let x = 0;
+  let heading = 0;
+  for (let i = 0; i < steps; i++) {
+    const c = curveAt(cam + (i + 0.5) * ds) * COAST_CURVE_K;
+    x += heading * ds + c * ds * ds * 0.5;
+    heading += c * ds;
+  }
+  return x;
+}
+
+export function projectCoast(dist: number, camDist: number, playerX: number): { y: number; scale: number; roadW: number; offX: number } {
   const d = Math.max(0.3, dist - camDist);
   const scale = 14 / d;
   const y = HORIZON + 1500 * scale * 0.1;
-  const curve = (curveAt(camDist) * Math.min(d, 120) * 0.9 - curveAt(camDist + 60) * 0);
   const roadW = ROAD_WIDTH_K * scale;
-  const offX = CX - playerX * roadW * 0.55 - curve * d * 0.35;
+  const offX = CX - playerX * roadW * 0.55 + coastRoadWorldX(camDist, d) * scale;
   return { y, scale, roadW, offX };
+}
+
+function project(dist: number, camDist: number, playerX: number): { y: number; scale: number; roadW: number; offX: number } {
+  return projectCoast(dist, camDist, playerX);
+}
+
+function lerpRoad(
+  a: { y: number; scale: number; roadW: number; offX: number },
+  b: { y: number; scale: number; roadW: number; offX: number },
+  y: number,
+): { y: number; scale: number; roadW: number; offX: number } {
+  const t = (y - a.y) / (b.y - a.y || 1);
+  return {
+    y,
+    scale: a.scale + (b.scale - a.scale) * t,
+    roadW: a.roadW + (b.roadW - a.roadW) * t,
+    offX: a.offX + (b.offX - a.offX) * t,
+  };
+}
+
+function fillTrap(
+  ctx: CanvasRenderingContext2D,
+  x1l: number, x1r: number, y1: number,
+  x0l: number, x0r: number, y0: number,
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x1l, y1);
+  ctx.lineTo(x1r, y1);
+  ctx.lineTo(x0r, y0);
+  ctx.lineTo(x0l, y0);
+  ctx.closePath();
+  ctx.fill();
 }
 
 /** km/h shown at MAX_SPEED — Tokyo Arcade 1982 is a metric cabinet. */
@@ -612,8 +664,8 @@ function renderCoastPane(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 0, 
   ctx.arc(COAST_MOON.x, COAST_MOON.y, COAST_MOON.r, 0, Math.PI * 2);
   ctx.fill();
 
-  const camCurve = curveAt(s.dist);
-  drawCastle(ctx, -camCurve * 90 - s.playerX * 14, tMs);
+  const horizon = projectCoast(s.dist + 140, s.dist, s.playerX);
+  drawCastle(ctx, horizon.offX - CX, tMs);
 
   ctx.fillStyle = blend(GRASS_A);
   ctx.fillRect(0, HORIZON, W, H - HORIZON);
@@ -625,24 +677,49 @@ function renderCoastPane(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 0, 
     const p0 = project(cam + d - stride, cam, s.playerX);
     if (p1.y > H || p0.y < HORIZON) continue;
     const band = Math.floor((cam + d) / 4) % 2;
-    const y = Math.max(HORIZON, p1.y);
-    const y2 = Math.min(H, p0.y);
-    if (y2 <= y) continue;
+    const top = p1.y < HORIZON && p0.y > HORIZON ? lerpRoad(p1, p0, HORIZON) : p1;
+    const bot = p0.y > H && p1.y < H ? lerpRoad(p1, p0, H) : p0;
+    const yTop = top.y;
+    const yBot = bot.y;
+    if (yBot <= yTop) continue;
     ctx.fillStyle = band ? blend(GRASS_A) : blend(GRASS_B);
-    ctx.fillRect(0, y, W, y2 - y);
-    ctx.fillStyle = band ? blend(ROAD_A) : blend(ROAD_B);
-    ctx.fillRect(p1.offX - p1.roadW / 2, y, p1.roadW, y2 - y);
-    const rumble = p1.roadW * 0.1;
+    ctx.fillRect(0, yTop, W, yBot - yTop);
+    const rumbleTop = top.roadW * 0.1;
+    const rumbleBot = bot.roadW * 0.1;
     ctx.fillStyle = band ? blend(RUMBLE_A) : blend(RUMBLE_B);
-    ctx.fillRect(p1.offX - p1.roadW / 2 - rumble, y, rumble, y2 - y);
-    ctx.fillRect(p1.offX + p1.roadW / 2, y, rumble, y2 - y);
-    const edge = Math.max(1, p1.scale * 12);
+    fillTrap(
+      ctx,
+      top.offX - top.roadW / 2 - rumbleTop, top.offX + top.roadW / 2 + rumbleTop, yTop,
+      bot.offX - bot.roadW / 2 - rumbleBot, bot.offX + bot.roadW / 2 + rumbleBot, yBot,
+    );
+    ctx.fillStyle = band ? blend(ROAD_A) : blend(ROAD_B);
+    fillTrap(
+      ctx,
+      top.offX - top.roadW / 2, top.offX + top.roadW / 2, yTop,
+      bot.offX - bot.roadW / 2, bot.offX + bot.roadW / 2, yBot,
+    );
+    const edgeTop = Math.max(1, top.scale * 12);
+    const edgeBot = Math.max(1, bot.scale * 12);
     ctx.fillStyle = '#fffff5';
-    ctx.fillRect(p1.offX - p1.roadW / 2, y, edge, y2 - y);
-    ctx.fillRect(p1.offX + p1.roadW / 2 - edge, y, edge, y2 - y);
+    fillTrap(
+      ctx,
+      top.offX - top.roadW / 2, top.offX - top.roadW / 2 + edgeTop, yTop,
+      bot.offX - bot.roadW / 2, bot.offX - bot.roadW / 2 + edgeBot, yBot,
+    );
+    fillTrap(
+      ctx,
+      top.offX + top.roadW / 2 - edgeTop, top.offX + top.roadW / 2, yTop,
+      bot.offX + bot.roadW / 2 - edgeBot, bot.offX + bot.roadW / 2, yBot,
+    );
     if (Math.floor((cam + d) / 6) % 2 === 0) {
+      const lineTop = Math.max(1, top.scale * 10);
+      const lineBot = Math.max(1, bot.scale * 10);
       ctx.fillStyle = CENTER_LINE;
-      ctx.fillRect(p1.offX - Math.max(1, p1.scale * 10), y, Math.max(1, p1.scale * 20), y2 - y);
+      fillTrap(
+        ctx,
+        top.offX - lineTop, top.offX + lineTop, yTop,
+        bot.offX - lineBot, bot.offX + lineBot, yBot,
+      );
     }
   }
 

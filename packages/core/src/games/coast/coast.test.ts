@@ -75,6 +75,14 @@ describe('coast create', () => {
       expect(c).toBeLessThanOrEqual(1);
     }
   });
+
+  it('the opening hard right does not repeat, and the castle gate is straight', () => {
+    // The table is shorter than the 2000-unit run. Wrapping it brought the
+    // 0.6 bend back at the gate, so the finish was another snap turn.
+    expect(curveAt(60)).toBeGreaterThan(0.4);
+    expect(curveAt(60 + 65 * 20)).toBe(0);
+    expect(curveAt(TRACK_LEN - 1)).toBe(0);
+  });
 });
 
 describe('coast physics', () => {

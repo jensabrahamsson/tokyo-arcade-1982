@@ -47,19 +47,63 @@ export function pressKey(pad: NamePad, key: string): NamePad {
   return pad;
 }
 
-/** Z / Enter on the on-screen pad — activates the cell under the cursor. */
+/** Z / Enter / Space on the on-screen pad — activates the cell under the cursor. */
 export function pressNamePadSelect(pad: NamePad): NamePad {
   return pressKey(pad, keyAt(pad, pad.cursor));
 }
 
 /**
- * Physical Space on the name pad: only the on-screen space cell inserts a
- * space. Otherwise Space is ignored so title→namepad carry-over cannot
- * stamp Q (default cursor) before AKIRA-style entry (Wave 0 CDP).
+ * Physical Space chooses the highlighted cell. The title scene consumes the
+ * Space that opens the pad, so that press cannot also land here.
  */
 export function pressNamePadSpace(pad: NamePad): NamePad {
-  const key = keyAt(pad, pad.cursor);
-  if (key === ' ') return pressKey(pad, ' ');
-  if (key === 'OK' || key === '<') return pressKey(pad, key);
+  return pressNamePadSelect(pad);
+}
+
+export type NamePadAction =
+  | { kind: 'move'; dr: number; dc: number }
+  | { kind: 'select' }
+  | { kind: 'type'; key: string }
+  | { kind: 'backspace' }
+  | { kind: 'cancel' };
+
+const NAME_ARROWS: Record<string, { dr: number; dc: number }> = {
+  ArrowLeft: { dr: 0, dc: -1 },
+  ArrowRight: { dr: 0, dc: 1 },
+  ArrowUp: { dr: -1, dc: 0 },
+  ArrowDown: { dr: 1, dc: 0 },
+};
+
+/** One physical key on the name pad. Letter keys spell; arrows move. */
+export function namePadAction(code: string): NamePadAction | null {
+  const arrow = NAME_ARROWS[code];
+  if (arrow) return { kind: 'move', dr: arrow.dr, dc: arrow.dc };
+  if (code === 'Space' || code === 'Enter' || code === 'NumpadEnter') return { kind: 'select' };
+  if (code === 'Backspace') return { kind: 'backspace' };
+  if (code === 'Escape') return { kind: 'cancel' };
+  const letter = /^Key([A-Z])$/.exec(code);
+  if (letter) return { kind: 'type', key: letter[1]! };
+  const digit = /^Digit([0-9])$/.exec(code);
+  if (digit) return { kind: 'type', key: digit[1]! };
+  if (code === 'Period' || code === 'NumpadDecimal') return { kind: 'type', key: '.' };
+  if (code === 'Minus' || code === 'NumpadSubtract') return { kind: 'type', key: '-' };
+  if (code === 'Quote') return { kind: 'type', key: "'" };
+  return null;
+}
+
+export function applyNamePadAction(pad: NamePad, action: NamePadAction): NamePad {
+  if (action.kind === 'move') return moveCursor(pad, action);
+  if (action.kind === 'select') return pressNamePadSelect(pad);
+  if (action.kind === 'type') return pressKey(pad, action.key);
+  if (action.kind === 'backspace') return pressKey(pad, '<');
   return pad;
 }
+
+/** Polled each frame. Arrows and Space come before letters. */
+export const NAME_PAD_CODES = [
+  'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+  'Space', 'Enter', 'NumpadEnter', 'Backspace', 'Escape',
+  ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letter) => `Key${letter}`),
+  ...'0123456789'.split('').map((digit) => `Digit${digit}`),
+  'Period', 'NumpadDecimal', 'Minus', 'NumpadSubtract', 'Quote',
+] as const;

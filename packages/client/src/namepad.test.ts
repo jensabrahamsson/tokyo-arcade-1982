@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
+  applyNamePadAction,
   createNamePad,
   moveCursor,
+  namePadAction,
   pressKey,
   pressNamePadSelect,
   pressNamePadSpace,
@@ -44,23 +46,46 @@ describe('namepad (marquee keyboard input)', () => {
     expect(p.text).toBe('A ');
   });
 
-  it('physical Space only inserts when the cursor is on the space cell (Wave 0 CDP)', () => {
+  it('physical Space chooses the highlighted cell, including the default Q', () => {
+    // 024796f dropped Space on letter cells so a CDP leftover could not
+    // prefix Q before a scripted AKIRA. On the cabinet Space is the button,
+    // and that drop made ENTER YOUR NAME ignore the key. The title scene
+    // still consumes the Space that opens the pad.
     let p = createNamePad();
     expect(keyAt(p, p.cursor)).toBe('Q');
     p = pressNamePadSpace(p);
-    expect(p.text).toBe('');
+    expect(p.text).toBe('Q');
     p = moveCursor(p, { dr: 3, dc: 0 });
     expect(keyAt(p, p.cursor)).toBe(' ');
-    p = pressKey(p, 'A');
     p = pressNamePadSpace(p);
-    expect(p.text).toBe('A ');
+    expect(p.text).toBe('Q ');
   });
 
-  it('typing AKIRA after an accidental Space at Q stays AKIRA', () => {
+  it('letter keys spell the tag, including WASD, and Space still chooses the cell', () => {
     let p = createNamePad();
-    p = pressNamePadSpace(p);
-    for (const k of ['A', 'K', 'I', 'R', 'A']) p = pressKey(p, k);
-    expect(p.text).toBe('AKIRA');
+    for (const code of ['KeyJ', 'KeyE', 'KeyN', 'KeyS']) {
+      const action = namePadAction(code);
+      expect(action).toEqual({ kind: 'type', key: code.slice(3) });
+      p = applyNamePadAction(p, action!);
+    }
+    expect(p.text).toBe('JENS');
+    const space = namePadAction('Space');
+    expect(space).toEqual({ kind: 'select' });
+    p = applyNamePadAction(p, space!);
+    expect(p.text).toBe('JENSQ');
+  });
+
+  it('arrow keys move the name cursor and do not type', () => {
+    let p = createNamePad();
+    const action = namePadAction('ArrowRight');
+    expect(action).toEqual({ kind: 'move', dr: 0, dc: 1 });
+    p = applyNamePadAction(p, action!);
+    expect(p.cursor).toEqual({ row: 0, col: 1 });
+    expect(p.text).toBe('');
+    expect(namePadAction('Enter')).toEqual({ kind: 'select' });
+    expect(namePadAction('NumpadEnter')).toEqual({ kind: 'select' });
+    expect(namePadAction('Escape')).toEqual({ kind: 'cancel' });
+    expect(namePadAction('Backspace')).toEqual({ kind: 'backspace' });
   });
 
   it('select at cursor still commits Q when the player chooses it', () => {

@@ -31,11 +31,10 @@ import { renderMyriad } from './renderers/myriad';
 import { renderCoast, drawCoastQualifyingBanner } from './renderers/coast';
 import { renderCircuit } from './renderers/circuit';
 import {
+  applyNamePadAction,
   createNamePad,
-  moveCursor,
-  pressKey,
-  pressNamePadSelect,
-  pressNamePadSpace,
+  NAME_PAD_CODES,
+  namePadAction,
   type NamePad,
 } from './namepad';
 import { HALL_SLOTS, MAP_SLOTS, FLOOR_Y, moveHallSel } from './hall';
@@ -235,6 +234,19 @@ function openNamePad(): void {
   audio.unlock();
   namePad = createNamePad();
   scene = 'name';
+}
+
+/** Letters spell the tag. Space/Enter choose the highlighted cell. Arrows move. */
+function feedNamePad(): boolean {
+  let cancel = false;
+  for (const code of NAME_PAD_CODES) {
+    if (!keys.take(code)) continue;
+    const action = namePadAction(code);
+    if (!action) continue;
+    if (action.kind === 'cancel') cancel = true;
+    else namePad = applyNamePadAction(namePad, action);
+  }
+  return cancel;
 }
 
 function confirmName(): void {
@@ -461,24 +473,10 @@ function update(ms: number): void {
       if (keys.take('KeyL')) toggleLang();
     }
   } else if (scene === 'name') {
-    if (keys.take('ArrowLeft', 'KeyA')) namePad = moveCursor(namePad, { dr: 0, dc: -1 });
-    if (keys.take('ArrowRight', 'KeyD')) namePad = moveCursor(namePad, { dr: 0, dc: 1 });
-    if (keys.take('ArrowUp', 'KeyW')) namePad = moveCursor(namePad, { dr: -1, dc: 0 });
-    if (keys.take('ArrowDown', 'KeyS')) namePad = moveCursor(namePad, { dr: 1, dc: 0 });
-    if (keys.take('KeyZ', 'Enter', 'NumpadEnter')) namePad = pressNamePadSelect(namePad);
-    if (keys.take('Space')) namePad = pressNamePadSpace(namePad);
-    if (keys.take('Backspace')) namePad = pressKey(namePad, '<');
-    if (keys.take('Escape')) escapeHome(); // P4: welcome may have arrived while typing — hall is home
+    if (feedNamePad()) escapeHome(); // P4: welcome may have arrived while typing — hall is home
     if (namePad.done) confirmName();
   } else if (scene === 'note') {
-    if (keys.take('ArrowLeft', 'KeyA')) namePad = moveCursor(namePad, { dr: 0, dc: -1 });
-    if (keys.take('ArrowRight', 'KeyD')) namePad = moveCursor(namePad, { dr: 0, dc: 1 });
-    if (keys.take('ArrowUp', 'KeyW')) namePad = moveCursor(namePad, { dr: -1, dc: 0 });
-    if (keys.take('ArrowDown', 'KeyS')) namePad = moveCursor(namePad, { dr: 1, dc: 0 });
-    if (keys.take('KeyZ', 'Enter', 'NumpadEnter')) namePad = pressNamePadSelect(namePad);
-    if (keys.take('Space')) namePad = pressNamePadSpace(namePad);
-    if (keys.take('Backspace')) namePad = pressKey(namePad, '<');
-    if (keys.take('Escape')) scene = 'service';
+    if (feedNamePad()) scene = 'service';
     if (namePad.done) {
       const text = namePad.text.trim().replace(/\s+/g, ' ').slice(0, 24);
       net.send({ type: 'note', text });
@@ -1414,7 +1412,7 @@ function renderNamePad(ms: number): void {
       px(ctx, label, kx + (w - 2) / 2, y + 4, 8, hot ? PAL.black : PAL.white, 'center');
     });
   });
-  px(ctx, `Z: ${t('name.select')}  ESC: ${t('name.cancel')}`, cx, 186, 8, PAL.gray, 'center');
+  px(ctx, `SPACE: ${t('name.select')}  ESC: ${t('name.cancel')}`, cx, 186, 8, PAL.gray, 'center');
   px(ctx, `${namePad.text.length}/12`, cx, 202, 8, PAL.gray, 'center');
 }
 
