@@ -95,6 +95,12 @@ describe('coast physics', () => {
     expect(braked.speed).toBeLessThan(coasted.speed);
   });
 
+  it('accelerates with UP arrow input as well as Space button', () => {
+    const upArrow = { dir: { dx: 0, dy: -1 }, button: false };
+    const s = run(play(createCoast(cfg)), upArrow, 60);
+    expect(s.speed).toBeGreaterThan(10);
+  });
+
   it('steering moves the car and clamps to the verge', () => {
     let s = run(play(createCoast(cfg)), { dir: { dx: -1, dy: 0 }, button: true }, 1);
     expect(s.playerX).toBeLessThan(0);

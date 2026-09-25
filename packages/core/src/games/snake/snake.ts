@@ -21,6 +21,7 @@ export interface Snake {
   body: Cell[];
   dir: Dir;
   pendingDir: Dir | null;
+  queuedDir?: Dir | null;
   alive: boolean;
   respawnTimer: number;
 }
@@ -54,7 +55,7 @@ const makeSnake = (index: number): Snake => {
     x: spawn.pos.x - spawn.dir.dx * i,
     y: spawn.pos.y - spawn.dir.dy * i,
   }));
-  return { body, dir: spawn.dir, pendingDir: null, alive: true, respawnTimer: 0 };
+  return { body, dir: spawn.dir, pendingDir: null, queuedDir: null, alive: true, respawnTimer: 0 };
 };
 
 const spawnFood = (state: SnakeState): { food: Cell | null; rngSeed: number } => {
@@ -103,6 +104,29 @@ export function create(config: GameConfig): SnakeState {
 }
 
 const isOpposite = (a: Dir, b: Dir): boolean => eq(a, opposite(b));
+const isPerpendicular = (a: Dir, b: Dir): boolean => a.dx * b.dx + a.dy * b.dy === 0;
+
+function bufferSnakeInput(snake: Snake, inputDir: Dir): Snake {
+  if (!snake.pendingDir) {
+    if (!isOpposite(inputDir, snake.dir)) {
+      return { ...snake, pendingDir: inputDir, queuedDir: null };
+    }
+    return snake;
+  }
+  if (eq(inputDir, snake.pendingDir)) {
+    return snake;
+  }
+  if (isOpposite(inputDir, snake.pendingDir)) {
+    if (!isOpposite(inputDir, snake.dir)) {
+      return { ...snake, pendingDir: inputDir, queuedDir: null };
+    }
+    return snake;
+  }
+  if (isPerpendicular(inputDir, snake.pendingDir)) {
+    return { ...snake, queuedDir: inputDir };
+  }
+  return snake;
+}
 
 const advanceSnake = (snake: Snake, state: SnakeState): { head: Cell; dir: Dir } => {
   const dir =
@@ -123,7 +147,7 @@ function step(state: SnakeState, inputs: Record<string, PlayerInput>): SnakeStat
   // buffer latest input per snake
   for (const [id, input] of Object.entries(inputs)) {
     const snake = s.snakes[id];
-    if (snake && input.dir) s.snakes[id] = { ...snake, pendingDir: input.dir };
+    if (snake && input.dir) s.snakes[id] = bufferSnakeInput(snake, input.dir);
   }
 
   // respawn countdown runs every tick
@@ -186,7 +210,14 @@ function step(state: SnakeState, inputs: Record<string, PlayerInput>): SnakeStat
       ...s,
       snakes: {
         ...s.snakes,
-        [id]: { body, dir: move.dir, pendingDir: null, alive: true, respawnTimer: 0 },
+        [id]: {
+          body,
+          dir: move.dir,
+          pendingDir: snake.queuedDir ?? null,
+          queuedDir: null,
+          alive: true,
+          respawnTimer: 0,
+        },
       },
     };
     if (ate) {

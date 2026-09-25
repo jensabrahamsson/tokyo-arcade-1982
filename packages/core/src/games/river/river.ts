@@ -30,6 +30,7 @@ export interface RiverState extends GameStateBase {
   moveCooldown: number;
   lastInputDir: Dir | null;
   lastSeq: number;
+  pendingHop?: { dir: Dir; seq: number } | null;
   deaths: number;
   clears: number;
 }
@@ -80,6 +81,7 @@ export function createRiver(config: GameConfig): RiverState {
     moveCooldown: 0,
     lastInputDir: null,
     lastSeq: -1,
+    pendingHop: null,
     deaths: 0,
     clears: 0,
   };
@@ -105,22 +107,35 @@ const step = (state: RiverState, inputs: Record<string, PlayerInput>): RiverStat
 
   const frog = { ...s.frog };
 
-  // edge-triggered hop
+  // edge-triggered hop with cooldown buffering
   s.moveCooldown = Math.max(0, s.moveCooldown - 1);
   const input = inputs[id];
-  if (input?.dir && s.moveCooldown === 0 && input.seq !== s.lastSeq) {
-    frog.x = Math.min(RIVER_W - 1, Math.max(0, frog.x + input.dir.dx));
-    frog.y = Math.min(RIVER_H - 1, Math.max(0, frog.y + input.dir.dy));
+  let nextHop: { dir: Dir; seq: number } | null = null;
+  if (input?.dir && input.seq !== undefined && input.seq !== s.lastSeq) {
+    if (s.moveCooldown === 0) {
+      nextHop = { dir: input.dir, seq: input.seq };
+      s.pendingHop = null;
+    } else {
+      s.pendingHop = { dir: input.dir, seq: input.seq };
+    }
+  } else if (s.moveCooldown === 0 && s.pendingHop) {
+    nextHop = s.pendingHop;
+    s.pendingHop = null;
+  }
+
+  if (nextHop) {
+    frog.x = Math.min(RIVER_W - 1, Math.max(0, frog.x + nextHop.dir.dx));
+    frog.y = Math.min(RIVER_H - 1, Math.max(0, frog.y + nextHop.dir.dy));
     s.moveCooldown = 6;
-    s.lastSeq = input.seq ?? -2;
-    s.lastInputDir = input.dir;
+    s.lastSeq = nextHop.seq;
+    s.lastInputDir = nextHop.dir;
     s = withSfx(s, { name: 'hop', player: id });
   }
   s = { ...s, frog };
 
   const die = (): RiverState => {
     const lives = { ...s.lives, [id]: s.lives[id]! - 1 };
-    let next = withSfx({ ...s, lives, deaths: s.deaths + 1, drownTimer: 0, frog: { ...FROG_START } }, { name: 'die', player: id });
+    let next = withSfx({ ...s, lives, deaths: s.deaths + 1, drownTimer: 0, pendingHop: null, frog: { ...FROG_START } }, { name: 'die', player: id });
     if (lives[id]! <= 0) next = enterPhase(next, 'gameOver');
     return next;
   };
@@ -132,7 +147,7 @@ const step = (state: RiverState, inputs: Record<string, PlayerInput>): RiverStat
       const homes = [...s.homes];
       homes[slot] = true;
       let next = withSfx({ ...s, homes, scores: { ...s.scores, [id]: s.scores[id]! + 50 + 10 * s.level } }, { name: 'goal', player: id });
-      next = { ...next, frog: { ...FROG_START }, drownTimer: 0 };
+      next = { ...next, frog: { ...FROG_START }, drownTimer: 0, pendingHop: null };
       if (homes.every(Boolean)) {
         next = { ...next, level: next.level + 1, clears: next.clears + 1, homes: HOME_ROWS.map(() => false) };
         next = enterPhase(next, 'roundOver');

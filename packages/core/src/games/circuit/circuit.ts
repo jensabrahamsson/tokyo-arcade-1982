@@ -325,7 +325,8 @@ function driveCar(
   else speed -= 0.012;
   speed = Math.min(MAX_SPEED, Math.max(0, speed));
 
-  let heading = car.heading + (input?.dir?.dx ?? 0) * STEER;
+  const steerRate = STEER * (0.85 + 0.3 * (1 - speed / MAX_SPEED));
+  let heading = car.heading + (input?.dir?.dx ?? 0) * steerRate;
   let x = car.x + Math.cos(heading) * speed;
   let y = car.y + Math.sin(heading) * speed;
   let invuln = car.invuln > 0 ? car.invuln - 1 : 0;
@@ -507,7 +508,8 @@ const stepSolo = (state: CircuitState, inputs: Record<string, PlayerInput>): Cir
   else speed -= 0.012;
   speed = Math.min(MAX_SPEED, Math.max(0, speed));
 
-  let heading = state.heading + (input?.dir?.dx ?? 0) * STEER;
+  const steerRate = STEER * (0.85 + 0.3 * (1 - speed / MAX_SPEED));
+  let heading = state.heading + (input?.dir?.dx ?? 0) * steerRate;
   let x = state.x + Math.cos(heading) * speed;
   let y = state.y + Math.sin(heading) * speed;
   let invuln = state.invuln > 0 ? state.invuln - 1 : 0;

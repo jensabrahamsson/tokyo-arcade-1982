@@ -157,7 +157,7 @@ function integrateCoast(
   if (k.done) return { runner: k, score, sfx: [], over: null };
   let speed = k.speed;
   if (input?.dir && input.dir.dy > 0) speed -= 1.5;
-  else if (input?.button) speed += 0.35;
+  else if (input?.button || (input?.dir && input.dir.dy < 0)) speed += 0.35;
   else speed -= 0.15;
   speed = Math.min(MAX_SPEED, Math.max(0, speed));
 

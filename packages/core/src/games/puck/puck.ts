@@ -275,7 +275,15 @@ function step(state: PuckState, inputs: Record<string, PlayerInput>): PuckState 
   // player
   const input = inputs[turn];
   const player = { ...s.player };
-  if (input?.dir) player.pendingDir = input.dir;
+  if (input?.dir) {
+    if (oppositeIs(input.dir, player.dir) && passable(player.x + input.dir.dx, player.y + input.dir.dy, false)) {
+      player.dir = input.dir;
+      player.pendingDir = input.dir;
+      player.progress = 0;
+    } else {
+      player.pendingDir = input.dir;
+    }
+  }
   player.progress += 1 / 8;
   s = { ...s, player };
   while (player.progress >= 1) {

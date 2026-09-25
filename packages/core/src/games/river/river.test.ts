@@ -37,6 +37,16 @@ describe('river frog moves', () => {
     expect(paused.frog.y).toBe(15);
   });
 
+  it('buffers a rapid tap received during moveCooldown and executes upon landing', () => {
+    let s = play(createRiver(cfg));
+    expect(s.frog.y).toBe(16);
+    s = riverSpec.step(s, { p1: { dir: { dx: 0, dy: -1 }, button: false, seq: 100 } });
+    expect(s.frog.y).toBe(15);
+    s = riverSpec.step(s, { p1: { dir: { dx: 0, dy: -1 }, button: false, seq: 101 } });
+    s = run(s, { p1: none }, 10);
+    expect(s.frog.y).toBe(14);
+  });
+
   it('cannot move off the field', () => {
     let s = play(createRiver(cfg));
     let m = s;
