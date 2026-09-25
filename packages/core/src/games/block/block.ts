@@ -165,7 +165,9 @@ function step(state: BlockState, inputs: Record<string, PlayerInput>): BlockStat
       if (prevCellX !== cx && prevCellY === cy) {
         ball.dx = -ball.dx;
       } else {
-        ball.dy = -ball.dy;
+        const sign = ball.dy > 0 ? 1 : -1;
+        const speed = Math.min(0.48, Math.abs(ball.dy) + 0.005);
+        ball.dy = -sign * speed;
       }
     }
   }

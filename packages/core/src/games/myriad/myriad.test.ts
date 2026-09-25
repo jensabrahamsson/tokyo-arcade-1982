@@ -127,6 +127,15 @@ describe('myriad combat', () => {
     const clamped = run(s, { p1: { dir: { dx: 0, dy: 1 }, button: false } }, 200);
     expect(clamped.player.y).toBeLessThanOrEqual(23);
   });
+
+  it('clearing an entire wave awards a 100-point wave clear bonus', () => {
+    let s = play(createMyriad(cfg));
+    s = { ...s, segments: [{ x: 10, y: 10 }] };
+    s = { ...s, bullets: [{ x: 10.5, y: 10.5, dy: -0.1 }] };
+    const moved = myriadSpec.step(s, { p1: none });
+    expect(moved.phase).toBe('roundOver');
+    expect(moved.scores['p1']).toBe(50 + 100);
+  });
 });
 
 describe('myriad difficulty ramp', () => {

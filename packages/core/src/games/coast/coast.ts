@@ -195,7 +195,7 @@ function integrateCoast(
   let over: 'goal' | 'time' | null = null;
   let done = false;
   if (dist >= TRACK_LEN) {
-    score += 1000;
+    score += 1000 + Math.max(0, Math.floor(timeLeft / 10));
     sfx.push({ name: 'goal', player: id });
     over = 'goal';
     done = true;

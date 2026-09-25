@@ -142,7 +142,7 @@ unit-testable without a browser or network.
 ## Development (test-driven)
 
 ```sh
-npm test          # vitest: 648 tests across engine, games, server, client
+npm test          # vitest: 654 tests across engine, games, server, client
 npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```

@@ -311,6 +311,7 @@ function step(state: PuckState, inputs: Record<string, PlayerInput>): PuckState 
       s = {
         ...s,
         powers,
+        scores: { ...s.scores, [turn]: (s.scores[turn] ?? 0) + 50 },
         frightTimer: 300 - Math.min(150, (s.level - 1) * 20),
         ghostCombo: 0,
         ghosts: s.ghosts.map((g) => (g.mode === 'eaten' ? g : { ...g, mode: 'frightened' as GhostMode })),

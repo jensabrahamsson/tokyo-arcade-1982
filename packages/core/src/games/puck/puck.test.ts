@@ -142,6 +142,14 @@ describe('puck power & ghosts', () => {
     expect(chased.length).toBeGreaterThan(0);
   });
 
+  it('eating a power pellet awards 50 points', () => {
+    let s = play(create(soloCfg));
+    s = putPlayer(s, 1, 4, DIRS.up);
+    const initialScore = s.scores['p1'] ?? 0;
+    const moved = run(s, { p1: NO_INPUT }, 8);
+    expect(moved.scores['p1']).toBe(initialScore + 50);
+  });
+
   it('a frightened ghost can be eaten for points and respawns', () => {
     let s = play(create(soloCfg));
     s = { ...s, frightTimer: 200 };

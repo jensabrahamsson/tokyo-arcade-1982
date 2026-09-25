@@ -128,6 +128,17 @@ describe('river goals', () => {
     expect(resumed.phase).toBe('playing');
     expect(resumed.homes.filter(Boolean)).toHaveLength(0);
   });
+
+  it('filling all five homes awards a 1000-point round clear bonus (Frogger bonus)', () => {
+    let s = play(createRiver(cfg));
+    for (let h = 0; h < 4; h++) {
+      s = tapHome(s, h);
+    }
+    const scoreBeforeFinalHome = s.scores['p1']!;
+    const finalState = tapHome(s, 4);
+    const fifthHomeScore = 50 + 10 * 1;
+    expect(finalState.scores['p1']).toBe(scoreBeforeFinalHome + fifthHomeScore + 1000);
+  });
 });
 
 describe('river drown timer', () => {
