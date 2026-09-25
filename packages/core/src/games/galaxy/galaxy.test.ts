@@ -112,4 +112,13 @@ describe('galaxy combat', () => {
     expect(resumed.phase).toBe('playing');
     expect(resumed.aliens).toHaveLength(24);
   });
+
+  it('aliens dive faster at higher levels', () => {
+    let s = play(createGalaxy(cfg));
+    s = { ...s, level: 3, diveTimer: 1 };
+    const moved = galaxySpec.step(s, { p1: none });
+    const diver = moved.aliens.find((a) => a.mode === 'dive');
+    expect(diver).toBeDefined();
+    expect(diver!.dvy).toBeGreaterThan(0.3);
+  });
 });

@@ -169,4 +169,11 @@ describe('block versus goal geometry', () => {
     const next = blockSpec.step(s, { p1: none });
     expect(next.sfx.filter((e) => e.name === 'bounce').length).toBe(1);
   });
+
+  it('wall bounce emits a bounce sfx', () => {
+    let s = play(createBlock(soloCfg));
+    s = { ...s, serveTimer: 0, bricks: {}, ball: { x: 0.4, y: 10, dx: -0.2, dy: 0.1 } };
+    const next = blockSpec.step(s, { p1: none });
+    expect(next.sfx.some((e) => e.name === 'bounce')).toBe(true);
+  });
 });

@@ -412,4 +412,18 @@ describe('circuit drive', () => {
     expect(s.lives['p1']).toBe(CIRCUIT_LIVES);
     expect(s.deaths).toBe(0);
   });
+
+  it('car bump in versus emits a bounce sfx', () => {
+    const vs: GameConfig = { mode: 'versus', playerIds: ['a', 'b'], seed: 1976 };
+    let s = play(createCircuit(vs));
+    s = {
+      ...s,
+      cars: {
+        a: { ...s.cars.a!, x: 100, y: 100 },
+        b: { ...s.cars.b!, x: 105, y: 100 },
+      },
+    };
+    const moved = circuitSpec.step(s, { a: NO_INPUT, b: NO_INPUT });
+    expect(moved.sfx.some((e) => e.name === 'bounce')).toBe(true);
+  });
 });

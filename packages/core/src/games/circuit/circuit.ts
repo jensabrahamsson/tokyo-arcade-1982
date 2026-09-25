@@ -393,18 +393,18 @@ function driveCar(
   };
 }
 
-function separateCars(cars: Record<string, CircuitCar>): Record<string, CircuitCar> {
+function separateCars(cars: Record<string, CircuitCar>): { cars: Record<string, CircuitCar>; bumped: boolean } {
   const ids = Object.keys(cars);
-  if (ids.length < 2) return cars;
+  if (ids.length < 2) return { cars, bumped: false };
   const aId = ids[0]!;
   const bId = ids[1]!;
   const a = cars[aId]!;
   const b = cars[bId]!;
-  if (a.retired || b.retired) return cars;
+  if (a.retired || b.retired) return { cars, bumped: false };
   let dx = b.x - a.x;
   let dy = b.y - a.y;
   let dist = Math.hypot(dx, dy);
-  if (dist >= BUMP) return cars;
+  if (dist >= BUMP) return { cars, bumped: false };
   if (dist < 0.001) {
     dx = Math.cos(a.heading + Math.PI / 2);
     dy = Math.sin(a.heading + Math.PI / 2);
@@ -420,9 +420,12 @@ function separateCars(cars: Record<string, CircuitCar>): Record<string, CircuitC
     return { ...car, x, y, u: proj.u, lat: proj.lat, onTrack: Math.abs(proj.lat) <= HALF_WIDTH };
   };
   return {
-    ...cars,
-    [aId]: shift(a, -ux * push, -uy * push),
-    [bId]: shift(b, ux * push, uy * push),
+    cars: {
+      ...cars,
+      [aId]: shift(a, -ux * push, -uy * push),
+      [bId]: shift(b, ux * push, uy * push),
+    },
+    bumped: true,
   };
 }
 
@@ -461,7 +464,9 @@ const stepVersus = (state: CircuitState, inputs: Record<string, PlayerInput>): C
     if (driven.died) deaths += 1;
     if (driven.cleared) clears += 1;
   }
-  cars = separateCars(cars);
+  const separated = separateCars(cars);
+  cars = separated.cars;
+  if (separated.bumped && ids[0]) events.push({ name: 'bounce', player: ids[0] });
   const timeLeft = state.timeLeft - 1;
   const leadId = ids[0];
   let next: CircuitState = {

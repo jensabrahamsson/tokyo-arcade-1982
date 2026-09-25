@@ -352,7 +352,15 @@ function step(state: PuckState, inputs: Record<string, PlayerInput>): PuckState 
 
   // cleared the board
   if (Object.keys(s.dots).length === 0 && s.deathTimer === 0) {
-    s = withSfx({ ...s, level: s.level + 1, clears: s.clears + 1 }, { name: 'goal', player: turn });
+    s = withSfx(
+      {
+        ...s,
+        level: s.level + 1,
+        clears: s.clears + 1,
+        scores: { ...s.scores, [turn]: (s.scores[turn] ?? 0) + 500 },
+      },
+      { name: 'goal', player: turn },
+    );
     s = { ...resetPositions(s), ...readDots() };
     s = enterPhase(s, 'roundOver');
   }
