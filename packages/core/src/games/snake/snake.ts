@@ -230,7 +230,7 @@ function step(state: SnakeState, inputs: Record<string, PlayerInput>): SnakeStat
       },
     };
     if (ate) {
-      next.scores = { ...next.scores, [id]: next.scores[id]! + 10 };
+      next.scores = { ...next.scores, [id]: next.scores[id]! + 10 * s.level };
       const eaten = { ...next.foodsEaten, [id]: next.foodsEaten[id]! + 1 };
       const level = 1 + Math.floor(eaten[id]! / 5);
       const leveled = level > next.level;

@@ -168,7 +168,7 @@ function step(state: GalaxyState, inputs: Record<string, PlayerInput>): GalaxySt
       const pick = grid[(s.deaths + Math.floor(s.diveInterval) - s.diveTimer) % grid.length]!;
       pick.mode = 'dive';
       pick.dvx = Math.max(-0.2, Math.min(0.2, (s.player.x - pick.x) * 0.02));
-      pick.dvy = 0.3;
+      pick.dvy = 0.3 + Math.min(0.15, (s.level - 1) * 0.03);
       s.diveTimer = s.diveInterval;
     } else {
       s.diveTimer = 30;

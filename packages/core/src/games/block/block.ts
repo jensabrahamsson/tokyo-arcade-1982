@@ -118,13 +118,16 @@ function step(state: BlockState, inputs: Record<string, PlayerInput>): BlockStat
   if (ball.x < 0.5) {
     ball.x = 0.5;
     ball.dx = Math.abs(ball.dx);
+    s = withSfx(s, { name: 'bounce', player: s.turn });
   } else if (ball.x > BLOCK_W - 0.5) {
     ball.x = BLOCK_W - 0.5;
     ball.dx = -Math.abs(ball.dx);
+    s = withSfx(s, { name: 'bounce', player: s.turn });
   }
   if (s.mode === 'solo' && ball.y < 0.5 && ball.dy < 0) {
     ball.y = 0.5;
     ball.dy = Math.abs(ball.dy);
+    s = withSfx(s, { name: 'bounce', player: s.turn });
   }
 
   // paddles deflect

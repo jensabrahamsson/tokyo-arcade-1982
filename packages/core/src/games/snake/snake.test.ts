@@ -147,6 +147,15 @@ describe('snake eating', () => {
     expect(moved.scores['p1']).toBe(10);
     expect(moved.food).toEqual({ x: 2, y: 0 });
   });
+
+  it('eating food at higher levels awards level-scaled points', () => {
+    let s = play(snakeSpec.create(soloCfg));
+    s = { ...s, level: 3 };
+    const h = headOf(s, 'p1')!;
+    s = { ...s, food: { x: h.x + 1, y: h.y } };
+    const moved = advance(s, { p1: NO_INPUT }, moveTicks(s));
+    expect(moved.scores['p1']).toBe(30);
+  });
 });
 
 describe('snake death (solo)', () => {

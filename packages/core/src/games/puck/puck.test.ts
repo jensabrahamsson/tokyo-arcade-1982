@@ -193,6 +193,14 @@ describe('puck rounds & versus', () => {
     expect(Object.keys(resumed.dots).length).toBeGreaterThan(100);
   });
 
+  it('clearing all dots awards a 500-point maze clear bonus', () => {
+    let s = play(create(soloCfg));
+    s = { ...s, dots: { '8,16': true } };
+    s = putPlayer(s, 9, 16, DIRS.left);
+    const moved = run(s, { p1: NO_INPUT }, 8);
+    expect(moved.scores['p1']).toBe(510);
+  });
+
   it('solo last life lost -> gameOver', () => {
     let s = play(create(soloCfg));
     s = { ...s, lives: { p1: 1 }, frightTimer: 0 };
