@@ -8,6 +8,9 @@ import {
   pressNamePadSelect,
   pressNamePadSpace,
   keyAt,
+  nameSlotLayout,
+  nameKeyTheme,
+  namePadProgress,
   type NamePad,
 } from './namepad';
 
@@ -143,4 +146,57 @@ describe('namepad (marquee keyboard input)', () => {
     expect(flat).toContain('<');
     expect(flat).toContain('OK');
   });
+
+  it('nameSlotLayout computes 12 slots centered within display bezel', () => {
+    const layout = nameSlotLayout(160, 50, 12);
+    expect(layout.slots).toHaveLength(12);
+    expect(layout.bezel.w).toBeGreaterThan(200);
+    expect(layout.bezel.h).toBeGreaterThanOrEqual(24);
+    expect(layout.bezel.x).toBeLessThan(160);
+    expect(layout.bezel.x + layout.bezel.w).toBeGreaterThan(160);
+    for (let i = 0; i < layout.slots.length; i++) {
+      const s = layout.slots[i]!;
+      expect(s.x).toBeGreaterThanOrEqual(layout.bezel.x);
+      expect(s.x + s.w).toBeLessThanOrEqual(layout.bezel.x + layout.bezel.w);
+      expect(s.index).toBe(i);
+    }
+  });
+
+  it('nameKeyTheme differentiates OK, DEL, SPACE, letters, and cursor state', () => {
+    const letter = nameKeyTheme('A', false, 0, false);
+    expect(letter.text).toBe('#fbfbfb');
+    expect(letter.glow).toBe(false);
+
+    const del = nameKeyTheme('<', false, 3, false);
+    expect(del.text).toBe('#eb3b5a');
+
+    const space = nameKeyTheme(' ', false, 3, false);
+    expect(space.text).toBe('#2de2e6');
+
+    const okEmpty = nameKeyTheme('OK', false, 0, false);
+    expect(okEmpty.glow).toBe(false);
+
+    const okReady = nameKeyTheme('OK', false, 3, false);
+    expect(okReady.glow).toBe(true);
+    expect(okReady.border).toBe('#05c46b');
+
+    const hot = nameKeyTheme('Q', true, 0, true);
+    expect(hot.glow).toBe(true);
+    expect(hot.text).toBe('#05060c');
+  });
+
+  it('namePadProgress formats initials count and max indicator', () => {
+    const empty = namePadProgress(0, 12);
+    expect(empty.label).toBe('[ 00 / 12 ]');
+    expect(empty.isFull).toBe(false);
+
+    const mid = namePadProgress(5, 12);
+    expect(mid.label).toBe('[ 05 / 12 ]');
+    expect(mid.isFull).toBe(false);
+
+    const full = namePadProgress(12, 12);
+    expect(full.label).toBe('[ 12 / 12 MAX ]');
+    expect(full.isFull).toBe(true);
+  });
 });
+

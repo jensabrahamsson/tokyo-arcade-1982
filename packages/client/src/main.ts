@@ -35,16 +35,22 @@ import {
   createNamePad,
   NAME_PAD_CODES,
   namePadAction,
+  nameSlotLayout,
+  nameKeyTheme,
+  namePadProgress,
   type NamePad,
 } from './namepad';
 import { HALL_SLOTS, MAP_SLOTS, FLOOR_Y, moveHallSel } from './hall';
 import {
   splashWordmark, SPLASH_LOOK, attractFaceLines, attractBulbXs, attractBulbHot,
   attractMarqueeBand, attractPromptPlate, attractWordmarkSize,
+  attractSpotlightLayout, attractCornerPips,
 } from './splashLook';
 import {
   cabinetMarquee, cabinetTitleKey, insertCoinVisible, insertCoinPlate,
   waitingHintLine, waitingPanelCopy,
+  hallCabinetSpotlight, hallSelectionCrown, hallCabinetInfo,
+  hallCarouselPips, hallNavArrows,
 } from './hallChrome';
 import {
   DEFAULT_KNOBS, cycleKnob, crtFilterCss, scanlineOpacity, nextAccess,
@@ -902,6 +908,8 @@ function cabThumb(game: GameId, sx: number, sy: number, sw: number, sh: number, 
   }
 }
 
+const drawPreviewThumb = cabThumb;
+
 /** P1-7: a broken renderer is reported once, then silently contained —
  * the cabinet blanks itself, the hall and the rAF loop live on */
 const loggedRenders = new Set<string>();
@@ -1068,8 +1076,39 @@ function renderCabinet(
     ctx.strokeRect(x - 3.5, y - 3.5, w + 7, slot.h + 7);
   }
   if (selected) {
+    const spot = hallCabinetSpotlight(slot, 34);
+    const grad = ctx.createLinearGradient(0, spot.topY, 0, spot.botY);
+    grad.addColorStop(0, 'rgba(255, 235, 120, 0.12)');
+    grad.addColorStop(0.7, 'rgba(255, 235, 120, 0.05)');
+    grad.addColorStop(1, 'rgba(255, 235, 120, 0.0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(spot.topX, spot.topY);
+    ctx.lineTo(spot.topX + spot.topW, spot.topY);
+    ctx.lineTo(spot.botX + spot.botW, spot.botY);
+    ctx.lineTo(spot.botX, spot.botY);
+    ctx.closePath();
+    ctx.fill();
+
+    const crown = hallSelectionCrown(slot, ms);
+    ctx.fillStyle = crown.color;
+    ctx.beginPath();
+    ctx.moveTo(crown.x, crown.bounceY);
+    ctx.lineTo(crown.x - 3, crown.bounceY - 4);
+    ctx.lineTo(crown.x + 3, crown.bounceY - 4);
+    ctx.closePath();
+    ctx.fill();
+
     ctx.strokeStyle = blink(ms, 400) ? PAL.yellow : PAL.orange;
     ctx.strokeRect(x - 1.5, y - 1.5, w + 3, slot.h + 3);
+    ctx.strokeStyle = cabAccent(slot.game);
+    ctx.strokeRect(x - 2.5, y - 2.5, w + 5, slot.h + 5);
+
+    ctx.fillStyle = cabAccent(slot.game);
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.fillRect(x - 2, y + slot.h, w + 4, 3);
+    ctx.restore();
   }
   // R33 credit digits: yours on every cabinet you point at; free-play hides them,
   // OOO wins visually (the marquee overlay already claims attention)
@@ -1214,6 +1253,46 @@ function renderHall(ms: number): void {
   ctx.fillRect(tx - 1, ty + 2, 3, 6);
   ctx.fillRect(tx - 4, ty + 3, 9, 2);
   px(ctx, myName, tx, ty - 9, 7, PAL.yellow, 'center');
+
+  // Cabinet showcase card & carousel browsing UX
+  const cabData = world.hall?.cabinets.find((c) => c.game === slot.game);
+  const info = hallCabinetInfo(slot.game, cabData, isOoo(slot.game), freePlay, t);
+  const cardW = 210;
+  const cardH = 28;
+  const cardX = cx - cardW / 2;
+  const cardY = 174;
+  ctx.fillStyle = 'rgba(10, 12, 24, 0.85)';
+  ctx.fillRect(cardX, cardY, cardW, cardH);
+  ctx.strokeStyle = cabAccent(slot.game);
+  ctx.strokeRect(cardX + 0.5, cardY + 0.5, cardW - 1, cardH - 1);
+  ctx.fillStyle = PAL.yellow;
+  ctx.fillRect(cardX - 1, cardY - 1, 2, 2);
+  ctx.fillRect(cardX + cardW - 1, cardY - 1, 2, 2);
+  ctx.fillRect(cardX - 1, cardY + cardH - 1, 2, 2);
+  ctx.fillRect(cardX + cardW - 1, cardY + cardH - 1, 2, 2);
+
+  px(ctx, info.title, cardX + 8, cardY + 4, 8, PAL.white);
+  px(ctx, info.topScoreText, cardX + cardW - 8, cardY + 4, 7, PAL.yellow, 'right');
+
+  px(ctx, info.tag, cardX + 8, cardY + 16, 7, PAL.cyan);
+  const modesText = info.versusMode ? `${info.soloMode}  ${info.versusMode}` : info.soloMode;
+  px(ctx, info.isOoo ? t('cab.ooo') : modesText, cardX + cardW - 8, cardY + 16, 7, info.isOoo ? PAL.red : PAL.lime, 'right');
+
+  const nav = hallNavArrows(sel, HALL_SLOTS.length, ms);
+  if (nav.leftVisible) {
+    px(ctx, '◄', 14 + nav.leftOffset, cardY + 10, 8, PAL.cyan, 'center');
+  }
+  if (nav.rightVisible) {
+    px(ctx, '►', CANVAS_W - 14 + nav.rightOffset, cardY + 10, 8, PAL.cyan, 'center');
+  }
+
+  const pips = hallCarouselPips(sel, HALL_SLOTS.length);
+  const pipSpacing = 8;
+  const pipStartX = cx - ((pips.length - 1) * pipSpacing) / 2;
+  pips.forEach((p, idx) => {
+    ctx.fillStyle = p.active ? PAL.yellow : '#28304a';
+    ctx.fillRect(pipStartX + idx * pipSpacing - 1, 208, p.active ? 3 : 2, p.active ? 3 : 2);
+  });
 
   // UX shell: two roomy legend lines; the player counter moved to the header
   // so nothing crowds the you-are-here token anymore
@@ -1363,22 +1442,28 @@ function renderTitle(ms: number): void {
   const gameTitle = lines[0] ?? '';
   const gameTag = lines[1] ?? '';
   const invite = lines[2] ?? t('splash.enter');
-  const spotY = heroImg ? 118 : 124;
-  const spotH = heroImg ? 72 : 48;
-  ctx.fillStyle = 'rgba(8,4,12,0.45)';
-  ctx.fillRect(cx - 92, spotY, 184, spotH);
+  const spot = attractSpotlightLayout(CANVAS_W, CANVAS_H, !!heroImg);
+  ctx.fillStyle = 'rgba(8,4,12,0.65)';
+  ctx.fillRect(spot.box.x, spot.box.y, spot.box.w, spot.box.h);
   ctx.strokeStyle = cabAccent(g);
-  ctx.strokeRect(cx - 92.5, spotY + 0.5, 185, spotH - 1);
+  ctx.strokeRect(spot.box.x + 0.5, spot.box.y + 0.5, spot.box.w - 1, spot.box.h - 1);
+  ctx.fillStyle = cabAccent(g);
+  for (const pip of attractCornerPips(spot.box)) {
+    ctx.fillRect(pip.x - 1, pip.y - 1, 2, 2);
+  }
   if (heroImg) {
     ctx.imageSmoothingEnabled = false;
-    const box = containRect(heroImg.naturalWidth, heroImg.naturalHeight, cx - 86, spotY + 4, 172, 52);
+    const box = containRect(heroImg.naturalWidth, heroImg.naturalHeight, cx - 86, spot.box.y + 4, 172, 52);
     ctx.drawImage(heroImg, box.x, box.y, box.w, box.h);
     ctx.imageSmoothingEnabled = true;
-    px(ctx, gameTitle, cx, spotY + 58, 10, PAL.white, 'center');
-    px(ctx, gameTag, cx, spotY + 70, 7, PAL.cyan, 'center');
+    px(ctx, gameTitle, cx, spot.box.y + 58, 10, PAL.white, 'center');
+    px(ctx, gameTag, cx, spot.box.y + 70, 7, PAL.cyan, 'center');
   } else {
-    px(ctx, gameTitle, cx, spotY + 12, 12, PAL.white, 'center');
-    px(ctx, gameTag, cx, spotY + 30, 8, PAL.cyan, 'center');
+    drawPreviewThumb(g, spot.thumb.x, spot.thumb.y, spot.thumb.w, spot.thumb.h, ms);
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.strokeRect(spot.thumb.x - 0.5, spot.thumb.y - 0.5, spot.thumb.w + 1, spot.thumb.h + 1);
+    px(ctx, gameTitle, spot.textX, spot.titleY, 11, PAL.white, 'center');
+    px(ctx, gameTag, spot.textX, spot.tagY, 7, PAL.cyan, 'center');
   }
   drawAttractPrompt(ms, invite);
   drawError();
@@ -1386,34 +1471,71 @@ function renderTitle(ms: number): void {
 
 function renderNamePad(ms: number): void {
   const cx = CANVAS_W / 2;
-  px(ctx, t('hall.insertCoin'), cx, 18, 10, PAL.yellow, 'center');
-  px(ctx, t('name.title'), cx, 36, 8, PAL.white, 'center');
-  px(ctx, `${namePad.text}${blink(ms) ? '_' : ' '}`, cx, 58, 12, PAL.lime, 'center');
+  px(ctx, t('hall.insertCoin'), cx, 14, 10, PAL.yellow, 'center');
+  px(ctx, t('name.title'), cx, 28, 8, PAL.white, 'center');
+
+  // 12-slot character display
+  const slotLayout = nameSlotLayout(cx, 40, namePad.max);
+  ctx.fillStyle = '#0a0d18';
+  ctx.fillRect(slotLayout.bezel.x, slotLayout.bezel.y, slotLayout.bezel.w, slotLayout.bezel.h);
+  ctx.strokeStyle = PAL.navy;
+  ctx.strokeRect(slotLayout.bezel.x + 0.5, slotLayout.bezel.y + 0.5, slotLayout.bezel.w - 1, slotLayout.bezel.h - 1);
+  // corner brackets
+  ctx.fillStyle = PAL.cyan;
+  ctx.fillRect(slotLayout.bezel.x - 1, slotLayout.bezel.y - 1, 3, 3);
+  ctx.fillRect(slotLayout.bezel.x + slotLayout.bezel.w - 2, slotLayout.bezel.y - 1, 3, 3);
+  ctx.fillRect(slotLayout.bezel.x - 1, slotLayout.bezel.y + slotLayout.bezel.h - 2, 3, 3);
+  ctx.fillRect(slotLayout.bezel.x + slotLayout.bezel.w - 2, slotLayout.bezel.y + slotLayout.bezel.h - 2, 3, 3);
+
+  slotLayout.slots.forEach((slot, i) => {
+    const char = namePad.text[i];
+    const isCursor = i === namePad.text.length;
+    ctx.fillStyle = '#060810';
+    ctx.fillRect(slot.x, slot.y, slot.w, slot.h);
+    ctx.strokeStyle = isCursor ? PAL.yellow : '#182038';
+    ctx.strokeRect(slot.x + 0.5, slot.y + 0.5, slot.w - 1, slot.h - 1);
+    if (char) {
+      px(ctx, char, slot.x + slot.w / 2, slot.y + 3, 11, PAL.lime, 'center');
+    } else if (isCursor) {
+      if (blink(ms, 350)) {
+        ctx.fillStyle = PAL.yellow;
+        ctx.fillRect(slot.x + 2, slot.y + slot.h - 4, slot.w - 4, 2);
+      }
+    } else {
+      ctx.fillStyle = '#242c40';
+      ctx.fillRect(slot.x + slot.w / 2 - 1, slot.y + slot.h / 2 - 1, 2, 2);
+    }
+  });
 
   const kw = 24;
   const kh = 15;
   namePad.rows.forEach((row, r) => {
-    const y = 84 + r * 22;
+    const y = 74 + r * 20;
     const x0 = cx - (row.length * kw) / 2;
     row.forEach((k, c) => {
       const label = k === ' ' ? 'SPACE' : k === '<' ? 'DEL' : k;
       const w = label === 'SPACE' ? kw + 16 : label === 'DEL' ? kw : kw;
       const kx = x0 + c * kw + (label === 'SPACE' ? -8 : 0);
       const hot = namePad.cursor.row === r && namePad.cursor.col === c;
-      if (hot) {
+      const theme = nameKeyTheme(k, hot, namePad.text.length, blink(ms, 350));
+      if (theme.glow) {
         ctx.save();
         ctx.globalAlpha = initialGlow(Math.floor(ms / 200));
-        ctx.fillStyle = PAL.yellow;
+        ctx.fillStyle = theme.border;
         ctx.fillRect(kx - 2, y - 2, w + 2, kh + 4);
         ctx.restore();
       }
-      ctx.fillStyle = hot ? (blink(ms, 350) ? PAL.yellow : PAL.orange) : PAL.navy;
+      ctx.fillStyle = theme.fill;
       ctx.fillRect(kx, y, w - 2, kh);
-      px(ctx, label, kx + (w - 2) / 2, y + 4, 8, hot ? PAL.black : PAL.white, 'center');
+      ctx.strokeStyle = theme.border;
+      ctx.strokeRect(kx + 0.5, y + 0.5, w - 3, kh - 1);
+      px(ctx, label, kx + (w - 2) / 2, y + 3, 8, theme.text, 'center');
     });
   });
-  px(ctx, `SPACE: ${t('name.select')}  ESC: ${t('name.cancel')}`, cx, 186, 8, PAL.gray, 'center');
-  px(ctx, `${namePad.text.length}/12`, cx, 202, 8, PAL.gray, 'center');
+
+  const progress = namePadProgress(namePad.text.length, namePad.max);
+  px(ctx, `SPACE/ENTER: ${t('name.select')}  ESC: ${t('name.cancel')}`, cx, 162, 8, PAL.gray, 'center');
+  px(ctx, progress.label, cx, 176, 8, progress.isFull ? PAL.orange : PAL.cyan, 'center');
 }
 
 function renderScores(ms: number): void {

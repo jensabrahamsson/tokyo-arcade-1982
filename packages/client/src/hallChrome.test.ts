@@ -11,6 +11,11 @@ import {
   insertCoinPlate,
   waitingHintLine,
   waitingPanelCopy,
+  hallCabinetSpotlight,
+  hallSelectionCrown,
+  hallCabinetInfo,
+  hallCarouselPips,
+  hallNavArrows,
 } from './hallChrome';
 
 describe('hall cabinet identity (R54.2)', () => {
@@ -92,3 +97,59 @@ describe('insert-coin / waiting readability', () => {
     expect(lines[3]).toContain('BACK');
   });
 });
+
+describe('hall cabinet selection UX/UI', () => {
+  const sampleSlot = { x: 40, y: 48, w: 36, h: 96, game: 'snake' as const };
+
+  it('hallCabinetSpotlight computes ceiling-to-cabinet light cone', () => {
+    const spot = hallCabinetSpotlight(sampleSlot, 34);
+    expect(spot.topY).toBe(34);
+    expect(spot.botY).toBe(sampleSlot.y + sampleSlot.h);
+    expect(spot.botW).toBeGreaterThanOrEqual(sampleSlot.w);
+    expect(spot.topW).toBeLessThan(spot.botW);
+  });
+
+  it('hallSelectionCrown places animated neon arrow above cabinet marquee', () => {
+    const crown = hallSelectionCrown(sampleSlot, 1200);
+    expect(crown.x).toBe(sampleSlot.x + sampleSlot.w / 2);
+    expect(crown.y).toBeLessThan(sampleSlot.y);
+    expect(typeof crown.bounceY).toBe('number');
+  });
+
+  it('hallCabinetInfo extracts game title, tag, top score, and mode badges', () => {
+    const cabData = {
+      game: 'snake',
+      scores: [{ name: 'JENS', score: 18400 }],
+    };
+    const info = hallCabinetInfo('snake', cabData as never, false, false, (k) => t('en', k as never));
+    expect(info.title).toBe('SNAKE');
+    expect(info.tag).toBe('TRON-STYLE TAIL TAG');
+    expect(info.topScoreText).toBe('TOP: JENS 18400');
+    expect(info.soloMode).toContain('1P GAME');
+    expect(info.versusMode).toContain('VS. DUEL');
+    expect(info.isOoo).toBe(false);
+  });
+
+  it('hallCarouselPips creates 8 pagination dots with the selected one active', () => {
+    const pips = hallCarouselPips(2, 8);
+    expect(pips).toHaveLength(8);
+    expect(pips[2]!.active).toBe(true);
+    expect(pips[0]!.active).toBe(false);
+    expect(pips[7]!.active).toBe(false);
+  });
+
+  it('hallNavArrows reports left/right navigation chevrons', () => {
+    const atStart = hallNavArrows(0, 8, 1000);
+    expect(atStart.leftVisible).toBe(false);
+    expect(atStart.rightVisible).toBe(true);
+
+    const atMiddle = hallNavArrows(4, 8, 1000);
+    expect(atMiddle.leftVisible).toBe(true);
+    expect(atMiddle.rightVisible).toBe(true);
+
+    const atEnd = hallNavArrows(7, 8, 1000);
+    expect(atEnd.leftVisible).toBe(true);
+    expect(atEnd.rightVisible).toBe(false);
+  });
+});
+
