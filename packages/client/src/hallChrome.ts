@@ -84,3 +84,120 @@ export function waitingPanelCopy(opts: {
 }): readonly string[] {
   return [opts.title, opts.waiting, opts.hintLine, opts.back];
 }
+
+export interface HallCabinetSpotlight {
+  readonly topX: number;
+  readonly topW: number;
+  readonly botX: number;
+  readonly botW: number;
+  readonly topY: number;
+  readonly botY: number;
+}
+
+export function hallCabinetSpotlight(
+  slot: { x: number; y: number; w: number; h: number },
+  ceilingY: number,
+): HallCabinetSpotlight {
+  const topW = Math.round(slot.w * 0.6);
+  const botW = slot.w + 12;
+  const cx = slot.x + slot.w / 2;
+  return {
+    topX: cx - Math.round(topW / 2),
+    topW,
+    botX: cx - Math.round(botW / 2),
+    botW,
+    topY: ceilingY,
+    botY: slot.y + slot.h,
+  };
+}
+
+export interface HallSelectionCrown {
+  readonly x: number;
+  readonly y: number;
+  readonly bounceY: number;
+  readonly color: string;
+}
+
+export function hallSelectionCrown(
+  slot: { x: number; y: number; w: number },
+  ms: number,
+): HallSelectionCrown {
+  const cx = slot.x + slot.w / 2;
+  const bounce = Math.sin(ms / 180) * 2;
+  return {
+    x: cx,
+    y: slot.y - 7,
+    bounceY: slot.y - 7 + bounce,
+    color: '#f7e766',
+  };
+}
+
+export interface HallCabinetInfo {
+  readonly title: string;
+  readonly tag: string;
+  readonly topScoreText: string;
+  readonly soloMode: string;
+  readonly versusMode: string | null;
+  readonly isOoo: boolean;
+}
+
+export function hallCabinetInfo(
+  game: GameId,
+  cab: { scores?: ReadonlyArray<{ name: string; score: number }> } | undefined,
+  isOoo: boolean,
+  _freePlay: boolean,
+  t: (key: MsgKey) => string,
+): HallCabinetInfo {
+  const title = t(cabinetTitleKey(game));
+  const tag = t(cabinetTagKey(game));
+  const topScore = cab?.scores?.[0];
+  const topScoreText = topScore ? `TOP: ${topScore.name.slice(0, 5)} ${topScore.score}` : 'HIGH SCORE AVAILABLE';
+  const soloMode = `Z: ${t('menu.solo')}`;
+  const versusGames: GameId[] = ['snake', 'puck', 'block', 'coast', 'circuit'];
+  const versusMode = versusGames.includes(game) ? `X: ${t('menu.versus')}` : null;
+  return {
+    title,
+    tag,
+    topScoreText,
+    soloMode,
+    versusMode,
+    isOoo,
+  };
+}
+
+export interface HallCarouselPip {
+  readonly index: number;
+  readonly active: boolean;
+}
+
+export function hallCarouselPips(
+  selectedIndex: number,
+  totalCount = 8,
+): ReadonlyArray<HallCarouselPip> {
+  return Array.from({ length: totalCount }, (_, index) => ({
+    index,
+    active: index === selectedIndex,
+  }));
+}
+
+export interface HallNavArrows {
+  readonly leftVisible: boolean;
+  readonly rightVisible: boolean;
+  readonly leftOffset: number;
+  readonly rightOffset: number;
+}
+
+export function hallNavArrows(
+  selectedIndex: number,
+  totalCount = 8,
+  ms: number,
+): HallNavArrows {
+  const bob = Math.sin(ms / 220) * 2;
+  return {
+    leftVisible: selectedIndex > 0,
+    rightVisible: selectedIndex < totalCount - 1,
+    leftOffset: -bob,
+    rightOffset: bob,
+  };
+}
+

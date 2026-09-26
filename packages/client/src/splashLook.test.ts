@@ -6,6 +6,7 @@ import {
   splashWordmark, SPLASH_LOOK, attractFaceLines, attractFaceInvitesPlay,
   attractBulbXs, attractBulbHot, ATTRACT_BULB_COUNT, attractMarqueeBand,
   attractPromptPlate, attractWordmarkSize,
+  attractSpotlightLayout, attractCornerPips,
 } from './splashLook';
 
 const MAIN = readFileSync(new URL('./main.ts', import.meta.url), 'utf8');
@@ -135,5 +136,24 @@ describe('splash and title attract (R12.1 / R54.1)', () => {
     );
     expect(title).toContain("keys.take('KeyL')");
     expect(title).toContain("keys.take('KeyC')");
+  });
+
+  it('computes spotlight preview frame and corner rivets for CRT showcase', () => {
+    const spotNoHero = attractSpotlightLayout(320, 240, false);
+    expect(spotNoHero.box.w).toBeGreaterThanOrEqual(180);
+    expect(spotNoHero.box.h).toBeGreaterThanOrEqual(48);
+    expect(spotNoHero.box.x + spotNoHero.box.w).toBeLessThanOrEqual(320);
+    expect(spotNoHero.thumb.w).toBeGreaterThan(0);
+    expect(spotNoHero.thumb.h).toBeGreaterThan(0);
+    expect(spotNoHero.thumb.x).toBeGreaterThan(spotNoHero.box.x);
+    expect(spotNoHero.textX).toBeGreaterThan(spotNoHero.thumb.x + spotNoHero.thumb.w);
+
+    const spotHero = attractSpotlightLayout(320, 240, true);
+    expect(spotHero.box.h).toBeGreaterThan(spotNoHero.box.h);
+
+    const pips = attractCornerPips(spotNoHero.box);
+    expect(pips).toHaveLength(4);
+    expect(pips[0]).toEqual({ x: spotNoHero.box.x, y: spotNoHero.box.y });
+    expect(pips[3]).toEqual({ x: spotNoHero.box.x + spotNoHero.box.w, y: spotNoHero.box.y + spotNoHero.box.h });
   });
 });

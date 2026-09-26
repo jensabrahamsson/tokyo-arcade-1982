@@ -107,3 +107,106 @@ export const NAME_PAD_CODES = [
   ...'0123456789'.split('').map((digit) => `Digit${digit}`),
   'Period', 'NumpadDecimal', 'Minus', 'NumpadSubtract', 'Quote',
 ] as const;
+
+export interface NameSlotLayout {
+  readonly bezel: { x: number; y: number; w: number; h: number };
+  readonly slots: ReadonlyArray<{ x: number; y: number; w: number; h: number; index: number }>;
+}
+
+export function nameSlotLayout(cx: number, y: number, max = NAME_MAX): NameSlotLayout {
+  const slotW = 16;
+  const slotH = 18;
+  const gap = 3;
+  const totalW = max * slotW + (max - 1) * gap;
+  const bezelW = totalW + 16;
+  const bezelH = 26;
+  const bezelX = cx - Math.round(bezelW / 2);
+  const startX = bezelX + 8;
+  const startY = y + 4;
+  const slots = Array.from({ length: max }, (_, index) => ({
+    x: startX + index * (slotW + gap),
+    y: startY,
+    w: slotW,
+    h: slotH,
+    index,
+  }));
+  return {
+    bezel: { x: bezelX, y, w: bezelW, h: bezelH },
+    slots,
+  };
+}
+
+export interface NameKeyTheme {
+  readonly fill: string;
+  readonly border: string;
+  readonly text: string;
+  readonly glow: boolean;
+}
+
+export function nameKeyTheme(
+  key: string,
+  isHot: boolean,
+  textLen: number,
+  blinkState = false,
+): NameKeyTheme {
+  if (isHot) {
+    return {
+      fill: blinkState ? '#f7e766' : '#ffa300',
+      border: '#f7e766',
+      text: '#05060c',
+      glow: true,
+    };
+  }
+  if (key === 'OK') {
+    const ready = textLen > 0;
+    return {
+      fill: ready ? '#143820' : '#0e121e',
+      border: ready ? '#05c46b' : '#242c48',
+      text: ready ? '#f7e766' : '#888994',
+      glow: ready,
+    };
+  }
+  if (key === '<') {
+    return {
+      fill: '#2a0e14',
+      border: '#9d0000',
+      text: '#eb3b5a',
+      glow: false,
+    };
+  }
+  if (key === ' ') {
+    return {
+      fill: '#122030',
+      border: '#243448',
+      text: '#2de2e6',
+      glow: false,
+    };
+  }
+  return {
+    fill: '#12162a',
+    border: '#242c48',
+    text: '#fbfbfb',
+    glow: false,
+  };
+}
+
+export interface NamePadProgress {
+  readonly count: number;
+  readonly max: number;
+  readonly isFull: boolean;
+  readonly label: string;
+}
+
+export function namePadProgress(textLen: number, max = NAME_MAX): NamePadProgress {
+  const isFull = textLen >= max;
+  const countStr = String(textLen).padStart(2, '0');
+  const maxStr = String(max).padStart(2, '0');
+  const label = isFull ? `[ ${countStr} / ${maxStr} MAX ]` : `[ ${countStr} / ${maxStr} ]`;
+  return {
+    count: textLen,
+    max,
+    isFull,
+    label,
+  };
+}
+

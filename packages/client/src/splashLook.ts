@@ -103,3 +103,45 @@ export function splashWordmark(title: string, year: string): {
     yearColor: PAL.orange,
   };
 }
+
+export interface AttractSpotlight {
+  readonly box: { x: number; y: number; w: number; h: number };
+  readonly thumb: { x: number; y: number; w: number; h: number };
+  readonly textX: number;
+  readonly titleY: number;
+  readonly tagY: number;
+}
+
+export function attractSpotlightLayout(
+  canvasW = 320,
+  _canvasH = 240,
+  hasHeroImg = false,
+): AttractSpotlight {
+  const cx = Math.round(canvasW / 2);
+  const w = 188;
+  const h = hasHeroImg ? 72 : 52;
+  const y = hasHeroImg ? 118 : 122;
+  const x = cx - Math.round(w / 2);
+  const thumbW = 48;
+  const thumbH = 36;
+  const thumbX = x + 8;
+  const thumbY = y + Math.round((h - thumbH) / 2);
+  const textX = thumbX + thumbW + Math.round((w - (thumbX - x) - thumbW) / 2);
+  return {
+    box: { x, y, w, h },
+    thumb: { x: thumbX, y: thumbY, w: thumbW, h: thumbH },
+    textX,
+    titleY: y + 16,
+    tagY: y + 34,
+  };
+}
+
+export function attractCornerPips(box: { x: number; y: number; w: number; h: number }): Array<{ x: number; y: number }> {
+  return [
+    { x: box.x, y: box.y },
+    { x: box.x + box.w, y: box.y },
+    { x: box.x, y: box.y + box.h },
+    { x: box.x + box.w, y: box.y + box.h },
+  ];
+}
+
