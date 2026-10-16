@@ -180,7 +180,6 @@ function step(state: BlockState, inputs: Record<string, PlayerInput>): BlockStat
   if (ball.y < 0) {
     if (s.mode === 'versus') {
       s = scored(s, bottom, -1);
-      s.ball = ball;
       return s;
     }
     ball.dy = Math.abs(ball.dy);
@@ -189,16 +188,22 @@ function step(state: BlockState, inputs: Record<string, PlayerInput>): BlockStat
     if (s.mode === 'versus') {
       const top = Object.keys(s.paddles).find((id) => s.paddles[id]!.y <= BLOCK_H / 2) ?? Object.keys(s.paddles)[1] ?? bottom;
       s = scored(s, top, 1);
-      s.ball = ball;
       return s;
     }
     const solo = bottom;
     const lives = { ...s.lives, [solo]: s.lives[solo]! - 1 };
-    s = withSfx({ ...s, lives, deaths: s.deaths + 1 }, { name: 'die', player: solo });
-    s.serveTimer = 45;
-    s.serveDir = -1;
+    s = withSfx(
+      {
+        ...s,
+        lives,
+        deaths: s.deaths + 1,
+        serveTimer: 45,
+        serveDir: -1,
+        ball: { x: BLOCK_W / 2, y: BLOCK_H / 2, dx: 0, dy: 0 },
+      },
+      { name: 'die', player: solo },
+    );
     if (lives[solo]! <= 0) s = enterPhase(s, 'gameOver');
-    s.ball = ball;
     return s;
   }
 

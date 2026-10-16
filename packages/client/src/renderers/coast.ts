@@ -106,7 +106,7 @@ export interface CoastHudSlot {
 }
 
 export function coastHudSlots(
-  copy: { time: string; speed: string; gate: string; offRoad: string | null },
+  copy: { time: string; speed: string; gate: string; score?: string; offRoad: string | null },
 ): { bar: typeof COAST_HUD_BAR; slots: CoastHudSlot[] } {
   const y = 3;
   const size = 10;
@@ -115,6 +115,9 @@ export function coastHudSlots(
     { text: copy.gate, x: CX, y, size, color: PAL.yellow, align: 'center' },
     { text: copy.speed, x: W - 6, y, size, color: PAL.white, align: 'right' },
   ];
+  if (copy.score) {
+    slots.push({ text: copy.score, x: CX, y: COAST_HUD_BAR.y + COAST_HUD_BAR.h + 2, size: 8, color: PAL.white, align: 'center' });
+  }
   if (copy.offRoad) {
     slots.push({
       text: copy.offRoad,
@@ -130,7 +133,7 @@ export function coastHudSlots(
 
 function drawCoastHud(
   ctx: CanvasRenderingContext2D,
-  copy: { time: string; speed: string; gate: string; offRoad: string | null },
+  copy: { time: string; speed: string; gate: string; score?: string; offRoad: string | null },
 ): void {
   const { bar, slots } = coastHudSlots(copy);
   ctx.fillStyle = COAST_HUD_PLATE;
@@ -397,13 +400,15 @@ export function obstacleSprite(kind: ObstacleKind, scale: number): { w: number; 
 
 export function coastHudCopy(
   lang: Lang,
-  s: { timeLeft: number; speed: number; dist: number; playerX: number; phase: string },
-): { time: string; speed: string; gate: string; offRoad: string | null } {
+  s: { timeLeft: number; speed: number; dist: number; playerX: number; phase: string; scores?: Record<string, number> },
+): { time: string; speed: string; gate: string; score: string; offRoad: string | null } {
   const secs = Math.ceil(s.timeLeft / 60);
+  const score = Object.values(s.scores ?? {})[0] ?? 0;
   return {
     time: `${translate(lang, 'coast.time')} ${secs}`,
     speed: `${Math.round((s.speed / MAX_SPEED) * COAST_SPEED_SCALE)} ${translate(lang, 'coast.mph')}`,
     gate: `${translate(lang, 'coast.gate')} ${Math.min(Math.floor(s.dist), TRACK_LEN)}/${TRACK_LEN}`,
+    score: `${translate(lang, 'hud.score')} ${String(Math.max(0, Math.floor(score))).padStart(6, '0')}`,
     offRoad: Math.abs(s.playerX) > OFF_ROAD_X && s.phase === 'playing' ? translate(lang, 'coast.offRoad') : null,
   };
 }
@@ -761,6 +766,7 @@ export function renderCoast(ctx: CanvasRenderingContext2D, s: CoastState, tMs = 
       ctx.scale(pane.w / W, pane.h / H);
       renderCoastPane(ctx, {
         ...s,
+        scores: { [id]: s.scores[id] ?? 0 },
         playerX: r.playerX,
         speed: r.speed,
         dist: r.dist,

@@ -38,14 +38,16 @@ export function overviewPoint(x: number, y: number): { x: number; y: number } {
 
 export function circuitHudCopy(
   lang: Lang,
-  s: { timeLeft: number; speed: number; lap: number },
-): { title: string; time: string; lap: string; speed: string } {
+  s: { timeLeft: number; speed: number; lap: number; scores?: Record<string, number> },
+): { title: string; time: string; lap: string; speed: string; score: string } {
   const shownLap = Math.min(CIRCUIT_LAPS, s.lap + 1);
+  const score = Object.values(s.scores ?? {})[0] ?? 0;
   return {
     title: translate(lang, 'game.circuit'),
     time: `${translate(lang, 'circuit.time')} ${Math.max(0, Math.ceil(s.timeLeft / 60))}`,
     lap: `${translate(lang, 'circuit.lap')} ${shownLap}/${CIRCUIT_LAPS}`,
     speed: `${Math.round((s.speed / CIRCUIT_MAX_SPEED) * 210)} ${translate(lang, 'circuit.kmh')}`,
+    score: `${translate(lang, 'hud.score')} ${String(Math.max(0, Math.floor(score))).padStart(6, '0')}`,
   };
 }
 
@@ -252,7 +254,15 @@ export function renderCircuit(
   }
 
   const hud = circuitHudCopy(lang, s);
+  ctx.fillStyle = PAL.black;
+  ctx.fillRect(0, 0, W, 15);
+  ctx.fillRect(0, H - 15, W, 15);
+  px(ctx, hud.score, 6, 4, 8, PAL.white);
   px(ctx, hud.title, W / 2, 4, 8, PAL.white, 'center');
+  const rivalScore = Object.values(s.scores ?? {})[1];
+  if (s.mode === 'versus' && rivalScore !== undefined) {
+    px(ctx, `${translate(lang, 'hud.score')} ${String(Math.max(0, Math.floor(rivalScore))).padStart(6, '0')}`, W - 6, 4, 8, rgb(CAR_P2), 'right');
+  }
   px(ctx, hud.time, 6, H - 14, 8, PAL.white);
   px(ctx, hud.lap, W / 2, H - 14, 8, PAL.yellow, 'center');
   px(ctx, hud.speed, W - 6, H - 14, 8, PAL.white, 'right');

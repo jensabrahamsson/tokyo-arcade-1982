@@ -43,10 +43,18 @@ export function renderPuck(ctx: CanvasRenderingContext2D, data: PuckState, tMs: 
       const scared = g.mode === 'frightened';
       const late = scared && data.frightTimer < 90;
       ctx.fillStyle = scared ? ((late && blink(tMs, 160)) ? PAL.white : PAL.blue) : GHOST_COLORS[g.id % 4]!;
-      ctx.fillRect(gx + 1, gy + 2, CELL - 2, CELL - 4);
+      ctx.fillRect(gx + 1, gy + 1, CELL - 2, CELL - 2);
+      ctx.fillRect(gx + 2, gy, CELL - 4, 1);
+      ctx.fillStyle = PAL.black;
+      ctx.fillRect(gx + 2, gy + CELL - 1, 1, 1);
+      ctx.fillRect(gx + 4, gy + CELL - 1, 1, 1);
+      ctx.fillRect(gx + 6, gy + CELL - 1, 1, 1);
       ctx.fillStyle = PAL.white;
       ctx.fillRect(gx + 2, gy + 3, 2, 2);
       ctx.fillRect(gx + 5, gy + 3, 2, 2);
+      ctx.fillStyle = PAL.black;
+      ctx.fillRect(gx + 3, gy + 4, 1, 1);
+      ctx.fillRect(gx + 6, gy + 4, 1, 1);
     } else {
       ctx.fillStyle = PAL.white;
       ctx.fillRect(gx + 2, gy + 3, 2, 2);
