@@ -364,7 +364,7 @@ function driveCar(
   }
 
   if (!onTrack) speed *= 0.9;
-  else if (invuln === 0) score += 1 + Math.floor(speed * 2);
+  else if (invuln === 0 && speed >= 0.25) score += 1 + Math.floor(speed * 2);
 
   let finished = false;
   let retired = false;
@@ -568,7 +568,7 @@ const stepSolo = (state: CircuitState, inputs: Record<string, PlayerInput>): Cir
   }
 
   if (!onTrack) speed *= 0.9;
-  else if (invuln === 0) scores = { ...scores, [id]: (scores[id] ?? 0) + 1 + Math.floor(speed * 2) };
+  else if (invuln === 0 && speed >= 0.25) scores = { ...scores, [id]: (scores[id] ?? 0) + 1 + Math.floor(speed * 2) };
 
   if (state.u > 0.8 && u < 0.2 && speed > 0.3 && Math.abs(lat) <= WALL) {
     lap += 1;

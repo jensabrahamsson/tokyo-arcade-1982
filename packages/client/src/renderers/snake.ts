@@ -39,6 +39,15 @@ export function renderSnake(ctx: CanvasRenderingContext2D, data: SnakeState, tMs
     snake.body.forEach((cell, j) => {
       ctx.fillStyle = snake.alive ? (j === 0 ? PAL.white : color) : color;
       ctx.fillRect(ox + cell.x * CELL + 1, oy + cell.y * CELL + 1, CELL - 2, CELL - 2);
+      if (snake.alive && j === 0) {
+        const hx = ox + cell.x * CELL + 4;
+        const hy = oy + cell.y * CELL + 4;
+        const pxn = -snake.dir.dy;
+        const pyn = snake.dir.dx;
+        ctx.fillStyle = PAL.black;
+        ctx.fillRect(hx + snake.dir.dx * 2 + pxn * 2 - 1, hy + snake.dir.dy * 2 + pyn * 2 - 1, 1, 1);
+        ctx.fillRect(hx + snake.dir.dx * 2 - pxn * 2 - 1, hy + snake.dir.dy * 2 - pyn * 2 - 1, 1, 1);
+      }
     });
   });
 }
