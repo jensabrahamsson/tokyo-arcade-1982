@@ -26,8 +26,7 @@ is unset). One-minute autoplay per cabinet:
 an action/confidence summary, exit 0). See [`JEV.md`](JEV.md) for attract
 self-play tuning. Soak: `ARKAD_JEV_SOAK_MINUTES=5 npm run jev:soak`
 (JSON under `data/`, gitignored). Show-floor smokes (muted, not a
-human Mac, not fullscreen Chrome): `npm test` is the required path;
-optional muted headless CDP is in `AGENTS.md`.
+human Mac, not fullscreen Chrome): `npm test` is the required path.
 
 ## Demo hall (operator)
 
@@ -45,7 +44,7 @@ on the wire — there is no PIN. Do not expose the port to the internet.
    key fail-closes to the built-in bots). One cabinet:
    `npm run jev:smoke`. One minute per cabinet:
    `ARKAD_JEV_AUTOPLAY_SECONDS=60 npm run jev:autoplay`. Optional muted
-   CDP is in `AGENTS.md` — localhost, `--mute-audio`, never fullscreen
+   CDP: localhost, `--mute-audio`, never fullscreen
    on someone else's Mac.
 
 Coin-mode reconnect: same name + language within 60 s returns to the
@@ -147,8 +146,8 @@ npm run typecheck # tsc
 npm run build     # bundles server + client into dist/
 ```
 
-The integer is this checkout's `npm test` total. Bump it here, in
-`AGENTS.md`, and in R7.2 in the same commit as the tests. Do not copy
+The integer is this checkout's `npm test` total. Bump it here and
+in R7.2 in the same commit as the tests. Do not copy
 counts from unmerged PRs.
 
 Every feature was written test-first: a failing spec, then the code that

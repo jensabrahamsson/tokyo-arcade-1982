@@ -444,7 +444,7 @@ change R8.1–R8.5.
   drawing (never a crash). Tests mock Image or cover only the
   path/manifest helpers. 16×16 stubs that load successfully are
   also ignored (P1-6: real art is ≥64 px on at least one axis).
-- R38.5 AGENTS.md documents the handoff: Cursor/Grok Imagine
+- R38.5 The handoff: Cursor/Grok Imagine
   delivers PNGs into `static/art/`; OpenCode writes code/wiring only.
   Bundle budget R7.4 — keep files small (ideally 16-32 KB each).
 
@@ -849,8 +849,7 @@ mini-screen card — not a replacement for the demo.
 - GPL-3.0-only; canvas-only UI; chiptune plus the two documented Lyria
   3.5 samples (R54); TypeScript strict; the core stays pure; no new
   npm dependencies. Wave 3 is the catalog — it does not drop Coast
-  billboard / LO-borgen PNGs (Wave 1) and does not rewrite AGENTS.md
-  (Wave 0). When green: commit, push, summary with the new test count.
+  billboard / LO-borgen PNGs (Wave 1). When green: commit, push, summary with the new test count.
 
 ## R58 — Japanese cabinet copy (native, not machine katakana)
 

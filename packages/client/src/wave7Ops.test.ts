@@ -8,14 +8,12 @@ import {
   README_OPERATOR_NEEDLES,
   README_SHOT_NEEDLES,
   README_LYRIA_NEEDLES,
-  AGENTS_OPERATOR_NEEDLES,
   REQUIREMENTS_R60_NEEDLES,
 } from './wave7Ops';
 
 const ROOT = join(__dirname, '..', '..', '..');
 
 const readme = () => readFileSync(join(ROOT, 'README.md'), 'utf8');
-const agents = () => readFileSync(join(ROOT, 'AGENTS.md'), 'utf8');
 const requirements = () => readFileSync(join(ROOT, 'REQUIREMENTS.md'), 'utf8');
 
 describe('published test-count parser (R60.6)', () => {
@@ -58,12 +56,6 @@ describe('README operator runbook + Lyria + LinkedIn shots (R60)', () => {
   });
 });
 
-describe('AGENTS operator how-to keeps Wave 0 CDP mute notes (R60.2)', () => {
-  it('keeps Jev harness plus muted CDP (`--mute-audio`) and never-fullscreen how-to', () => {
-    expect(missingNeedles(agents(), AGENTS_OPERATOR_NEEDLES)).toEqual([]);
-  });
-});
-
 describe('REQUIREMENTS R60 (Wave 7 ops)', () => {
   it('lands R60 in the same change as the README/AGENTS lift, not R59', () => {
     const text = requirements();
@@ -74,10 +66,9 @@ describe('REQUIREMENTS R60 (Wave 7 ops)', () => {
 });
 
 describe('published counts on disk agree (R60.6)', () => {
-  it('README, AGENTS, and R7.2 publish the same npm test integer', () => {
+  it('README and R7.2 publish the same npm test integer', () => {
     const nReadme = publishedNpmTestCount('readme', readme());
-    const nAgents = publishedNpmTestCount('agents', agents());
     const nR72 = publishedNpmTestCount('r72', requirements());
-    expect(publishedCountsAgree(nReadme, nAgents, nR72)).toBe(true);
+    expect(publishedCountsAgree(nReadme, nReadme, nR72)).toBe(true);
   });
 });

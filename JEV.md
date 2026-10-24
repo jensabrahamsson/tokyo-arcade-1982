@@ -8,7 +8,7 @@ gitignored repo-root `.env.typesafe` — never commit it). Unset key, HTTP
 failure, or low confidence **fail-closes** to each cabinet's `spec.demo`.
 CI never hits the live API (mock `fetch` only).
 
-Live one-shot and CDP/hall smoke stay documented in the README / AGENTS.md
+Live one-shot and CDP/hall smoke stay documented in the README
 (Wave 0). This file is the **attract-policy tuning** note. Numbered Lab
 bullets (Block/Myriad MUST, Galaxy/Coast SHOULD) live in `REQUIREMENTS.md`.
 
